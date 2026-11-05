@@ -41,10 +41,16 @@ object Studio54 {
 
     /**
      * Starts the refresh-at-start and the timer. Safe to call from every entry point;
-     * only the first call does anything. Does nothing when not signed in.
+     * only the first call does anything. Does nothing when not signed in, and nothing when
+     * the encrypted store cannot be opened (the car session calls this while it is starting,
+     * so a keystore failure must not take the car app down; the next call tries again).
      */
     fun start(context: Context) {
-        val s = source(context)
+        val s = try {
+            source(context)
+        } catch (e: Exception) {
+            return
+        }
         synchronized(this) {
             if (timer?.isActive == true) return
             timer = scope.launch {
@@ -64,9 +70,12 @@ object Studio54 {
      * Phase 2 hook for the Talk screen: the typed agent settings, with the base URL and key
      * taken from the vault when signed in and known. Also makes sure the refresh timer runs.
      */
-    fun agentConfig(context: Context, typed: AgentConfig): AgentConfig {
+    fun agentConfig(context: Context, typed: AgentConfig): AgentConfig = try {
         start(context)
-        return AgentOverlay.apply(source(context), typed)
+        AgentOverlay.apply(source(context), typed)
+    } catch (e: Exception) {
+        // The encrypted store is unavailable: Talk carries on with the typed settings.
+        typed
     }
 
     /**
@@ -74,7 +83,11 @@ object Studio54 {
      * supplies the key means the key may have been rotated, so the vault is read again.
      */
     fun onAgentError(context: Context, e: Throwable) {
-        if (AgentOverlay.isUnauthorized(e) && AgentOverlay.isActive(source(context))) onUnauthorized(context)
+        try {
+            if (AgentOverlay.isUnauthorized(e) && AgentOverlay.isActive(source(context))) onUnauthorized(context)
+        } catch (storeFailure: Exception) {
+            // Reporting a failure must never add a second one on the car screen.
+        }
     }
 
     /**
