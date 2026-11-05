@@ -89,8 +89,9 @@ class ObdSettingsActivity : ComponentActivity() {
         heading("Adapter")
         note(
             "Demo mode needs no hardware. For a Bluetooth classic adapter, pair it in the phone's " +
-                "Bluetooth settings first (PIN usually 1234 or 0000), then pick it here. Bluetooth LE " +
-                "adapters usually can't be paired; scan for them instead. BLE support is unverified."
+                "Bluetooth settings first (OBDLink: press its pairing button; cheap clones: PIN 1234 " +
+                "or 0000), then pick it here. Bluetooth LE adapters usually can't be paired; scan for " +
+                "them instead. BLE support is unverified."
         )
         adapterGroup = RadioGroup(this)
         form.addView(adapterGroup)

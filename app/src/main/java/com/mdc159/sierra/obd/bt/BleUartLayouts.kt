@@ -18,13 +18,20 @@ data class BleUartLayout(
  * Candidate layouts, tried in order against the services a device reports.
  *
  * **UNVERIFIED.** None of these UUIDs has been checked against a real adapter on this
- * truck. They are collected from vendor app traffic and open-source OBD projects:
- * Nordic's UART service is what many "BLE UART" modules copy; `FFF0/FFF1/FFF2` and
- * `FFE0/FFE1` are the usual cheap-module layouts (Veepeak, vLinker, "OBDII" clones);
- * `18F0/2AF0/2AF1` shows up on a few newer clones; the long UUID is what OBDLink's
- * BLE products are reported to use. When a real adapter is connected, the chosen
+ * truck. They are collected from vendor developer notes and open-source OBD projects:
+ * Nordic's UART service is what many "BLE UART" modules copy; `FFF0/FFF1/FFF2` is the
+ * layout OBDLink's developer notes give for the OBDLink CX and is also the usual
+ * cheap-module layout (Veepeak, vLinker, "OBDII" clones); `FFE0/FFE1` is the HM-10
+ * style single characteristic; `18F0/2AF0/2AF1` shows up on a few newer clones; the
+ * long `E7810A71-…` UUID is attributed by open-source projects to Vgate (iCar Pro
+ * BLE and similar), not to OBDLink. When a real adapter is connected, the chosen
  * layout name is logged and shown in the phone's adapter test so it can be recorded
  * in docs/OBD2-PLAN.md.
+ *
+ * The OBDLink LX, the likely purchase, is Bluetooth classic only (pairing button, no
+ * PIN) and does a warm reset when it wakes from sleep, so the init sequence must run
+ * again on every reconnect; TruckMonitor creates a fresh client and calls
+ * initialize() each time it opens a transport, which covers that.
  */
 object BleUartLayouts {
     /** Client Characteristic Configuration descriptor: write 0x0001 here to enable notifications. */
@@ -40,7 +47,7 @@ object BleUartLayouts {
             notify = UUID.fromString("6E400003-B5A3-F393-E0A9-E50E24DCCA9E"),
         ),
         BleUartLayout(
-            name = "FFF0 generic ELM327 BLE (unverified)",
+            name = "FFF0 OBDLink CX / generic ELM327 BLE (unverified)",
             service = short("FFF0"),
             write = short("FFF2"),
             notify = short("FFF1"),
@@ -58,7 +65,7 @@ object BleUartLayouts {
             notify = short("2AF0"),
         ),
         BleUartLayout(
-            name = "OBDLink-style custom service (unverified)",
+            name = "Vgate custom service E7810A71 (unverified)",
             service = UUID.fromString("E7810A71-73AE-499D-8C15-FAA9AEF0C3F2"),
             write = UUID.fromString("BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F"),
             notify = UUID.fromString("BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F"),
