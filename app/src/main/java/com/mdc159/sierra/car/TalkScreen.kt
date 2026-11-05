@@ -19,6 +19,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.R
 import com.mdc159.sierra.agent.AgentClient
+import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.AgentException
 import com.mdc159.sierra.agent.ConfigStore
 import com.mdc159.sierra.agent.Conversation
@@ -36,6 +37,17 @@ import com.mdc159.sierra.places.PhoneLocation
 import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.CarMic
 import com.mdc159.sierra.voice.PhoneRecognizer
+import com.mdc159.sierra.voice.convo.ConversationAgent
+import com.mdc159.sierra.voice.convo.ConversationController
+import com.mdc159.sierra.voice.convo.ConversationState
+import com.mdc159.sierra.voice.convo.EndReason
+import com.mdc159.sierra.voice.convo.VoiceSettings
+import com.mdc159.sierra.voice.convo.VoiceSettingsStore
+import com.mdc159.sierra.voice.convo.VoiceStack
+import com.mdc159.sierra.voice.stt.CarMicSource
+import com.mdc159.sierra.voice.stt.Transcriber
+import com.mdc159.sierra.voice.tts.AndroidAudioFocus
+import com.mdc159.sierra.voice.tts.SpeechOutput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -53,11 +65,18 @@ import kotlinx.coroutines.withContext
  * refunds it (constraints doc §4), so the stack peaks at Home + 3 + 1 = 4 of the 5
  * allowed, no matter how many tools run, and the Thinking message underneath never
  * changes text (a Message text change would be a non-refundable step).
+ *
+ * Lane G: when the car microphone and a transcription endpoint are available, the turn runs
+ * through [ConversationController] (energy end-of-speech, stop phrases, the chosen voice).
+ * In conversation mode the screen then replaces itself with a follow-up screen that listens
+ * at once, so the driver never taps between turns and the step count resets every turn.
+ * [previous] is the exchange a follow-up screen shows again when the conversation ends.
  */
 class TalkScreen(
     carContext: CarContext,
     private val session: SierraSession,
     private val tools: List<Tool> = TalkTools.forCar(carContext),
+    private val previous: Pair<String, String>? = null,
 ) : Screen(carContext) {
 
     private sealed interface State {
@@ -73,6 +92,10 @@ class TalkScreen(
     private var job: Job? = null
     private var mic: CarMic? = null
     private var statusScreen: Screen? = null
+    private var controller: ConversationController? = null
+
+    /** Shared per session (see [TalkVoice]); this screen stops it but never closes it. */
+    private var speech: SpeechOutput? = null
 
     /** Called on the agent's worker thread; hops to the main thread before touching screens. */
     private val toolListener = object : ToolListener {
@@ -89,6 +112,7 @@ class TalkScreen(
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onDestroy(owner: LifecycleOwner) {
                 mic?.requestStop()
+                controller?.stop()
                 job?.cancel()
                 statusScreen = null
             }
@@ -113,6 +137,7 @@ class TalkScreen(
     }
 
     private fun setState(newState: State, initial: Boolean = false) {
+        if (newState == state) return
         state = newState
         if (!initial) invalidate()
     }
@@ -128,6 +153,11 @@ class TalkScreen(
 
         setState(State.Listening(useCarMic), initial)
         val client = AgentClient(config)
+        if (useCarMic) {
+            val voice = VoiceSettingsStore.load(carContext)
+            val transcriber = VoiceStack.transcriber(voice, config)
+            if (transcriber != null) return startConversation(config, client, voice, transcriber)
+        }
         job = lifecycleScope.launch {
             try {
                 val heard = if (useCarMic) {
@@ -172,11 +202,104 @@ class TalkScreen(
         }
     }
 
+    /**
+     * One turn through the conversation controller: car mic → end-of-speech → transcriber →
+     * the tool-calling agent → the chosen voice. The controller runs a single turn; the
+     * screen decides what follows (see [render]).
+     */
+    private fun startConversation(config: AgentConfig, client: AgentClient, voice: VoiceSettings, transcriber: Transcriber) {
+        // Lane I's hook: a 401 from the gateway may mean the vault key was rotated.
+        val watchedTranscriber = object : Transcriber {
+            override suspend fun transcribe(pcm: ByteArray, sampleRate: Int): String = try {
+                transcriber.transcribe(pcm, sampleRate)
+            } catch (e: AgentException) {
+                Studio54.onAgentError(carContext, e)
+                throw e
+            }
+        }
+        val agent = object : ConversationAgent {
+            override suspend fun reply(userText: String): String {
+                val reply = try {
+                    runInterruptible(Dispatchers.IO) { client.chat(session.conversation.messagesFor(userText), tools, toolListener) }
+                } catch (e: AgentException) {
+                    Studio54.onAgentError(carContext, e)
+                    throw e
+                } finally {
+                    hideToolStatus()
+                }
+                session.conversation.record(userText, reply)
+                withContext(Dispatchers.IO) { runCatching { History.add(carContext, userText, reply) } }
+                return Conversation.forSpeech(reply)
+            }
+        }
+        val out = TalkVoice.speechFor(session, carContext, voice, config).also { speech = it }
+        val base = voice.conversationConfig()
+        val followUp = previous != null
+        val controllerConfig = base.copy(
+            continuous = false, // the screen chains turns itself, so each turn starts with a fresh step budget
+            speakErrors = false, // errors are shown with Try again, as before
+            endpoint = (if (followUp) base.endpoint.copy(noSpeechMs = base.silenceTimeoutMs) else base.endpoint)
+                .copy(initialNoiseFloor = TalkVoice.noiseFloor), // the cabin as the last turn heard it
+        )
+        val c = ConversationController(
+            mic = CarMicSource(carContext),
+            transcriber = watchedTranscriber,
+            agent = agent,
+            speech = out,
+            focus = AndroidAudioFocus(carContext),
+            config = controllerConfig,
+            onState = { render(it, voice.conversationMode) }, // called on the main thread
+        )
+        controller = c
+        job = lifecycleScope.launch {
+            try {
+                c.run()
+            } finally {
+                TalkVoice.noiseFloor = c.lastNoiseFloor
+            }
+        }
+    }
+
+    private fun render(s: ConversationState, conversationMode: Boolean) {
+        when (s) {
+            is ConversationState.Idle, is ConversationState.Listening -> setState(State.Listening(carMic = true))
+            is ConversationState.Thinking -> setState(State.Thinking)
+            is ConversationState.Speaking -> setState(State.Replied(s.heard, s.reply))
+            is ConversationState.Ended -> {
+                val heard = s.lastHeard
+                val reply = s.lastReply
+                val shown = if (heard != null && reply != null) heard to reply else previous
+                when (s.reason) {
+                    EndReason.HOST_ENDED -> screenManager.pop() // mic dismissed on the car screen: a cancel
+                    EndReason.ERROR -> setState(State.Failed(s.message ?: "Something went wrong."))
+                    EndReason.TURN_COMPLETE -> {
+                        if (shown == null) return screenManager.pop()
+                        setState(State.Replied(shown.first, shown.second))
+                        if (conversationMode) nextTurn(shown)
+                    }
+                    EndReason.STOP_PHRASE ->
+                        if (shown != null) setState(State.Replied(shown.first, shown.second)) else screenManager.pop()
+                    EndReason.SILENCE, EndReason.USER_STOPPED ->
+                        if (shown != null) setState(State.Replied(shown.first, shown.second)) else setState(State.Failed("Didn't hear anything."))
+                }
+            }
+        }
+    }
+
+    /** Conversation mode: Sierra has finished speaking, so listen again on a fresh screen, no tap needed. */
+    private fun nextTurn(previous: Pair<String, String>) {
+        if (screenManager.top !== this) return
+        screenManager.pop()
+        screenManager.push(TalkScreen(carContext, session, tools, previous))
+    }
+
     /** Starts a new question on a fresh screen so the step count resets. */
     private fun askAgain() {
+        controller?.stop()
+        speech?.stop()
         session.speaker.stop()
         screenManager.pop()
-        screenManager.push(TalkScreen(carContext, session))
+        screenManager.push(TalkScreen(carContext, session, tools))
     }
 
     override fun onGetTemplate(): Template = when (val s = state) {
@@ -202,10 +325,11 @@ class TalkScreen(
             .apply {
                 if (s.carMic) {
                     addAction(
-                        Action.Builder().setTitle("Done").setOnClickListener { mic?.requestStop() }.build()
+                        Action.Builder().setTitle("Done").setOnClickListener { finishListening() }.build()
                     )
                 }
             }
+            .addAction(conversationAction())
             .build()
         State.Thinking -> MessageTemplate.Builder("Thinking…")
             .setTitle("Sierra")
@@ -217,8 +341,26 @@ class TalkScreen(
             .setTitle("Sierra")
             .setHeaderAction(Action.BACK)
             .addAction(askAgainAction("Try again"))
+            .addAction(conversationAction())
             .build()
     }
+
+    /** Lane J: swaps this one-shot exchange for the full-duplex ConversationScreen. */
+    private fun conversationAction(): Action =
+        Action.Builder()
+            .setTitle("Conversation")
+            .setOnClickListener {
+                // Hand the car microphone and the audio focus back before the duplex session
+                // asks for them: stop lane G's turn and voice the same way askAgain() does.
+                mic?.requestStop()
+                controller?.stop()
+                speech?.stop()
+                job?.cancel()
+                session.speaker.stop()
+                screenManager.pop()
+                screenManager.push(ConversationScreen(carContext))
+            }
+            .build()
 
     private fun message(title: String, text: String): Template =
         MessageTemplate.Builder(text)
@@ -235,7 +377,7 @@ class TalkScreen(
         pane.addAction(
             Action.Builder()
                 .setTitle("Repeat")
-                .setOnClickListener { session.speaker.speak(Conversation.forSpeech(reply)) }
+                .setOnClickListener { repeat(reply) }
                 .build()
         )
         return PaneTemplate.Builder(pane.build())
@@ -252,21 +394,74 @@ class TalkScreen(
             .setOnClickListener { askAgain() }
             .build()
 
+    /** The Done button: end the utterance now (conversation path) or stop the one-shot recorder. */
+    private fun finishListening() {
+        val c = controller
+        if (c != null) c.onMicTapped() else mic?.requestStop()
+    }
+
+    /** Repeat uses the same voice that read the reply; the old Speaker remains for the phone path. */
+    private fun repeat(reply: String) {
+        val out = speech
+        if (out != null) {
+            lifecycleScope.launch { out.speak(Conversation.forSpeech(reply)) }
+        } else {
+            session.speaker.speak(Conversation.forSpeech(reply))
+        }
+    }
+
     private fun micIcon(): CarIcon =
         CarIcon.Builder(IconCompat.createWithResource(carContext, R.drawable.ic_mic)).build()
 }
 
 /**
- * A one-line "doing it" message shown on top of TalkScreen while a tool runs. It has no
- * header action, so the driver cannot pop it out from under TalkScreen's bookkeeping.
+ * One [SpeechOutput] per car session, built from the voice settings and rebuilt when they
+ * change, so the TTS engine or AudioTrack is not re-created on every turn. Closed when the
+ * session is destroyed.
+ */
+object TalkVoice {
+    private class Entry(val session: SierraSession, val settings: VoiceSettings, val agent: AgentConfig, val output: SpeechOutput)
+
+    private var entry: Entry? = null
+
+    /** Cabin noise floor from the last turn, so a loud cabin is known before the driver speaks. NaN until measured. */
+    @Volatile
+    var noiseFloor: Double = Double.NaN
+
+    /** Main thread only. */
+    fun speechFor(session: SierraSession, carContext: CarContext, settings: VoiceSettings, agent: AgentConfig): SpeechOutput {
+        entry?.let { if (it.session === session && it.settings == settings && it.agent == agent) return it.output }
+        entry?.output?.close()
+        val output = VoiceStack.speechOutput(carContext, settings, agent)
+        entry = Entry(session, settings, agent, output)
+        session.lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onDestroy(owner: LifecycleOwner) {
+                val current = entry ?: return
+                if (current.session === session) {
+                    current.output.close()
+                    entry = null
+                    noiseFloor = Double.NaN
+                }
+            }
+        })
+        return output
+    }
+}
+
+/**
+ * A one-line "doing it" message shown on top of TalkScreen while a tool runs. BACK lets
+ * the driver leave it early (the tool keeps running; TalkScreen's `hideToolStatus()`
+ * tolerates a screen that is already gone). A blank status falls back to "Working…"
+ * because MessageTemplate refuses an empty message.
  */
 class ToolStatusScreen(carContext: CarContext, private val status: String) : Screen(carContext) {
     override fun onGetTemplate(): Template = template(status)
 
     companion object {
         fun template(status: String): Template =
-            MessageTemplate.Builder(Conversation.truncateForScreen(status, 80))
+            MessageTemplate.Builder(Conversation.truncateForScreen(status, 80).ifBlank { "Working…" })
                 .setTitle("Sierra")
+                .setHeaderAction(Action.BACK)
                 .setLoading(true)
                 .build()
     }

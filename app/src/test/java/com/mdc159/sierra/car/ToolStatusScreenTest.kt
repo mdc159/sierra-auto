@@ -1,5 +1,6 @@
 package com.mdc159.sierra.car
 
+import androidx.car.app.model.Action
 import androidx.car.app.model.MessageTemplate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -15,6 +16,15 @@ class ToolStatusScreenTest {
         assertEquals("Sierra", t.title.toString())
         assertTrue(t.isLoading)
         assertTrue(t.actions.isEmpty())
+        assertEquals(Action.TYPE_BACK, t.headerAction!!.type)
+    }
+
+    @Test
+    fun blankStatusDoesNotCrashTheBuilder() {
+        for (status in listOf("", "   ")) {
+            val t = ToolStatusScreen.template(status) as MessageTemplate
+            assertEquals("Working…", t.message.toString())
+        }
     }
 
     @Test
