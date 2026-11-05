@@ -6,6 +6,10 @@ import androidx.car.app.CarAppService
 import androidx.car.app.Screen
 import androidx.car.app.Session
 import androidx.car.app.validation.HostValidator
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import com.mdc159.sierra.agent.Conversation
+import com.mdc159.sierra.voice.Speaker
 
 /**
  * Entry point Android Auto binds to.
@@ -29,6 +33,23 @@ class SierraCarAppService : CarAppService() {
     override fun onCreateSession(): Session = SierraSession()
 }
 
+/** One Android Auto connection. Owns the voice output and the short conversation. */
 class SierraSession : Session() {
-    override fun onCreateScreen(intent: Intent): Screen = HomeScreen(carContext)
+
+    val conversation = Conversation()
+
+    private var speakerInstance: Speaker? = null
+    val speaker: Speaker
+        get() = speakerInstance ?: Speaker(carContext).also { speakerInstance = it }
+
+    init {
+        lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onDestroy(owner: LifecycleOwner) {
+                speakerInstance?.shutdown()
+                speakerInstance = null
+            }
+        })
+    }
+
+    override fun onCreateScreen(intent: Intent): Screen = HomeScreen(carContext, this)
 }

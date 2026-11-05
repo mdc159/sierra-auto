@@ -13,11 +13,14 @@ import androidx.core.graphics.drawable.IconCompat
 import com.mdc159.sierra.R
 
 /** Landing screen: a greeting plus the two entry points, Places and Talk. */
-class HomeScreen(carContext: CarContext) : Screen(carContext) {
+class HomeScreen(
+    carContext: CarContext,
+    private val session: SierraSession,
+) : Screen(carContext) {
 
     override fun onGetTemplate(): Template = template(
         onPlaces = { screenManager.push(PlaceCategoriesScreen(carContext)) },
-        onTalk = { screenManager.push(PlaceholderScreen(carContext, "Talk")) },
+        onTalk = { screenManager.push(TalkScreen(carContext, session)) },
         placesIcon = icon(R.drawable.ic_place),
         talkIcon = icon(R.drawable.ic_mic),
     )
