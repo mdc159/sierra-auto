@@ -36,15 +36,13 @@ You can also write `@claude …` in any issue or PR comment, or in a new issue's
 
 Until step 3 is done, `claude.yml` logs **"Idea loop skipped"** as a warning and exits green. The workflow deliberately has no `ANTHROPIC_API_KEY` (metered API) path. Runs use your Claude subscription's usage limits. Actions minutes are free on a public repo.
 
-Only accounts with **write access** to the repo can trigger the agent; the action enforces this. Leave `allowed_non_write_users` unset, because the repo is public.
+Only accounts with **write access** to the repo can trigger the agent; the action enforces this. Leave `allowed_non_write_users` unset, because the repo is public. The workflow also refuses to run on PRs from forks, because the agent runs Gradle from the checked-out branch.
 
 ## Later: an "Idea" button in the app
 
-The Talk screen already records with `CarAudioRecord` and transcribes. An Idea action can reuse that:
+This depends on M3 and M4, which don't exist yet: M3 is the Talk screen recording with `CarAudioRecord` and transcribing, and M4 is the phone Settings screen. Once both are in, an Idea action can reuse them:
 
 1. **Idea** on the action strip → record → transcribe. This is voice only, so it is allowed while driving.
 2. Show a `MessageTemplate` with the transcript (2 lines max) and two buttons: **File idea** / **Cancel**. That's a single refresh-friendly step, which keeps the flow well under the 5-template limit.
-3. **File idea** → `POST https://api.github.com/repos/mdc159/sierra-auto/issues` with
-   `{"title": "<first words>", "body": "<transcript>", "labels": ["idea"]}`
-   authenticated with a **fine-grained PAT** limited to this repo with *Issues: read and write*. Store the PAT in the phone Settings screen (like the agent API key), never in the repo.
+3. **File idea** → `POST https://api.github.com/repos/mdc159/sierra-auto/issues` with a JSON body holding `title` (first words), `body` (the transcript) and `labels: ["idea"]`. Build the body with a JSON serializer, never by string interpolation, because transcripts contain quotes. Authenticate with a **fine-grained PAT** limited to this repo with *Issues: read and write*. Store the PAT in the phone Settings screen (like the agent API key), never in the repo.
 4. Speak a short TTS confirmation ("Idea filed"). The issue is created as you, so you have write access, and the `idea` label starts the loop exactly as above. Confirm on the first real run that an issue created with a label fires the `labeled` trigger. GitHub normally sends `opened` followed by `labeled`.
