@@ -278,6 +278,48 @@ class ToolCallingTest {
     }
 
     @Test
+    fun wholeExchangeHasOneBudget() {
+        // A fake clock: each tool run "takes" 30 s. With a 60 s budget the third round
+        // must not start, even though every round and tool is within its own limit.
+        var now = 1_000_000L
+        val agent = AgentClient(
+            config(), http,
+            maxRounds = 4, roundTimeoutMs = 30_000, toolTimeoutMs = 30_000, exchangeBudgetMs = 60_000,
+            clock = { now },
+        )
+        repeat(3) { server.enqueue(toolCallReply("c$it", "slowish", """{"query":"$it"}""")) }
+        server.enqueue(textReply("never reached"))
+        val tool = FakeTool("slowish") {
+            now += 30_000
+            """{"ok":true}"""
+        }
+        try {
+            agent.chat(listOf(ChatMessage("user", "go")), listOf(tool), null)
+            fail("expected AgentException")
+        } catch (e: AgentException) {
+            assertEquals("Took too long. Try again.", e.message)
+        }
+        assertEquals(2, tool.calls.size)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun stepsAreTrimmedToTheRemainingBudget() {
+        // 400 ms budget, 30 s per-round timeout, a server that never answers: the call
+        // must give up at the budget, not at the round timeout.
+        server.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE))
+        val agent = AgentClient(config(), http, roundTimeoutMs = 30_000, exchangeBudgetMs = 400)
+        val started = System.nanoTime()
+        try {
+            agent.chat(listOf(ChatMessage("user", "hi")), listOf(FakeTool("t") { "{}" }), null)
+            fail("expected AgentException")
+        } catch (e: AgentException) {
+            assertEquals("Timed out. Check signal and try again.", e.message)
+        }
+        assertTrue((System.nanoTime() - started) / 1_000_000 < 1_500)
+    }
+
+    @Test
     fun decodeHandlesNullContentAndMissingPieces() {
         val m = AgentClient.decode(JSONObject("""{"role":"assistant","content":null}"""))
         assertEquals("", m.content)

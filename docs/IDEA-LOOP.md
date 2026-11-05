@@ -40,7 +40,9 @@ Only accounts with **write access** to the repo can trigger the agent; the actio
 
 ## From the truck: say it to Talk
 
-The Talk agent has a `file_idea` tool (`agent/tools/FileIdeaTool.kt`). Tap **Talk** and say something like "file an idea: remind me to turn off the heated seats when it warms up". The agent turns that into a title and body, the tool does `POST https://api.github.com/repos/mdc159/sierra-auto/issues` with `labels: ["idea"]` (JSON built with a serializer, never by string interpolation), and the spoken reply confirms the issue number. The `idea` label starts the loop exactly as above.
+The Talk agent has a `file_idea` tool (`agent/tools/FileIdeaTool.kt`). Tap **Talk** and say something like "file an idea: remind me to turn off the heated seats when it warms up". The agent turns that into a title and body, the tool does `POST https://api.github.com/repos/mdc159/sierra-auto/issues` with `labels: ["idea-voice"]` (JSON built with a serializer, never by string interpolation), and the spoken reply confirms the issue number.
+
+**It is labelled `idea-voice`, not `idea`, on purpose.** The model that calls the tool also reads text from OpenStreetMap through `find_places` (place names, addresses), so an issue it files must not start the cloud agent by itself. Read the issue in the GitHub app and add the `idea` label yourself; that starts the loop exactly as above. (GitHub creates the `idea-voice` label on first use if it does not exist.)
 
 Setup on the phone: **Sierra → Idea settings**. Paste a **fine-grained PAT** limited to this repo with *Issues: read and write* and tap **Test token** (it only reads the repo). The token is stored encrypted next to the agent key, the same way `ConfigStore` keeps the agent settings, and never in the repo. Without a token the tool answers that it is not set up and the agent says so.
 
