@@ -103,6 +103,12 @@ class MainActivity : ComponentActivity() {
         testResult = TextView(this)
         form.addView(testResult)
 
+        heading("Voice")
+        form.addView(Button(this).apply {
+            text = "Voice settings"
+            setOnClickListener { startActivity(android.content.Intent(this@MainActivity, VoiceSettingsActivity::class.java)) }
+        })
+
         heading("Permissions")
         status = TextView(this)
         form.addView(status)

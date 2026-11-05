@@ -50,5 +50,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Voice settings (lane G): provider, voice, transcription model, conversation mode. -->
+        <activity
+            android:name=".VoiceSettingsActivity"
+            android:exported="false"
+            android:label="Sierra voice"
+            android:parentActivityName=".MainActivity" />
     </application>
 </manifest>
