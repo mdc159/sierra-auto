@@ -8,6 +8,8 @@ import androidx.car.app.HandshakeInfo
 import androidx.car.app.OnDoneCallback
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
+import androidx.car.app.model.GridItem
+import androidx.car.app.model.GridTemplate
 import androidx.car.app.model.ItemList
 import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.PaneTemplate
@@ -121,6 +123,12 @@ object CarTestHost {
         delegate.sendClick(doneCallback)
     }
 
+    /** Simulates the host delivering a tap on a grid [item]. */
+    fun click(item: GridItem) {
+        val delegate = item.onClickDelegate ?: throw AssertionError("Grid item '${item.title}' is not clickable")
+        delegate.sendClick(doneCallback)
+    }
+
     private val doneCallback = object : OnDoneCallback {
         override fun onSuccess(response: Bundleable?) {}
         override fun onFailure(response: Bundleable) {
@@ -131,11 +139,14 @@ object CarTestHost {
     // Template accessors that read like the screen description.
 
     fun Template.asList(): ListTemplate = this as ListTemplate
+    fun Template.asGrid(): GridTemplate = this as GridTemplate
     fun Template.asPane(): PaneTemplate = this as PaneTemplate
     fun Template.asMap(): PlaceListMapTemplate = this as PlaceListMapTemplate
 
     val ListTemplate.rows: List<Row> get() = (singleList ?: ItemList.Builder().build()).items.map { it as Row }
     val PlaceListMapTemplate.rows: List<Row> get() = (itemList ?: ItemList.Builder().build()).items.map { it as Row }
+    val GridTemplate.gridItems: List<GridItem> get() = (singleList ?: ItemList.Builder().build()).items.map { it as GridItem }
+    val GridItem.titleText: String get() = title.toString()
     val Row.titleText: String get() = title.toString()
     val Row.textLines: List<String> get() = texts.map { it.toString() }
 }

@@ -5,6 +5,7 @@ import android.location.Location
 import android.location.LocationManager
 import android.os.SystemClock
 import androidx.car.app.CarContext
+import androidx.car.app.constraints.ConstraintManager
 import androidx.car.app.model.Action
 import androidx.car.app.model.DistanceSpan
 import androidx.car.app.model.PlaceListMapTemplate
@@ -15,9 +16,11 @@ import androidx.lifecycle.Lifecycle
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.Exchange
 import com.mdc159.sierra.agent.History
+import com.mdc159.sierra.car.CarTestHost.asGrid
 import com.mdc159.sierra.car.CarTestHost.asList
 import com.mdc159.sierra.car.CarTestHost.asMap
 import com.mdc159.sierra.car.CarTestHost.asPane
+import com.mdc159.sierra.car.CarTestHost.gridItems
 import com.mdc159.sierra.car.CarTestHost.rows
 import com.mdc159.sierra.car.CarTestHost.textLines
 import com.mdc159.sierra.car.CarTestHost.titleText
@@ -69,20 +72,25 @@ class CarScreensTest {
 
     // ---- Home ----------------------------------------------------------------------------
 
+    // Home is a four-item grid since lane C added Truck: Talk, Places, Truck, History.
+
     @Test
     fun homeBuildsUnconfiguredAndConfigured() {
         val unconfigured = HomeScreen(carContext, session)
         CarTestHost.show(unconfigured)
-        val t1 = unconfigured.onGetTemplate().asPane()
-        assertTrue(t1.pane.rows.first().let { it as androidx.car.app.model.Row }.titleText.contains("Set up"))
-        assertEquals(2, t1.pane.actions.size)
-        assertEquals(2, t1.actionStrip!!.actions.size)
+        val t1 = unconfigured.onGetTemplate().asGrid()
+        assertEquals(listOf("Talk", "Places", "Truck", "History"), t1.gridItems.map { it.titleText })
+        assertTrue(t1.gridItems.first().text.toString().contains("Set up"))
+        assertTrue(t1.gridItems.size <= CarLimits.listLimit(carContext, ConstraintManager.CONTENT_LIMIT_TYPE_GRID))
+        assertNull(t1.actionStrip)
 
         CarTestHost.installConfig(carContext, AgentConfig(baseUrl = "https://h", model = "m"))
         val configured = HomeScreen(carContext, session)
         CarTestHost.show(configured)
-        val t2 = configured.onGetTemplate().asPane()
-        assertTrue((t2.pane.rows.first() as androidx.car.app.model.Row).titleText.contains("hello, truck"))
+        val t2 = configured.onGetTemplate().asGrid()
+        assertEquals("Ask anything", t2.gridItems.first().text.toString())
+        // No adapter chosen yet, so the Truck tile says it is showing demo data.
+        assertTrue(t2.gridItems.first { it.titleText == "Truck" }.text.toString().contains("demo"))
     }
 
     @Test
@@ -92,10 +100,10 @@ class CarScreensTest {
         // onStart invalidates, so the host already received a template.
         assertTrue(controller.templatesReturned.isNotEmpty())
 
-        val pane = home.onGetTemplate().asPane()
-        val talk = pane.pane.actions.first { it.title.toString() == "Talk" }
-        val places = pane.pane.actions.first { it.title.toString() == "Places" }
-        val history = pane.actionStrip!!.actions.first { it.title?.toString() == "History" }
+        val items = home.onGetTemplate().asGrid().gridItems
+        val talk = items.first { it.titleText == "Talk" }
+        val places = items.first { it.titleText == "Places" }
+        val history = items.first { it.titleText == "History" }
 
         CarTestHost.installConfig(carContext, null)
         CarTestHost.click(places)
