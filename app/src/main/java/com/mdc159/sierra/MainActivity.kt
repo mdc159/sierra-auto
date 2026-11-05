@@ -105,6 +105,12 @@ class MainActivity : ComponentActivity() {
         testResult = TextView(this)
         form.addView(testResult)
 
+        heading("Truck data (OBD-II)")
+        form.addView(Button(this).apply {
+            text = "Truck data settings"
+            setOnClickListener { startActivity(Intent(this@MainActivity, ObdSettingsActivity::class.java)) }
+        })
+
         heading("Permissions")
         status = TextView(this)
         form.addView(status)
