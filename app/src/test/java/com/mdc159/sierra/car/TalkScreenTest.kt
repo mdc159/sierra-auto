@@ -113,9 +113,11 @@ class TalkScreenTest {
         CarTestHost.show(screen)
         val t = awaitFailure(screen)
         assertEquals("No speech recognizer on this phone. Set a transcription URL.", t.message.toString())
-        assertEquals("Try again", t.actions.single().title.toString())
-        assertEquals(Action.FLAG_PRIMARY, t.actions.single().flags and Action.FLAG_PRIMARY)
-        assertNotNull(t.actions.single().icon)
+        // Lane J added "Conversation" beside the retry button (a message allows two actions).
+        assertEquals(listOf("Try again", "Conversation"), t.actions.map { it.title.toString() })
+        val tryAgain = t.actions.first()
+        assertEquals(Action.FLAG_PRIMARY, tryAgain.flags and Action.FLAG_PRIMARY)
+        assertNotNull(tryAgain.icon)
     }
 
     @Test
@@ -141,7 +143,7 @@ class TalkScreenTest {
         val listening = screen.onGetTemplate() as MessageTemplate
         assertEquals("Listening…", listening.message.toString())
         assertNotNull(listening.icon)
-        assertEquals("Done", listening.actions.single().title.toString())
+        assertEquals(listOf("Done", "Conversation"), listening.actions.map { it.title.toString() })
 
         var sawThinking = false
         CarTestHost.await(what = "reply") {
@@ -215,7 +217,7 @@ class TalkScreenTest {
         CarTestHost.show(screen)
         val t = awaitFailure(screen)
         assertEquals("Agent error 503: model is overloaded", t.message.toString())
-        assertEquals("Try again", t.actions.single().title.toString())
+        assertEquals(listOf("Try again", "Conversation"), t.actions.map { it.title.toString() })
     }
 
     @Test
@@ -274,6 +276,29 @@ class TalkScreenTest {
      * Waits for the Failed state. The Listening template is also a MessageTemplate with an
      * action (Done), so the discriminator is the "Try again" button.
      */
+    @Test
+    fun conversationActionSwapsTalkForTheConversationScreen() {
+        // No recognizer on the test host, so Talk fails at once; the failure template carries
+        // lane J's Conversation action.
+        CarTestHost.installConfig(carContext, config(carMic = false))
+        val home = HomeScreen(carContext, session)
+        CarTestHost.show(home)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
+        CarTestHost.show(screen)
+        val conversation = awaitFailure(screen).actions.first { it.title.toString() == "Conversation" }
+        // click() fails the test if the listener throws, which is what the host treats as a crash.
+        CarTestHost.click(conversation)
+
+        val manager = carContext.getCarService(TestScreenManager::class.java)
+        val opened = manager.screensPushed.filterIsInstance<ConversationScreen>().single()
+        // The test host has no Android Keystore, so the duplex settings cannot be read (the same
+        // failure as #11 and #28 on a phone). The screen must say so in a valid template.
+        val t = opened.onGetTemplate() as MessageTemplate
+        assertTrue(t.message.toString().isNotBlank())
+        assertTrue(t.actions.isEmpty())
+        assertNotNull(t.headerAction)
+    }
+
     private fun awaitFailure(screen: TalkScreen): MessageTemplate {
         fun failed(): MessageTemplate? = (screen.onGetTemplate() as? MessageTemplate)
             ?.takeIf { t -> !t.isLoading && t.actions.any { it.title.toString() == "Try again" } }
