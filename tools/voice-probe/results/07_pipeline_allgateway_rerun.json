@@ -1,0 +1,72 @@
+{
+  "recorded_at": "2026-11-04T18:24:33-08:00",
+  "gateway_rtt_ms": [
+    193,
+    83,
+    84,
+    82,
+    82
+  ],
+  "combos": [
+    {
+      "name": "all gateway",
+      "stt": [
+        "gateway",
+        "groq/whisper-large-v3-turbo"
+      ],
+      "chat": "groq/openai/gpt-oss-120b",
+      "tts": [
+        "gateway",
+        "openai/gpt-4o-mini-tts"
+      ]
+    }
+  ],
+  "system": "You are Sierra, a voice assistant in a pickup truck. Replies are spoken aloud. Answer in exactly two short sentences.",
+  "rows": [
+    {
+      "combo": "all gateway",
+      "clip": "short_clean",
+      "stt_ms": 1509,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 1991,
+      "first_sentence_at_ms": 2018,
+      "sentence": "Sure thing, I'm locating the closest diesel station on your route. It's",
+      "first_audio_at_ms": 3565,
+      "stages_ms": {
+        "stt": 1509,
+        "chat_to_first_sentence": 509,
+        "tts_to_first_byte": 1547
+      }
+    },
+    {
+      "combo": "all gateway",
+      "clip": "short_clean",
+      "stt_ms": 1438,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 2010,
+      "first_sentence_at_ms": 2034,
+      "sentence": "There's a Shell station with diesel about 3 miles ahead on I‑90. It",
+      "first_audio_at_ms": 3667,
+      "stages_ms": {
+        "stt": 1438,
+        "chat_to_first_sentence": 596,
+        "tts_to_first_byte": 1633
+      }
+    },
+    {
+      "combo": "all gateway",
+      "clip": "long_clean",
+      "stt_ms": 2097,
+      "heard": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now? And is there a rest area with truck parking in the next 30 miles? Also remind me to check the trailer brakes.",
+      "first_token_at_ms": 2770,
+      "first_sentence_at_ms": 2835,
+      "sentence": "Your transmission is running at about 185 °F, and the next rest area with truck parking is roughly 22 miles ahead on Highway 97. Don",
+      "first_audio_at_ms": 5170,
+      "stages_ms": {
+        "stt": 2097,
+        "chat_to_first_sentence": 738,
+        "tts_to_first_byte": 2335
+      }
+    }
+  ]
+}

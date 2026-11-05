@@ -1,0 +1,129 @@
+{
+  "recorded_at": "2026-11-04T18:23:28-08:00",
+  "gateway_rtt_ms": [
+    203,
+    83,
+    83,
+    83,
+    82
+  ],
+  "combos": [
+    {
+      "name": "all gateway",
+      "stt": [
+        "gateway",
+        "openai/gpt-4o-mini-transcribe"
+      ],
+      "chat": "groq/openai/gpt-oss-120b",
+      "tts": [
+        "gateway",
+        "openai/gpt-4o-mini-tts"
+      ]
+    },
+    {
+      "name": "gateway text, ElevenLabs voice",
+      "stt": [
+        "gateway",
+        "openai/gpt-4o-mini-transcribe"
+      ],
+      "chat": "groq/openai/gpt-oss-120b",
+      "tts": [
+        "elevenlabs",
+        "eleven_flash_v2_5"
+      ]
+    }
+  ],
+  "system": "You are Sierra, a voice assistant in a pickup truck. Replies are spoken aloud. Answer in exactly two short sentences.",
+  "rows": [
+    {
+      "combo": "all gateway",
+      "clip": "short_clean",
+      "stt_ms": 967,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 1602,
+      "first_sentence_at_ms": 1645,
+      "sentence": "Sure thing, the nearest diesel station on your route is a Shell at exit 12 on I‑90.",
+      "first_audio_at_ms": 3337,
+      "stages_ms": {
+        "stt": 967,
+        "chat_to_first_sentence": 678,
+        "tts_to_first_byte": 1692
+      }
+    },
+    {
+      "combo": "gateway text, ElevenLabs voice",
+      "clip": "short_clean",
+      "stt_ms": 1104,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 1500,
+      "first_sentence_at_ms": 1535,
+      "sentence": "Sure thing, the closest diesel station is just 2 miles ahead on your route.",
+      "first_audio_at_ms": 1725,
+      "stages_ms": {
+        "stt": 1104,
+        "chat_to_first_sentence": 431,
+        "tts_to_first_byte": 190
+      }
+    },
+    {
+      "combo": "all gateway",
+      "clip": "short_clean",
+      "stt_ms": 1256,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 1720,
+      "first_sentence_at_ms": 1727,
+      "sentence": "I can look that up for you.",
+      "first_audio_at_ms": 2742,
+      "stages_ms": {
+        "stt": 1256,
+        "chat_to_first_sentence": 471,
+        "tts_to_first_byte": 1015
+      }
+    },
+    {
+      "combo": "gateway text, ElevenLabs voice",
+      "clip": "short_clean",
+      "stt_ms": 1173,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 1616,
+      "first_sentence_at_ms": 1635,
+      "sentence": "Sure thing, there’s a diesel station two miles ahead on I‑70 at the Maple Rest stop.",
+      "first_audio_at_ms": 1897,
+      "stages_ms": {
+        "stt": 1173,
+        "chat_to_first_sentence": 462,
+        "tts_to_first_byte": 262
+      }
+    },
+    {
+      "combo": "all gateway",
+      "clip": "long_clean",
+      "stt_ms": 2095,
+      "heard": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now, and is there a rest area with truck parking in the next 30 miles? Also, remind me to check the trailer brakes.",
+      "first_token_at_ms": 2937,
+      "first_sentence_at_ms": 11795,
+      "sentence": "Your transmission is running at about 190 °F, and the Riley Rest Area 28 miles ahead on Highway 97 offers truck parking.",
+      "first_audio_at_ms": 13887,
+      "stages_ms": {
+        "stt": 2095,
+        "chat_to_first_sentence": 9700,
+        "tts_to_first_byte": 2092
+      }
+    },
+    {
+      "combo": "gateway text, ElevenLabs voice",
+      "clip": "long_clean",
+      "stt_ms": 1618,
+      "heard": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now, and is there a rest area with truck parking in the next 30 miles? Also, remind me to check the trailer brakes.",
+      "first_token_at_ms": 2401,
+      "first_sentence_at_ms": 2463,
+      "sentence": "The transmission temperature is 190 °F, and there’s a rest area with truck parking about 22 miles ahead at mile marker 250.",
+      "first_audio_at_ms": 2707,
+      "stages_ms": {
+        "stt": 1618,
+        "chat_to_first_sentence": 845,
+        "tts_to_first_byte": 244
+      }
+    }
+  ]
+}
