@@ -33,6 +33,7 @@ import com.mdc159.sierra.agent.tools.Navigator
 import com.mdc159.sierra.agent.tools.Tool
 import com.mdc159.sierra.net.Http
 import com.mdc159.sierra.places.PhoneLocation
+import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.CarMic
 import com.mdc159.sierra.voice.PhoneRecognizer
 import kotlinx.coroutines.CancellationException
@@ -118,7 +119,8 @@ class TalkScreen(
 
     private fun start(initial: Boolean = false) {
         session.speaker.stop()
-        val config = ConfigStore.load(carContext)
+        // Signed in to Studio 54: the gateway address and key come from the vault, the model from the phone.
+        val config = Studio54.agentConfig(carContext, ConfigStore.load(carContext))
         if (!config.isConfigured) return setState(State.NotConfigured, initial)
 
         val useCarMic = config.hasTranscription && CarMic.isSupported(carContext)
@@ -155,6 +157,7 @@ class TalkScreen(
                 throw e
             } catch (e: AgentException) {
                 hideToolStatus()
+                Studio54.onAgentError(carContext, e)
                 setState(State.Failed(e.message ?: "Something went wrong."))
             } catch (e: Exception) {
                 hideToolStatus()
