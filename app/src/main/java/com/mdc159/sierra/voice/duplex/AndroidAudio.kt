@@ -1,7 +1,9 @@
 package com.mdc159.sierra.voice.duplex
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioFormat
@@ -13,6 +15,7 @@ import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.NoiseSuppressor
 import androidx.car.app.CarContext
 import androidx.car.app.media.CarAudioRecord
+import androidx.core.content.ContextCompat
 
 /** Speech attributes shared by mic focus and playback, per the constraints doc (USAGE_ASSISTANT). */
 internal val speechAttributes: AudioAttributes = AudioAttributes.Builder()
@@ -115,6 +118,12 @@ class CarMicSource(private val carContext: CarContext) : MicSource {
     private var record: CarAudioRecord? = null
 
     override fun start() {
+        // CarAudioRecord requires RECORD_AUDIO; the screen checks first, but never rely on it.
+        if (ContextCompat.checkSelfPermission(carContext, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            throw DuplexException("Allow the microphone in Sierra on the phone.")
+        }
         val r = try {
             CarAudioRecord.create(carContext)
         } catch (e: Exception) {
