@@ -226,6 +226,47 @@ class CarScreensTest {
     }
 
     @Test
+    fun placeListNeverSendsMoreRowsThanTheHostLimit() {
+        CarTestHost.grant(Manifest.permission.ACCESS_FINE_LOCATION)
+        simulateLocation(38.5, -121.5)
+        // A misbehaving source ignores the limit it was given.
+        val many = (1..40).map { place("Station $it", it * 100.0) }
+        val source = FakeSource(many)
+        val screen = PlaceListScreen(carContext, PlaceCategory.FUEL, NearbyPlaces(listOf(source)))
+        CarTestHost.show(screen)
+        CarTestHost.await(what = "load") { !screen.onGetTemplate().asMap().isLoading }
+        val limit = CarLimits.placeListLimit(carContext)
+        assertEquals(limit, source.limitSeen.get())
+        assertTrue(screen.onGetTemplate().asMap().rows.size <= limit)
+    }
+
+    @Test
+    fun placeListSurvivesVeryLongAndOddPlaceNames() {
+        CarTestHost.grant(Manifest.permission.ACCESS_FINE_LOCATION)
+        simulateLocation(38.5, -121.5)
+        val odd = listOf(
+            place("N".repeat(2_000), 50.0, "D".repeat(1_000)),
+            place("Joe's \"Diner\" (24h) <b>&amp;</b> 🍔", 60.0, "   "),
+            place("   ", 70.0, ""),
+        )
+        val screen = PlaceListScreen(carContext, PlaceCategory.FOOD, NearbyPlaces(listOf(FakeSource(odd))))
+        CarTestHost.show(screen)
+        CarTestHost.await(what = "load") { !screen.onGetTemplate().asMap().isLoading }
+        val rows = screen.onGetTemplate().asMap().rows
+        assertEquals(3, rows.size)
+        assertTrue(rows.all { it.titleText.isNotBlank() })
+        assertTrue(rows.all { it.texts.size in 1..2 })
+
+        // The detail screen must build for the same places.
+        odd.forEach { p ->
+            val detail = PlaceDetailScreen(carContext, p)
+            CarTestHost.show(detail)
+            val pane = detail.onGetTemplate().asPane()
+            assertTrue(pane.pane.rows.size in 1..2)
+        }
+    }
+
+    @Test
     fun placeListSourceFailureShowsRetryAndMapsRows() {
         CarTestHost.grant(Manifest.permission.ACCESS_FINE_LOCATION)
         simulateLocation(38.5, -121.5)
