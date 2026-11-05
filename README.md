@@ -16,11 +16,14 @@ See [`docs/PLAN.md`](docs/PLAN.md).
    - **Transcription URL** (optional): an OpenAI-compatible `/v1/audio/transcriptions` endpoint. When it is set, Sierra records with the car microphone. When it is blank, Sierra uses the phone's speech recognizer.
 
    Settings are stored encrypted on the phone. No key ever goes in this repo.
-4. Plug into the truck and open **Sierra** in Android Auto.
+
+   Plain `http://` is allowed only for `*.ts.net` (a Tailscale gateway such as `http://studio54.tailfedd3b.ts.net:4000/v1`), `localhost`, `127.0.0.1` and the emulator alias `10.0.2.2`. Every other endpoint must be `https://`.
+4. Optional, for the idea loop: tap **Idea settings** and paste a fine-grained GitHub token (repository access: only `sierra-auto`; permission: Issues, read and write). **Test token** checks it without creating anything.
+5. Plug into the truck and open **Sierra** in Android Auto.
 
 ## On the truck screen
 
-- **Talk**: speak, and Sierra transcribes the question, asks the agent, shows a short reply and reads it aloud. Use **Ask again** for a follow-up; Sierra keeps the last few turns.
+- **Talk**: speak, and Sierra transcribes the question, asks the agent, shows a short reply and reads it aloud. Use **Ask again** for a follow-up; Sierra keeps the last few turns. The agent has tools, so speaking does things: "find gas nearby" searches the Places sources and reads back the nearest; "take me to the Shell" hands off to Google Maps; "file an idea: …" opens a GitHub issue labelled `idea` (needs a token, see **Idea settings** on the phone). While a tool runs, the screen says what it is doing ("Finding fuel nearby…"). Endpoints that do not support OpenAI tool calling still work as plain chat.
 - **Places**: Fuel, Food, Rest areas and Parking near you on a host-drawn map. Pick one, then **Navigate** hands off to Google Maps. Results come from OpenStreetMap (Nominatim, with Overpass as a fallback).
 - **History**: recent questions and answers. Tap one to hear it again.
 
