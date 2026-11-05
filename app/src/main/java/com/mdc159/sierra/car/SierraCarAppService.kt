@@ -9,6 +9,7 @@ import androidx.car.app.validation.HostValidator
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.mdc159.sierra.agent.Conversation
+import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.Speaker
 
 /**
@@ -51,5 +52,9 @@ class SierraSession : Session() {
         })
     }
 
-    override fun onCreateScreen(intent: Intent): Screen = HomeScreen(carContext, this)
+    override fun onCreateScreen(intent: Intent): Screen {
+        // Refresh the Studio 54 secrets at app start (no-op when not signed in).
+        Studio54.start(carContext)
+        return HomeScreen(carContext, this)
+    }
 }
