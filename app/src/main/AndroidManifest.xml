@@ -50,5 +50,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Lane J: full-duplex voice settings and the phone-side live test. -->
+        <activity
+            android:name=".voice.duplex.DuplexSettingsActivity"
+            android:exported="false"
+            android:label="Full-duplex voice" />
     </application>
 </manifest>
