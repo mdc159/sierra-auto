@@ -1,0 +1,40 @@
+# Secret scanning for CI (gitleaks). The default rule set catches API keys and tokens;
+# the rules below add what matters for this repository: a signing keystore or private
+# key, in any form, must never be committed. The release keystore lives only in the
+# GitHub Actions secrets (SIGNING_KEYSTORE_BASE64 and friends).
+
+title = "Sierra Auto"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "android-signing-file"
+description = "A keystore or key file is tracked by git"
+path = '''(?i)(^|/)[^/]+\.(jks|keystore|bks|p12|pfx|pem|key|asc|gpg)$'''
+
+[[rules]]
+id = "jks-keystore-base64"
+description = "Base64-encoded JKS keystore (JKS magic bytes FE ED FE ED)"
+regex = '''/u3\+7[QRST][A-Za-z0-9+/=]{40,}'''
+
+[[rules]]
+id = "der-base64"
+description = "Base64-encoded DER blob (PKCS#12 keystore, private key or certificate)"
+regex = '''MII[A-Za-z0-9+/]{80,}'''
+
+[[rules]]
+id = "signing-secret-value"
+description = "A signing secret assigned a literal value instead of being read from the environment"
+regex = '''(?i)SIGNING_(STORE_PASSWORD|KEY_PASSWORD|KEY_ALIAS|KEYSTORE_BASE64)\s*[:=]\s*["']?[A-Za-z0-9+/=_.-]{6,}'''
+[rules.allowlist]
+regexes = [
+  # References to the secrets, not values: ${{ secrets.X }}, $X, System.getenv("X").
+  '''SIGNING_[A-Z_]+\s*[:=]\s*\$\{\{''',
+]
+
+[allowlist]
+description = "Files that legitimately mention the rules above"
+paths = [
+  '''^\.gitleaks\.toml$''',
+]

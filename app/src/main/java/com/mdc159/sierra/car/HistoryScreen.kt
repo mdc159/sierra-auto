@@ -25,9 +25,12 @@ class HistoryScreen(
         val entries = History.list(carContext).take(CarLimits.listLimit(carContext))
         val items = ItemList.Builder().setNoItemsMessage("No conversations yet. Tap Talk to start.")
         entries.forEach { e ->
+            // A row title must not be empty (the host rejects it), and a stored question can
+            // be blank or lose everything to markdown stripping.
+            val title = Conversation.truncateForScreen(e.question, 60).ifBlank { "Untitled question" }
             items.addItem(
                 Row.Builder()
-                    .setTitle(Conversation.truncateForScreen(e.question, 60))
+                    .setTitle(title)
                     .addText(
                         DateUtils.getRelativeTimeSpanString(e.timeMillis).toString() + " · " +
                             Conversation.truncateForScreen(e.answer, 60)

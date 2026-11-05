@@ -31,6 +31,12 @@ class CarMic(private val carContext: CarContext) {
      * dismissed the microphone (a cancel, so nothing is sent). Throws [AgentException].
      */
     fun recordWav(): ByteArray? {
+        // CarAudioRecord requires RECORD_AUDIO; the screen checks first, but never rely on it.
+        if (ContextCompat.checkSelfPermission(carContext, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            throw AgentException("Allow the microphone on your phone.")
+        }
         val audio = carContext.getSystemService(AudioManager::class.java)
         val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
             .setAudioAttributes(
