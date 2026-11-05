@@ -3,7 +3,7 @@
 **Started:** 2026-11-04  
 **Owner:** mdc159  
 **Vehicle:** 2018 GMC Sierra Denali, 8" factory infotainment, wired Android Auto  
-**Phone:** Android (Samsung S24-class), Android Auto developer mode with "Unknown sources" enabled
+**Phone:** Samsung Galaxy A54 (Android), Android Auto developer mode with "Unknown sources" enabled
 
 ## Goal
 
