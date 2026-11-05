@@ -25,3 +25,5 @@ Your lane is the single file in this folder that your prompt named. Do only that
 | D: updates away from the PC | d-updates.md | updates |
 | E: screen tests and CI quality | e-screen-tests.md | screen-tests |
 | F: GM-specific truck data | f-gm-pids.md | gm-pids |
+| G: conversational voice | g-voice.md | voice |
+| H: agent bridge | h-agent-bridge.md | agent-bridge |
