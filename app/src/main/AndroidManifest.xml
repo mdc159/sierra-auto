@@ -71,6 +71,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Lane J: full-duplex voice settings and the phone-side live test. -->
+        <activity
+            android:name=".voice.duplex.DuplexSettingsActivity"
+            android:exported="false"
+            android:label="Full-duplex voice" />
+
         <!-- OBD-II adapter choice and test, opened from MainActivity. -->
         <activity
             android:name=".ObdSettingsActivity"
