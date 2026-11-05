@@ -15,7 +15,7 @@
     "OPENAI_BASE_URL",
     "XAI_API_KEY"
   ],
-  "base_url": "http://studio54.tailfedd3b.ts.net:4000/v1",
+  "base_url": "http://<gateway-host>.ts.net:4000/v1",
   "models_status": 200,
   "models_ms": 415,
   "model_count": 470,

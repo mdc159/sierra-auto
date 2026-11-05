@@ -2,7 +2,7 @@
 
 **Measured on:** 2026-11-04, 18:01 to 18:25 PST (UTC-8)
 **Measured from:** the owner's Windows PC on the Tailscale network, not from the phone or the truck
-**Gateway:** LiteLLM 1.102.1 at `http://studio54.tailfedd3b.ts.net:4000/v1` (version from its `x-litellm-version` response header)
+**Gateway:** LiteLLM 1.102.1 at `http://<gateway-host>.ts.net:4000/v1` (version from its `x-litellm-version` response header)
 **Network baseline:** 82 to 99 ms per round trip to the gateway on an open connection, 170 to 210 ms for the first request on a new one
 **Probe scripts and raw results:** `tools/voice-probe/` (every number below is in `tools/voice-probe/results/*.json` unless marked otherwise)
 
@@ -26,7 +26,7 @@ Everything here is measured unless it is marked **inferred** or **not tested**. 
 
 ### Lowest delay
 
-1. **Realtime speech-to-speech through the gateway**, model `openai/gpt-realtime-2.1-mini`, websocket `ws://studio54.tailfedd3b.ts.net:4000/v1/realtime?model=openai/gpt-realtime-2.1-mini`, 24 kHz PCM both ways, server voice detection with a 500 ms silence window. Measured 1144 ms from end of speech to first audio (one run), 637 to 812 ms from a text prompt (two runs). Open the socket when the mic session starts: dialing plus `session.created` took 0.4 to 1.1 s, and 2.6 s on the first connection of the evening. Tool calling over realtime is **not tested**, so the Talk tools from lane B are not proven on this path.
+1. **Realtime speech-to-speech through the gateway**, model `openai/gpt-realtime-2.1-mini`, websocket `ws://<gateway-host>.ts.net:4000/v1/realtime?model=openai/gpt-realtime-2.1-mini`, 24 kHz PCM both ways, server voice detection with a 500 ms silence window. Measured 1144 ms from end of speech to first audio (one run), 637 to 812 ms from a text prompt (two runs). Open the socket when the mic session starts: dialing plus `session.created` took 0.4 to 1.1 s, and 2.6 s on the first connection of the evening. Tool calling over realtime is **not tested**, so the Talk tools from lane B are not proven on this path.
 2. **Turn-based, when the ElevenLabs key is on the phone** (keeps the existing chat and tools path):
    - speech-to-text: ElevenLabs `scribe_v2` (425 to 793 ms in the pipeline);
    - chat: gateway `groq/openai/gpt-oss-120b`, streaming, default reasoning effort, speak each sentence as it completes;
@@ -174,7 +174,7 @@ Every model that answered the tool request returned `find_places` with valid JSO
 The gateway accepts a websocket with the bearer key and no other header:
 
 ```
-ws://studio54.tailfedd3b.ts.net:4000/v1/realtime?model=openai/gpt-realtime-2.1
+ws://<gateway-host>.ts.net:4000/v1/realtime?model=openai/gpt-realtime-2.1
 Authorization: Bearer <gateway key>
 ```
 

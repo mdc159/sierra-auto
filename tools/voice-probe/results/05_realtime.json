@@ -4,7 +4,7 @@
   "rows": [
     {
       "model": "openai/gpt-realtime-2.1",
-      "url": "ws://studio54.tailfedd3b.ts.net:4000/v1/realtime?model=openai/gpt-realtime-2.1",
+      "url": "ws://<gateway-host>.ts.net:4000/v1/realtime?model=openai/gpt-realtime-2.1",
       "connect_ms": 1476,
       "first_event": "session.created",
       "first_event_ms": 2563,
@@ -191,7 +191,7 @@
     },
     {
       "model": "openai/gpt-realtime-2.1-mini",
-      "url": "ws://studio54.tailfedd3b.ts.net:4000/v1/realtime?model=openai/gpt-realtime-2.1-mini",
+      "url": "ws://<gateway-host>.ts.net:4000/v1/realtime?model=openai/gpt-realtime-2.1-mini",
       "connect_ms": 209,
       "first_event": "session.created",
       "first_event_ms": 1130,
@@ -378,7 +378,7 @@
     },
     {
       "model": "gemini/gemini-3.8-live",
-      "url": "ws://studio54.tailfedd3b.ts.net:4000/v1/realtime?model=gemini/gemini-3.8-live",
+      "url": "ws://<gateway-host>.ts.net:4000/v1/realtime?model=gemini/gemini-3.8-live",
       "connect_ms": 208,
       "first_event": "session.created",
       "first_event_ms": 639,
@@ -534,7 +534,7 @@
     },
     {
       "model": "gemini/gemini-3.1-flash-live-preview",
-      "url": "ws://studio54.tailfedd3b.ts.net:4000/v1/realtime?model=gemini/gemini-3.1-flash-live-preview",
+      "url": "ws://<gateway-host>.ts.net:4000/v1/realtime?model=gemini/gemini-3.1-flash-live-preview",
       "connect_ms": 198,
       "first_event": "session.created",
       "first_event_ms": 543,
@@ -690,7 +690,7 @@
     },
     {
       "model": "xai/grok-voice-3.0",
-      "url": "ws://studio54.tailfedd3b.ts.net:4000/v1/realtime?model=xai/grok-voice-3.0",
+      "url": "ws://<gateway-host>.ts.net:4000/v1/realtime?model=xai/grok-voice-3.0",
       "connect_ms": 191,
       "first_event": "session.created",
       "first_event_ms": 440,
