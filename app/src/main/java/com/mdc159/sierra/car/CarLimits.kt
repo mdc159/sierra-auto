@@ -10,10 +10,20 @@ import androidx.car.app.versioning.CarAppApiLevels
 /** Host-reported list limits, with conservative defaults for old hosts. */
 object CarLimits {
     fun listLimit(carContext: CarContext, type: Int = ConstraintManager.CONTENT_LIMIT_TYPE_LIST): Int {
-        if (carContext.carAppApiLevel < CarAppApiLevels.LEVEL_2) return 6
+        if (carContext.carAppApiLevel < CarAppApiLevels.LEVEL_2) return defaultLimit(type)
         return runCatching {
             carContext.getCarService(ConstraintManager::class.java).getContentLimit(type)
-        }.getOrDefault(6).coerceAtLeast(1)
+        }.getOrDefault(defaultLimit(type)).coerceAtLeast(1)
+    }
+
+    /**
+     * The library's documented minimums (car/app/app/src/main/res/values/integers.xml), used
+     * when the host cannot be asked. A pane shows at most 4 rows, not 6.
+     */
+    fun defaultLimit(type: Int): Int = when (type) {
+        ConstraintManager.CONTENT_LIMIT_TYPE_ROUTE_LIST -> 3
+        ConstraintManager.CONTENT_LIMIT_TYPE_PANE -> 4
+        else -> 6
     }
 
     fun placeListLimit(carContext: CarContext): Int =
