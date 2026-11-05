@@ -110,8 +110,9 @@ class TruckMonitor(
      */
     override fun close() {
         stopped.set(true)
-        worker?.interrupt()
+        // Cancel first: it must land while the factory is still blocked and registered.
         synchronized(transportLock) { pendingConnect }?.cancel()
+        worker?.interrupt()
         closeTransport()
     }
 

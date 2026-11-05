@@ -128,7 +128,16 @@ class TruckMonitorTest {
         val monitor = TruckMonitor({ pending ->
             pending.register(Closeable { socketClosed.countDown() })
             blockedInConnect.countDown()
-            if (!socketClosed.await(5, TimeUnit.SECONDS)) throw AdapterUnavailableException("never cancelled")
+            // Like BluetoothSocket.connect(): only closing the socket ends the wait, not an interrupt.
+            val deadline = System.currentTimeMillis() + 5_000
+            while (socketClosed.count > 0 && System.currentTimeMillis() < deadline) {
+                try {
+                    socketClosed.await(50, TimeUnit.MILLISECONDS)
+                } catch (e: InterruptedException) {
+                    // keep waiting
+                }
+            }
+            if (socketClosed.count > 0) throw AdapterUnavailableException("never cancelled")
             throw AdapterUnavailableException("Couldn't connect.") // what a closed socket produces
         })
         monitor.start()
