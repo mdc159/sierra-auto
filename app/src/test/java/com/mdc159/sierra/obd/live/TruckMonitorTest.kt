@@ -106,8 +106,10 @@ class TruckMonitorTest {
         }, pollIntervalMillis = 10, reconnectDelayMillis = 10)
         monitor.start()
         try {
-            await { monitor.state.first { it is TruckState.Connecting && it.retry == 1 } }
-            await { monitor.state.first { it is TruckState.Live } }
+            // Don't wait for the transient Connecting(retry = 1): a StateFlow conflates, so a
+            // fast reconnect can replace it with Live before the collector sees it. Live is
+            // republished on every poll, so a Live after the second open always arrives.
+            await { monitor.state.first { it is TruckState.Live && monitor.connectAttempts == 2 } }
             assertEquals(2, monitor.connectAttempts)
         } finally {
             monitor.close()
