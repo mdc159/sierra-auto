@@ -205,15 +205,14 @@ class PlaceSourceEdgeCasesTest {
     }
 
     @Test
-    fun geoDedupeKeepsTheFirstOfNearIdenticalEntriesAndSortsByDistance() {
-        // a and b round to the same name|lat|lng key (4 decimals): the first one seen is kept,
-        // whatever its distance, so sources should list their best entry first.
+    fun geoDedupeKeepsTheNearestOfNearIdenticalEntriesWhateverTheInputOrder() {
+        // a and b round to the same name|lat|lng key (4 decimals); b is nearer and has the address.
         val a = NearbyPlace("Shell", 38.50001, -121.50001, 900.0, null)
         val b = NearbyPlace("Shell", 38.50002, -121.50002, 300.0, "12 Main St")
         val c = NearbyPlace("Shell", 38.6, -121.5, 100.0, null)
-        val out = Geo.dedupeAndSort(listOf(a, b, c))
-        assertEquals(listOf(c, a), out)
+        assertEquals(listOf(c, b), Geo.dedupeAndSort(listOf(a, b, c)))
         assertEquals(listOf(c, b), Geo.dedupeAndSort(listOf(b, a, c)))
+        assertEquals("12 Main St", Geo.dedupeAndSort(listOf(a, b))[0].detail)
     }
 
     @Test

@@ -26,8 +26,12 @@ object Geo {
         return String.format(Locale.US, "%.5f,%.5f,%.5f,%.5f", lng - dLng, lat + dLat, lng + dLng, lat - dLat)
     }
 
+    /**
+     * Drops entries with the same name at (near) the same spot, keeping the nearest one, and
+     * sorts by distance. Sources do not order their results, so sort before deduplicating.
+     */
     fun dedupeAndSort(places: List<NearbyPlace>): List<NearbyPlace> =
         places
-            .distinctBy { String.format(Locale.US, "%s|%.4f|%.4f", it.name, it.lat, it.lng) }
             .sortedBy { it.distanceMeters }
+            .distinctBy { String.format(Locale.US, "%s|%.4f|%.4f", it.name, it.lat, it.lng) }
 }
