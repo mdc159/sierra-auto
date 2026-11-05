@@ -61,6 +61,13 @@ android {
 dependencies {
     implementation("androidx.car.app:app:1.7.0")
     implementation("androidx.activity:activity:1.13.0")
+    implementation("androidx.core:core:1.16.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    // Real org.json for JVM unit tests (android.jar only ships stubs).
+    testImplementation("org.json:json:20240303")
 }
