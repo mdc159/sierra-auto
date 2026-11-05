@@ -1,6 +1,7 @@
 package com.mdc159.sierra
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
@@ -109,6 +110,12 @@ class MainActivity : ComponentActivity() {
         form.addView(Button(this).apply {
             text = "Grant permissions"
             setOnClickListener { requestMissing() }
+        })
+
+        heading("Idea loop")
+        form.addView(Button(this).apply {
+            text = "Idea settings (GitHub token)"
+            setOnClickListener { startActivity(Intent(this@MainActivity, IdeaSettingsActivity::class.java)) }
         })
 
         setContentView(ScrollView(this).apply { addView(form) })
