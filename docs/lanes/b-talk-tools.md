@@ -9,5 +9,5 @@ Build:
    - file_idea(title, body): creates a GitHub issue on mdc159/sierra-auto with label `idea`, using a fine-grained token the owner enters in IdeaSettingsActivity (stored encrypted, the same way ConfigStore stores the agent key). The spoken reply confirms the issue number. This is the "speak a feature idea" loop described in docs/IDEA-LOOP.md.
    Keep a small Tool interface so a later lane can add read_vehicle (OBD). Do not implement read_vehicle.
 3. System prompt: driving assistant, one to three short sentences, use tools when they fit, never read URLs aloud.
-4. Network security config: allow plain http only for *.ts.net (the owner's Tailscale gateway is http://studio54.tailfedd3b.ts.net:4000/v1), localhost, 127.0.0.1 and 10.0.2.2. Everything else stays https-only.
+4. Network security config: allow plain http only for *.ts.net, localhost, 127.0.0.1 and 10.0.2.2. Everything else stays https-only.
 5. TalkScreen shows a short status while a tool runs ("Finding fuel nearby...") without exceeding the template step limit described in the constraints doc.
