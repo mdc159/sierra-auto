@@ -1,0 +1,275 @@
+{
+  "recorded_at": "2026-11-04T18:13:09-08:00",
+  "gateway_rtt_ms": [
+    168,
+    83,
+    83,
+    82,
+    82
+  ],
+  "system": "You are Sierra, a voice assistant in a pickup truck. Replies are spoken aloud. Answer in exactly two short sentences.",
+  "question": "I'm towing a camper uphill and my transmission temperature just hit 215 degrees. Should I be worried?",
+  "tool_request": "Find me a diesel station nearby.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "find_places",
+        "description": "Find places of one category near the truck's current position.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "enum": [
+                "fuel",
+                "diesel",
+                "food",
+                "coffee",
+                "rest_area",
+                "hotel",
+                "parking"
+              ],
+              "description": "The kind of place to look for."
+            }
+          },
+          "required": [
+            "category"
+          ]
+        }
+      }
+    }
+  ],
+  "extra_params": {},
+  "plain": [
+    {
+      "model": "gemini/gemini-3.1-flash-lite",
+      "status": 503,
+      "headers_ms": 8153,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"b'{\\\\n  \\\"error\\\": {\\\\n    \\\"code\\\": 503,\\\\n    \\\"message\\\": \\\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\\\",\\\\n    \\\"status\\\": \\\"UNAVAILABLE\\\"\\\\n  }\\\\n}\\\\n'. Received Model Group=gemini/gemini-3.1-flash-lite\\nAvailable Model Group Fallbacks=None\",\"type\":\"internal_server_error\",\"param\":null,\"code\":\"503\"}}",
+      "attempt": 1
+    },
+    {
+      "model": "gemini/gemini-2.5-flash-lite",
+      "status": 200,
+      "headers_ms": 1273,
+      "response_duration_ms": 5.781,
+      "version": "1.102.1",
+      "first_token_ms": 1273,
+      "first_sentence_ms": 2004,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 33,
+        "prompt_tokens": 49,
+        "total_tokens": 82
+      },
+      "total_ms": 2815,
+      "text": "That temperature is a bit high, but still within a safe range for most transmissions. You might want to back off the throttle a bit to let it cool down.",
+      "attempt": 1
+    },
+    {
+      "model": "gemini/gemini-3.8-flash",
+      "status": 503,
+      "headers_ms": 6942,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"b'{\\\\n  \\\"error\\\": {\\\\n    \\\"code\\\": 503,\\\\n    \\\"message\\\": \\\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\\\",\\\\n    \\\"status\\\": \\\"UNAVAILABLE\\\"\\\\n  }\\\\n}\\\\n'. Received Model Group=gemini/gemini-3.8-flash\\nAvailable Model Group Fallbacks=None\",\"type\":\"internal_server_error\",\"param\":null,\"code\":\"503\"}}",
+      "attempt": 1
+    },
+    {
+      "model": "openai/gpt-5.4-nano",
+      "status": 200,
+      "headers_ms": 694,
+      "response_duration_ms": 589.54,
+      "overhead_duration_ms": 3.165,
+      "version": "1.102.1",
+      "first_token_ms": 694,
+      "first_sentence_ms": 914,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 60,
+        "prompt_tokens": 54,
+        "total_tokens": 114
+      },
+      "total_ms": 1077,
+      "text": "Yes—215°F transmission temperature is high enough to be a concern, especially while towing uphill, so pull over when safe and let it cool. If it keeps rising, you notice slipping or smells, or it goes past about 230°F, stop towing and get it checked immediately.",
+      "attempt": 1
+    },
+    {
+      "model": "xai/grok-4.20-non-reasoning",
+      "status": 200,
+      "headers_ms": 510,
+      "response_duration_ms": 135.433,
+      "overhead_duration_ms": 2.777,
+      "version": "1.102.1",
+      "first_token_ms": 510,
+      "first_sentence_ms": 623,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 21,
+        "prompt_tokens": 231,
+        "total_tokens": 252
+      },
+      "total_ms": 750,
+      "text": "Yes, pull over safely and let it cool down. Keep an eye on it before continuing the climb.",
+      "attempt": 1
+    },
+    {
+      "model": "gemini/gemini-3.1-flash-lite",
+      "status": 503,
+      "headers_ms": 35289,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"b'{\\\\n  \\\"error\\\": {\\\\n    \\\"code\\\": 503,\\\\n    \\\"message\\\": \\\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\\\",\\\\n    \\\"status\\\": \\\"UNAVAILABLE\\\"\\\\n  }\\\\n}\\\\n'. Received Model Group=gemini/gemini-3.1-flash-lite\\nAvailable Model Group Fallbacks=None\",\"type\":\"internal_server_error\",\"param\":null,\"code\":\"503\"}}",
+      "attempt": 2
+    },
+    {
+      "model": "gemini/gemini-2.5-flash-lite",
+      "status": 200,
+      "headers_ms": 506,
+      "response_duration_ms": 3.0,
+      "version": "1.102.1",
+      "first_token_ms": 507,
+      "first_sentence_ms": 584,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 28,
+        "prompt_tokens": 49,
+        "total_tokens": 77
+      },
+      "total_ms": 623,
+      "text": "That temperature is a bit high for towing a camper uphill. You might want to ease off the throttle a bit to help it cool down.",
+      "attempt": 2
+    },
+    {
+      "model": "gemini/gemini-3.8-flash",
+      "status": 503,
+      "headers_ms": 6213,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"b'{\\\\n  \\\"error\\\": {\\\\n    \\\"code\\\": 503,\\\\n    \\\"message\\\": \\\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\\\",\\\\n    \\\"status\\\": \\\"UNAVAILABLE\\\"\\\\n  }\\\\n}\\\\n'. Received Model Group=gemini/gemini-3.8-flash\\nAvailable Model Group Fallbacks=None\",\"type\":\"internal_server_error\",\"param\":null,\"code\":\"503\"}}",
+      "attempt": 2
+    },
+    {
+      "model": "openai/gpt-5.4-nano",
+      "status": 200,
+      "headers_ms": 820,
+      "response_duration_ms": 705.428,
+      "overhead_duration_ms": 2.473,
+      "version": "1.102.1",
+      "first_token_ms": 820,
+      "first_sentence_ms": 957,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 61,
+        "prompt_tokens": 54,
+        "total_tokens": 115
+      },
+      "total_ms": 1170,
+      "text": "215°F is a bit high and you should take it seriously, slow down, ease the load, and avoid further acceleration. If it keeps climbing or you hit 220–230°F, pull over and let it cool before continuing, and check fluid level/quality once it’s safe.",
+      "attempt": 2
+    },
+    {
+      "model": "xai/grok-4.20-non-reasoning",
+      "status": 200,
+      "headers_ms": 532,
+      "response_duration_ms": 141.803,
+      "overhead_duration_ms": 2.043,
+      "version": "1.102.1",
+      "first_token_ms": 533,
+      "first_sentence_ms": 628,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 231,
+        "total_tokens": 251
+      },
+      "total_ms": 759,
+      "text": "Yes, pull over safely and let it cool. Towing uphill at that temp risks damage soon.",
+      "attempt": 2
+    }
+  ],
+  "tool_runs": [
+    {
+      "model": "gemini/gemini-3.1-flash-lite",
+      "status": 200,
+      "headers_ms": 119333,
+      "response_duration_ms": 2.911,
+      "overhead_duration_ms": -594.718,
+      "version": "1.102.1",
+      "first_tool_delta_ms": 119334,
+      "finish_reason": "tool_calls",
+      "total_ms": 119335,
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\": \"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    },
+    {
+      "model": "gemini/gemini-2.5-flash-lite",
+      "status": 200,
+      "headers_ms": 683,
+      "response_duration_ms": 2.92,
+      "version": "1.102.1",
+      "first_tool_delta_ms": 683,
+      "finish_reason": "tool_calls",
+      "total_ms": 684,
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\": \"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    },
+    {
+      "model": "gemini/gemini-3.8-flash",
+      "status": 503,
+      "headers_ms": 9095,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"b'{\\\\n  \\\"error\\\": {\\\\n    \\\"code\\\": 503,\\\\n    \\\"message\\\": \\\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\\\",\\\\n    \\\"status\\\": \\\"UNAVAILABLE\\\"\\\\n  }\\\\n}\\\\n'. Received Model Group=gemini/gemini-3.8-flash\\nAvailable Model Group Fallbacks=None\",\"type\":\"internal_server_error\",\"param\":null,\"code\":\"503\"}}",
+      "verdict": "request failed"
+    },
+    {
+      "model": "openai/gpt-5.4-nano",
+      "status": 200,
+      "headers_ms": 1031,
+      "response_duration_ms": 433.307,
+      "overhead_duration_ms": 4.683,
+      "version": "1.102.1",
+      "first_tool_delta_ms": 1032,
+      "finish_reason": "tool_calls",
+      "total_ms": 1239,
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\":\"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    },
+    {
+      "model": "xai/grok-4.20-non-reasoning",
+      "status": 200,
+      "headers_ms": 662,
+      "response_duration_ms": 148.617,
+      "overhead_duration_ms": 3.639,
+      "version": "1.102.1",
+      "first_tool_delta_ms": 663,
+      "finish_reason": "tool_calls",
+      "total_ms": 663,
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\":\"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    }
+  ]
+}
