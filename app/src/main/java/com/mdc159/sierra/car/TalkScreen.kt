@@ -34,6 +34,7 @@ import com.mdc159.sierra.agent.tools.Navigator
 import com.mdc159.sierra.agent.tools.Tool
 import com.mdc159.sierra.net.Http
 import com.mdc159.sierra.places.PhoneLocation
+import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.CarMic
 import com.mdc159.sierra.voice.PhoneRecognizer
 import com.mdc159.sierra.voice.convo.ConversationAgent
@@ -143,7 +144,8 @@ class TalkScreen(
 
     private fun start(initial: Boolean = false) {
         session.speaker.stop()
-        val config = ConfigStore.load(carContext)
+        // Signed in to Studio 54: the gateway address and key come from the vault, the model from the phone.
+        val config = Studio54.agentConfig(carContext, ConfigStore.load(carContext))
         if (!config.isConfigured) return setState(State.NotConfigured, initial)
 
         val useCarMic = config.hasTranscription && CarMic.isSupported(carContext)
@@ -185,6 +187,7 @@ class TalkScreen(
                 throw e
             } catch (e: AgentException) {
                 hideToolStatus()
+                Studio54.onAgentError(carContext, e)
                 setState(State.Failed(e.message ?: "Something went wrong."))
             } catch (e: Exception) {
                 hideToolStatus()
@@ -205,10 +208,22 @@ class TalkScreen(
      * screen decides what follows (see [render]).
      */
     private fun startConversation(config: AgentConfig, client: AgentClient, voice: VoiceSettings, transcriber: Transcriber) {
+        // Lane I's hook: a 401 from the gateway may mean the vault key was rotated.
+        val watchedTranscriber = object : Transcriber {
+            override suspend fun transcribe(pcm: ByteArray, sampleRate: Int): String = try {
+                transcriber.transcribe(pcm, sampleRate)
+            } catch (e: AgentException) {
+                Studio54.onAgentError(carContext, e)
+                throw e
+            }
+        }
         val agent = object : ConversationAgent {
             override suspend fun reply(userText: String): String {
                 val reply = try {
                     runInterruptible(Dispatchers.IO) { client.chat(session.conversation.messagesFor(userText), tools, toolListener) }
+                } catch (e: AgentException) {
+                    Studio54.onAgentError(carContext, e)
+                    throw e
                 } finally {
                     hideToolStatus()
                 }
@@ -228,7 +243,7 @@ class TalkScreen(
         )
         val c = ConversationController(
             mic = CarMicSource(carContext),
-            transcriber = transcriber,
+            transcriber = watchedTranscriber,
             agent = agent,
             speech = out,
             focus = AndroidAudioFocus(carContext),

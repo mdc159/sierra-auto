@@ -9,11 +9,11 @@ import java.util.Base64
 
 class RealtimeEventsTest {
 
-    private val config = RealtimeConfig(baseUrl = "http://studio54.tailfedd3b.ts.net:4000/v1", apiKey = "k", model = "openai/gpt-realtime-2.1", voice = "marin")
+    private val config = RealtimeConfig(baseUrl = "http://gateway.example.ts.net:4000/v1", apiKey = "k", model = "openai/gpt-realtime-2.1", voice = "marin")
 
     @Test
     fun websocketUrlFromGatewayBase() {
-        assertEquals("ws://studio54.tailfedd3b.ts.net:4000/v1/realtime?model=openai%2Fgpt-realtime-2.1", config.websocketUrl())
+        assertEquals("ws://gateway.example.ts.net:4000/v1/realtime?model=openai%2Fgpt-realtime-2.1", config.websocketUrl())
         assertEquals(
             "wss://api.openai.com/v1/realtime?model=gpt-realtime",
             config.copy(baseUrl = "https://api.openai.com", model = "gpt-realtime").websocketUrl(),
