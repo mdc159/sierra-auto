@@ -1,0 +1,186 @@
+{
+  "recorded_at": "2026-11-04T18:21:25-08:00",
+  "gateway_rtt_ms": [
+    173,
+    84,
+    83,
+    83,
+    83
+  ],
+  "combos": [
+    {
+      "name": "all gateway",
+      "stt": [
+        "gateway",
+        "groq/whisper-large-v3-turbo"
+      ],
+      "chat": "groq/openai/gpt-oss-120b",
+      "tts": [
+        "gateway",
+        "openai/gpt-4o-mini-tts"
+      ]
+    },
+    {
+      "name": "gateway text, ElevenLabs voice",
+      "stt": [
+        "gateway",
+        "groq/whisper-large-v3-turbo"
+      ],
+      "chat": "groq/openai/gpt-oss-120b",
+      "tts": [
+        "elevenlabs",
+        "eleven_flash_v2_5"
+      ]
+    },
+    {
+      "name": "ElevenLabs ears and voice, gateway chat",
+      "stt": [
+        "elevenlabs",
+        "scribe_v2"
+      ],
+      "chat": "groq/openai/gpt-oss-120b",
+      "tts": [
+        "elevenlabs",
+        "eleven_flash_v2_5"
+      ]
+    }
+  ],
+  "system": "You are Sierra, a voice assistant in a pickup truck. Replies are spoken aloud. Answer in exactly two short sentences.",
+  "rows": [
+    {
+      "combo": "all gateway",
+      "clip": "short_clean",
+      "stt_ms": 1796,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 2977,
+      "first_sentence_at_ms": 2994,
+      "sentence": "The nearest diesel station is XYZ, 3.",
+      "first_audio_at_ms": 4262,
+      "stages_ms": {
+        "stt": 1796,
+        "chat_to_first_sentence": 1198,
+        "tts_to_first_byte": 1268
+      }
+    },
+    {
+      "combo": "gateway text, ElevenLabs voice",
+      "clip": "short_clean",
+      "stt_ms": 1146,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 1529,
+      "first_sentence_at_ms": 1561,
+      "sentence": "Sure thing, I’ll look that up for you.",
+      "first_audio_at_ms": 1830,
+      "stages_ms": {
+        "stt": 1146,
+        "chat_to_first_sentence": 415,
+        "tts_to_first_byte": 269
+      }
+    },
+    {
+      "combo": "ElevenLabs ears and voice, gateway chat",
+      "clip": "short_clean",
+      "stt_ms": 527,
+      "heard": "Find the nearest gas station with diesel on my route",
+      "first_token_at_ms": 1157,
+      "first_sentence_at_ms": 1164,
+      "sentence": "Sure thing, the nearest diesel station is at **[Station Name]** on **[Highway/Exit]**, just a few miles ahead on your route.",
+      "first_audio_at_ms": 1354,
+      "stages_ms": {
+        "stt": 527,
+        "chat_to_first_sentence": 637,
+        "tts_to_first_byte": 190
+      }
+    },
+    {
+      "combo": "all gateway",
+      "clip": "short_clean",
+      "stt_ms": 1542,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 2183,
+      "first_sentence_at_ms": 2201,
+      "sentence": "I’m searching for diesel stations along your route.",
+      "first_audio_at_ms": 3571,
+      "stages_ms": {
+        "stt": 1542,
+        "chat_to_first_sentence": 659,
+        "tts_to_first_byte": 1370
+      }
+    },
+    {
+      "combo": "gateway text, ElevenLabs voice",
+      "clip": "short_clean",
+      "stt_ms": 880,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 1371,
+      "first_sentence_at_ms": 1387,
+      "sentence": "Searching for diesel stations along your route now.",
+      "first_audio_at_ms": 1628,
+      "stages_ms": {
+        "stt": 880,
+        "chat_to_first_sentence": 507,
+        "tts_to_first_byte": 241
+      }
+    },
+    {
+      "combo": "ElevenLabs ears and voice, gateway chat",
+      "clip": "short_clean",
+      "stt_ms": 502,
+      "heard": "Find the nearest gas station with diesel on my route",
+      "first_token_at_ms": 1043,
+      "first_sentence_at_ms": 1047,
+      "sentence": "I can locate a diesel station along your route.",
+      "first_audio_at_ms": 1228,
+      "stages_ms": {
+        "stt": 502,
+        "chat_to_first_sentence": 545,
+        "tts_to_first_byte": 181
+      }
+    },
+    {
+      "combo": "all gateway",
+      "clip": "long_clean",
+      "stt_ms": 1877,
+      "heard": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now? And is there a rest area with truck parking in the next 30 miles? Also remind me to check the trailer brakes.",
+      "first_token_at_ms": 2553,
+      "first_sentence_at_ms": 2609,
+      "sentence": "The transmission is running at about 190 °F, and Rest Area 23 is 22 miles ahead with dedicated truck parking.",
+      "first_audio_at_ms": 4291,
+      "stages_ms": {
+        "stt": 1877,
+        "chat_to_first_sentence": 732,
+        "tts_to_first_byte": 1682
+      }
+    },
+    {
+      "combo": "gateway text, ElevenLabs voice",
+      "clip": "long_clean",
+      "stt_ms": 1651,
+      "heard": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now? And is there a rest area with truck parking in the next 30 miles? Also remind me to check the trailer brakes.",
+      "first_token_at_ms": 2286,
+      "first_sentence_at_ms": 2353,
+      "sentence": "Your transmission is running at about 190 °F, and the next truck‑friendly rest area is the Bend‑Hood stop 27 miles ahead.",
+      "first_audio_at_ms": 2609,
+      "stages_ms": {
+        "stt": 1651,
+        "chat_to_first_sentence": 702,
+        "tts_to_first_byte": 256
+      }
+    },
+    {
+      "combo": "ElevenLabs ears and voice, gateway chat",
+      "clip": "long_clean",
+      "stt_ms": 669,
+      "heard": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now? And is there a rest area with truck parking in the next 30 miles? Also remind me to check the trailer brakes",
+      "first_token_at_ms": 1633,
+      "first_sentence_at_ms": 1707,
+      "sentence": "Your transmission is running at about 190 °F, and there’s a rest area with truck parking roughly 22 miles ahead on Highway 97 near Redmond.",
+      "first_audio_at_ms": 1897,
+      "stages_ms": {
+        "stt": 669,
+        "chat_to_first_sentence": 1038,
+        "tts_to_first_byte": 190
+      }
+    }
+  ]
+}

@@ -1,0 +1,202 @@
+{
+  "recorded_at": "2026-11-04T18:18:00-08:00",
+  "api": "https://api.elevenlabs.io",
+  "tts": [
+    {
+      "model_id": "eleven_flash_v2_5",
+      "chars": 51,
+      "status": 200,
+      "headers_ms": 393,
+      "content_type": "audio/pcm",
+      "first_byte_ms": 400,
+      "total_ms": 471,
+      "bytes": 129288,
+      "chunks": 108,
+      "audio_seconds": 2.69,
+      "ms_at_25_50_75_pct": [
+        410,
+        453,
+        467
+      ],
+      "input": "short"
+    },
+    {
+      "model_id": "eleven_v4_turbo",
+      "chars": 51,
+      "status": 200,
+      "headers_ms": 198,
+      "content_type": "audio/pcm",
+      "first_byte_ms": 216,
+      "total_ms": 657,
+      "bytes": 145920,
+      "chunks": 117,
+      "audio_seconds": 3.04,
+      "ms_at_25_50_75_pct": [
+        374,
+        624,
+        628
+      ],
+      "input": "short"
+    },
+    {
+      "model_id": "eleven_flash_v2_5",
+      "chars": 51,
+      "status": 200,
+      "headers_ms": 185,
+      "content_type": "audio/pcm",
+      "first_byte_ms": 192,
+      "total_ms": 247,
+      "bytes": 131518,
+      "chunks": 101,
+      "audio_seconds": 2.74,
+      "ms_at_25_50_75_pct": [
+        200,
+        237,
+        240
+      ],
+      "input": "short"
+    },
+    {
+      "model_id": "eleven_v4_turbo",
+      "chars": 51,
+      "status": 200,
+      "headers_ms": 252,
+      "content_type": "audio/pcm",
+      "first_byte_ms": 269,
+      "total_ms": 704,
+      "bytes": 145920,
+      "chunks": 116,
+      "audio_seconds": 3.04,
+      "ms_at_25_50_75_pct": [
+        432,
+        667,
+        669
+      ],
+      "input": "short"
+    },
+    {
+      "model_id": "eleven_v4",
+      "chars": 51,
+      "status": 200,
+      "headers_ms": 486,
+      "content_type": "audio/pcm",
+      "first_byte_ms": 494,
+      "total_ms": 842,
+      "bytes": 145920,
+      "chunks": 117,
+      "audio_seconds": 3.04,
+      "ms_at_25_50_75_pct": [
+        694,
+        698,
+        834
+      ],
+      "input": "short"
+    },
+    {
+      "model_id": "eleven_flash_v2_5",
+      "chars": 308,
+      "status": 200,
+      "headers_ms": 184,
+      "content_type": "audio/pcm",
+      "first_byte_ms": 191,
+      "total_ms": 577,
+      "bytes": 947374,
+      "chunks": 374,
+      "audio_seconds": 19.74,
+      "ms_at_25_50_75_pct": [
+        408,
+        488,
+        540
+      ],
+      "input": "long"
+    },
+    {
+      "model_id": "eleven_v4_turbo",
+      "chars": 308,
+      "status": 200,
+      "headers_ms": 305,
+      "content_type": "audio/pcm",
+      "first_byte_ms": 320,
+      "total_ms": 3069,
+      "bytes": 933120,
+      "chunks": 173,
+      "audio_seconds": 19.44,
+      "ms_at_25_50_75_pct": [
+        1045,
+        1724,
+        2388
+      ],
+      "input": "long"
+    }
+  ],
+  "stt": [
+    {
+      "model_id": "scribe_v2",
+      "clip": "short_clean",
+      "clip_seconds": 3.55,
+      "status": 200,
+      "total_ms": 376,
+      "text": "Find the nearest gas station with diesel on my route",
+      "wer": 0.0
+    },
+    {
+      "model_id": "scribe_v2",
+      "clip": "long_clean",
+      "clip_seconds": 13.85,
+      "status": 200,
+      "total_ms": 837,
+      "text": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now? And is there a rest area with truck parking in the next 30 miles? Also remind me to check the trailer brakes",
+      "wer": 0.0
+    },
+    {
+      "model_id": "scribe_v2",
+      "clip": "short_clean",
+      "clip_seconds": 3.55,
+      "status": 200,
+      "total_ms": 355,
+      "text": "Find the nearest gas station with diesel on my route",
+      "wer": 0.0
+    },
+    {
+      "model_id": "scribe_v2",
+      "clip": "long_noisy",
+      "clip_seconds": 13.85,
+      "status": 200,
+      "total_ms": 668,
+      "text": "I'm towing the camper up Highway ninety-seven toward Bend tonight. What is the transmission temperature right now? And is there a rest area with truck parking in the next thirty miles? Also remind me to check the trailer brakes.",
+      "wer": 0.0
+    },
+    {
+      "model_id": "scribe_v2",
+      "clip": "long_heavy",
+      "clip_seconds": 13.85,
+      "status": 200,
+      "total_ms": 434,
+      "text": "I'm towing the camper up Highway ninety-seven toward Bend tonight. What is the transmission temperature right now? And is there a rest area with truck parking in the next thirty miles? Also remind me to check the trailer brakes",
+      "wer": 0.0
+    }
+  ],
+  "api_rtt_ms": [
+    546,
+    616,
+    589
+  ],
+  "models_status": 200,
+  "tts_models_on_account": [
+    "eleven_flash_v2",
+    "eleven_flash_v2_5",
+    "eleven_multilingual_v2",
+    "eleven_turbo_v2",
+    "eleven_turbo_v2_5",
+    "eleven_v3",
+    "eleven_v3_conversational",
+    "eleven_v4",
+    "eleven_v4_turbo"
+  ],
+  "voices_status": 200,
+  "voice": {
+    "voice_id": "hpp4J3VqNfWAUOO0d1Us",
+    "name": "Bella - Professional, Bright, Warm",
+    "category": "premade"
+  }
+}
