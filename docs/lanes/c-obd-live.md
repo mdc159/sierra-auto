@@ -1,0 +1,11 @@
+LANE C: live truck data. Branch `obd-live`. Wire the existing obd/ package to a real adapter and to the car screen.
+You own: new files under obd/bt/ and obd/live/, new car/Truck*.kt screens, car/HomeScreen.kt, a new ObdSettingsActivity, and tests. You may add methods to existing obd/ files but must not change their current behavior or weaken ObdSafety. Do not touch agent/, car/TalkScreen.kt, places/, voice/, or .github/. Another session (lane F) is adding GM-specific PIDs under obd/gm/; do not create files there.
+Shared-file edits allowed: AndroidManifest.xml (Bluetooth permissions, your Activity), MainActivity.kt (one button row to open ObdSettingsActivity).
+Build:
+1. Transports implementing ObdTransport: classic Bluetooth serial (RFCOMM, the standard SPP UUID) and Bluetooth LE for the common ELM327 BLE UART layouts (mark the BLE UUIDs unverified in code comments and docs). Handle the Android 12+ BLUETOOTH_CONNECT and BLUETOOTH_SCAN runtime permissions on the phone side.
+2. A DemoTransport that simulates a running engine with plausible, slowly changing values and two stored trouble codes. The coordinator has no adapter tonight, so demo mode is how this gets tested on the emulator. Make it selectable in ObdSettingsActivity, and make it the default until an adapter is chosen.
+3. ObdSettingsActivity: pick a paired adapter or demo mode, plus a "Test adapter" button that runs the init sequence and shows the protocol and battery voltage.
+4. Car screens: "Truck" shows live values (RPM, speed, coolant temp, intake air temp, engine load, fuel level, battery voltage) in a template allowed while driving, refreshed no faster than the constraints doc allows. A "Codes" screen lists stored trouble codes (read-only; no clearing in this milestone).
+5. Home hub: HomeScreen currently has two buttons (Places, Talk). Rework it so that Places, Talk, Truck and History are all reachable, using a template and item count the constraints doc allows.
+6. Connection handling: connect off the main thread, time out, show a clear car-screen message when the adapter is missing, and close the socket when the screen is destroyed.
+7. Update docs/OBD2-PLAN.md with what you built and what still needs a real adapter to verify.
