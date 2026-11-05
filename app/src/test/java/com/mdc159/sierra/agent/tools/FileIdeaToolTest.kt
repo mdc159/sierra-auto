@@ -51,7 +51,9 @@ class FileIdeaToolTest {
         val body = JSONObject(request.body.readUtf8())
         assertEquals("Heated seat reminder", body.getString("title"))
         assertTrue(body.getString("body").startsWith("Remind me to turn off the \"heated\" seats."))
-        assertEquals("idea", body.getJSONArray("labels").getString(0))
+        // Never `idea`: that label starts the cloud agent, and only the owner applies it by hand.
+        assertEquals("idea-voice", body.getJSONArray("labels").getString(0))
+        assertEquals(1, body.getJSONArray("labels").length())
         assertEquals("Filing your idea…", tool().status(args))
     }
 

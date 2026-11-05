@@ -29,3 +29,7 @@ Your lane is the single file in this folder that your prompt named. Do only that
 | H: agent bridge | h-agent-bridge.md | agent-bridge |
 | I: Studio 54 sign-in | i-studio54-signin.md | studio54-signin |
 | J: full-duplex voice | j-duplex-voice.md | duplex-voice |
+| K: review fixes (second wave) | k-review-fixes.md | review-fixes |
+| L: vehicle tools (second wave) | l-vehicle-tools.md | vehicle-tools |
+| M: agent profiles (second wave) | m-agent-profiles.md | agent-profiles |
+| N: docs and truck test plan (second wave) | n-docs-and-truck-plan.md | docs-truck-plan |
