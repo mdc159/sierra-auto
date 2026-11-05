@@ -67,10 +67,14 @@
             android:parentActivityName=".MainActivity" />
 
         <!-- Studio 54 sign-in. Exported so the PC can push the sign-in over USB with
-             `adb shell am start`; the Activity always asks before saving an import. -->
+             `adb shell am start`. DUMP is signature|privileged|development: the adb shell
+             holds it and ordinary apps cannot, so no other app can send an import; this app
+             starts it with an explicit intent, which same-app checks always allow. The
+             Activity still asks before saving an import. -->
         <activity
             android:name=".studio54.Studio54Activity"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.DUMP">
             <intent-filter>
                 <action android:name="com.mdc159.sierra.action.IMPORT_STUDIO54" />
                 <category android:name="android.intent.category.DEFAULT" />

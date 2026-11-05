@@ -92,7 +92,9 @@ Leave the last line off if the phone has no shared keys project. On Windows `cmd
 
 Hygiene for the PC side: the command line, and therefore the client secret, lands in the PC shell history. Run it from the launcher (which already holds the values) or clear the history line afterwards. The Activity drops the extras from its activity record as soon as it has read them.
 
-Because the Activity is exported (it must be, for `adb shell am start`), any app on the phone could also send this intent. That is why the confirmation screen names the vault host: if the host is not the owner's `*.ts.net` name, tap **Cancel**.
+The Activity is exported (it must be, for `adb shell am start`) but guarded with `android:permission="android.permission.DUMP"`. That permission is `signature|privileged|development`: the adb shell holds it, ordinary apps cannot obtain it, and Sierra's own settings screen starts the Activity with an explicit intent, which same-app checks always allow. So another app on the phone cannot push a sign-in pointing at its own vault. The confirmation screen is the second line of defence: if the host is not the owner's `*.ts.net` name, tap **Cancel**.
+
+If a Samsung build ever refuses the documented `am start` with a permission denial, the fallback is `android:exported="false"` on a debuggable build (then `adb shell am start --user 0 …` still works for debug APKs) and manual entry on release builds.
 
 ### Signing out
 
