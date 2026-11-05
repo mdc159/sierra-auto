@@ -28,7 +28,7 @@ idle_seconds = 600                     # stop an idle Pi process; the session fi
 # A Hermes agent on another Tailscale node (API server enabled, see README).
 [models.hermes]
 adapter = "hermes"
-base_url = "http://hermes-box.tailfedd3b.ts.net:8642/v1"
+base_url = "http://hermes-box.<tailnet>.ts.net:8642/v1"
 api_key_env = "HERMES_API_KEY"         # the value of API_SERVER_KEY on the Hermes box
 # model = "hermes-agent"               # or a profile name
 # session_header = true                # sends X-Hermes-Session-Id per conversation (unverified, see adapter notes)
@@ -46,6 +46,6 @@ timeout_seconds = 240
 # Plain pass-through, so one bridge can front the LiteLLM gateway too.
 [models.fast]
 adapter = "openai"
-base_url = "http://studio54.tailfedd3b.ts.net:4000/v1"
+base_url = "http://<litellm-host>.<tailnet>.ts.net:4000/v1"
 api_key_env = "LITELLM_KEY"
 model = "gpt-4.1-mini"

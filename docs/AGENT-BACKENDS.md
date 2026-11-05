@@ -10,7 +10,7 @@ The owner runs a LiteLLM proxy on the tailnet. It fronts several providers under
 
 | Phone field | Value |
 | --- | --- |
-| Base URL | `http://studio54.tailfedd3b.ts.net:4000/v1` |
+| Base URL | `http://<litellm-host>.<tailnet>.ts.net:4000/v1` |
 | API key | the LiteLLM virtual key made for the phone (one key per device, so it can be revoked alone) |
 | Model | any model name the proxy exposes, for example `gpt-4.1-mini` or `claude-sonnet-4-5` |
 
@@ -30,7 +30,7 @@ Most of the owner's agents (a Hermes agent, Pi coding agents on a VPS, assorted 
 
 | Phone field | Value |
 | --- | --- |
-| Base URL | `https://<bridge-host>.tailfedd3b.ts.net/v1` (via `tailscale serve`) or `http://100.x.y.z:8787/v1` |
+| Base URL | `https://<bridge-host>.<tailnet>.ts.net/v1` (via `tailscale serve`) or `http://100.x.y.z:8787/v1` |
 | API key | `SIERRA_BRIDGE_TOKEN` from the bridge's environment |
 | Model | a `[models.<name>]` entry: `pi`, `hermes`, `claude`, `fast`, ... |
 
@@ -60,7 +60,7 @@ Hermes (Nous Research) **does** expose an OpenAI-compatible API: `hermes gateway
 
 Two ways to use it:
 
-- **Directly from the phone** if Hermes listens on its Tailscale IP: Base URL `http://<hermes-host>.tailfedd3b.ts.net:8642/v1`, API key = `API_SERVER_KEY`, Model `hermes-agent`. No bridge needed. Replies are not trimmed beyond what the app does itself, and Hermes gets Sierra's system prompt layered on its own.
+- **Directly from the phone** if Hermes listens on its Tailscale IP: Base URL `http://<hermes-host>.<tailnet>.ts.net:8642/v1`, API key = `API_SERVER_KEY`, Model `hermes-agent`. No bridge needed. Replies are not trimmed beyond what the app does itself, and Hermes gets Sierra's system prompt layered on its own.
 - **Through the bridge** (`adapter = "hermes"`, `base_url`, `api_key_env = "HERMES_API_KEY"`) to get speech trimming, the full-reply log, one token for all agents, and a stable `X-Hermes-Session-Id` per conversation.
 
 Unverified: everything above is from the Hermes docs, not from a run against a live Hermes. The bridge's adapter is tested against a fake that reproduces the documented stream format. Whether Hermes de-duplicates replayed history when the session header is set is unknown; `session_header = false` turns the header off.

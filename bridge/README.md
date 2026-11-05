@@ -109,7 +109,7 @@ Trust: non-interactive modes do not prompt for project trust and use `defaultPro
 ```toml
 [models.hermes]
 adapter = "hermes"
-base_url = "http://hermes-box.tailfedd3b.ts.net:8642/v1"
+base_url = "http://hermes-box.<tailnet>.ts.net:8642/v1"
 api_key_env = "HERMES_API_KEY"   # the value of API_SERVER_KEY on the Hermes box
 model = "hermes-agent"           # default; use the profile name for a named profile
 session_header = true            # default; sends X-Hermes-Session-Id = conversation id
@@ -141,7 +141,7 @@ Runs the command once per turn with the user's text on stdin and takes stdout as
 ```toml
 [models.fast]
 adapter = "openai"
-base_url = "http://studio54.tailfedd3b.ts.net:4000/v1"   # host, host/v1 or the full URL all work
+base_url = "http://<litellm-host>.<tailnet>.ts.net:4000/v1"   # host, host/v1 or the full URL all work
 api_key_env = "LITELLM_KEY"
 model = "gpt-4.1-mini"      # upstream model name; defaults to this entry's name
 # headers = { X-Extra = "..." }
@@ -186,13 +186,13 @@ Pick one:
   tailscale serve status
   ```
 
-  The bridge keeps `host = "127.0.0.1"`. The base URL for the phone is `https://<machine>.tailfedd3b.ts.net/v1`. Do **not** use `tailscale funnel`; that would publish it to the internet.
+  The bridge keeps `host = "127.0.0.1"`. The base URL for the phone is `https://<machine>.<tailnet>.ts.net/v1`. Do **not** use `tailscale funnel`; that would publish it to the internet.
 
-- **Bind to the Tailscale IP** directly: set `host = "100.x.y.z"` (from `tailscale ip -4`) and open nothing else. The base URL is `http://100.x.y.z:8787/v1` or `http://<machine>.tailfedd3b.ts.net:8787/v1` with MagicDNS. Plain HTTP is fine here because WireGuard already encrypts it, but Android apps need `http://` explicitly allowed; the Sierra app accepts `http://` base URLs.
+- **Bind to the Tailscale IP** directly: set `host = "100.x.y.z"` (from `tailscale ip -4`) and open nothing else. The base URL is `http://100.x.y.z:8787/v1` or `http://<machine>.<tailnet>.ts.net:8787/v1` with MagicDNS. Plain HTTP is fine here because WireGuard already encrypts it, but Android apps need `http://` explicitly allowed; the Sierra app accepts `http://` base URLs.
 
 Either way, confirm from another device on the tailnet, and confirm from outside the tailnet that nothing answers.
 
-Health check: `curl -s https://<machine>.tailfedd3b.ts.net/health` returns `{"status":"ok"}` without a token.
+Health check: `curl -s https://<machine>.<tailnet>.ts.net/health` returns `{"status":"ok"}` without a token.
 
 ### Point the Sierra phone app at it
 
@@ -200,7 +200,7 @@ On the phone, open **Sierra**, then the agent settings:
 
 | Field | Value |
 | --- | --- |
-| Base URL | `https://<machine>.tailfedd3b.ts.net/v1` (or `http://100.x.y.z:8787/v1`) |
+| Base URL | `https://<machine>.<tailnet>.ts.net/v1` (or `http://100.x.y.z:8787/v1`) |
 | API key | the value of `SIERRA_BRIDGE_TOKEN` |
 | Model | the `[models.<name>]` entry to talk to: `pi`, `hermes`, `claude`, ... |
 
