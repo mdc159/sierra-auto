@@ -1,6 +1,7 @@
 package com.mdc159.sierra.studio54
 
 import android.content.Context
+import com.mdc159.sierra.agent.AgentConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -58,6 +59,23 @@ object Studio54 {
     /** Reads the vault now, off the main thread. */
     suspend fun refreshNow(context: Context): RefreshResult =
         withContext(Dispatchers.IO) { source(context).refresh() }
+
+    /**
+     * Phase 2 hook for the Talk screen: the typed agent settings, with the base URL and key
+     * taken from the vault when signed in and known. Also makes sure the refresh timer runs.
+     */
+    fun agentConfig(context: Context, typed: AgentConfig): AgentConfig {
+        start(context)
+        return AgentOverlay.apply(source(context), typed)
+    }
+
+    /**
+     * Phase 2 hook for the Talk screen's failure path: a 401 from the gateway while the vault
+     * supplies the key means the key may have been rotated, so the vault is read again.
+     */
+    fun onAgentError(context: Context, e: Throwable) {
+        if (AgentOverlay.isUnauthorized(e) && AgentOverlay.isActive(source(context))) onUnauthorized(context)
+    }
 
     /**
      * Call when the gateway answers 401 with a key from this source: the agent's key may have

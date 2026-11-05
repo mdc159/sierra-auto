@@ -44,9 +44,9 @@ The list endpoint is the one the official SDKs call today. The server marks it d
 
 ### Refresh and the cache
 
-- **At start.** `Studio54.start(context)` reads the vault once and starts a 30-minute timer. In phase 1 the only caller is `Studio54Activity`; the phase 2 hook (below) adds the car session.
+- **At start.** `Studio54.start(context)` reads the vault once and starts a 30-minute timer. It is called when Android Auto creates the car session (`SierraSession.onCreateScreen`) and when the Studio 54 screen opens.
 - **On a timer.** Every 30 minutes while the process lives.
-- **On 401 from the gateway.** `Studio54.onUnauthorized(context)` reads the vault again (at most once a minute) because the agent's gateway key may have been rotated.
+- **On 401 from the gateway.** When a Talk exchange fails with "error 401" while the vault supplies the key, `Studio54.onAgentError` reads the vault again (at most once a minute) because the agent's gateway key may have been rotated.
 - **Refresh now.** The button on the screen.
 
 When the vault is unreachable (the phone is off the Tailscale network) the last good read is served from the encrypted cache for up to **3 days** (`VaultSecretSource.DEFAULT_CACHE_MAX_AGE_MILLIS`). After that the names disappear and the Talk screen falls back to whatever is typed in the phone settings. The status screen says "serving cached copy" while this is happening.
@@ -56,9 +56,16 @@ When the vault is unreachable (the phone is off the Tailscale network) the last 
 ```kotlin
 val secrets: SecretSource = Studio54.source(context)   // process-wide
 secrets.get(SecretNames.OPENAI_API_KEY)                // null when not signed in or cache expired
+secrets.get(SecretNames.ELEVENLABS_API_KEY)            // for the voice lanes
 secrets.names()                                        // for a status screen; never the values
 secrets.lastFetched                                    // epoch millis, or null
 ```
+
+### How Talk uses it (phase 2)
+
+`TalkScreen` builds its agent settings with `Studio54.agentConfig(carContext, ConfigStore.load(carContext))`. When the vault has both `OPENAI_BASE_URL` and `OPENAI_API_KEY`, they replace the base URL and key typed in the phone settings (`AgentOverlay.apply`). Everything else stays as typed: the **owner still chooses the model**, and the transcription settings are untouched (a blank transcription key falls back to the vault key, as it always fell back to the agent key). When the vault has nothing, or only one of the two, the typed settings are used unchanged.
+
+The "Test connection" button on the main phone screen tests the **typed** settings only. Use **Refresh now** on the Studio 54 screen to prove the vault, and a Talk exchange on the car screen to prove the gateway key.
 
 ## Signing in
 
@@ -101,7 +108,7 @@ Then, on the next phone: create a new agent, enroll it, push the sign-in with th
 
 Grant the phone `S54_KEYS_PROJECT_ID` **only if it truly needs those keys**. Today the phone's own project already gives it the gateway address and its budgeted gateway key, which is everything Talk needs. The shared project holds service keys (`ELEVENLABS_API_KEY` and others) that are not budgeted per device; a lost phone with the shared project would expose all of them, not just one capped gateway key. Add the shared project when a voice lane actually reads `ELEVENLABS_API_KEY` from `SecretSource`, and consider a dedicated, smaller project for the phone instead of the full shared one.
 
-## Dependencies and phase 2
+## Dependencies
 
-- **Plain http to `*.ts.net`.** Android blocks cleartext by default. Lane B (`talk-tools`) adds `res/xml/network_security_config.xml` permitting plain http for `*.ts.net`, `localhost`, `127.0.0.1` and `10.0.2.2`, and registers it in the manifest. Until that is merged, a refresh fails with "Plain http to <host> is blocked by this build's network security rules" and the status screen shows it. The sign-in itself still saves.
-- **Phase 2 hook** (after `talk-tools` is merged): when signed in and `SecretSource` has `OPENAI_BASE_URL` and `OPENAI_API_KEY`, the agent base URL and key come from the vault; the owner still picks the model in the phone settings. The voice lanes read `ELEVENLABS_API_KEY` from `Studio54.source(context)`. See the PR for the exact hook.
+- **Plain http to `*.ts.net`.** Android blocks cleartext by default. Lane B (`talk-tools`, merged) added `res/xml/network_security_config.xml`, which permits plain http for `*.ts.net`, `localhost`, `127.0.0.1` and `10.0.2.2` and is registered in the manifest. If that rule were ever removed, a refresh would fail with "Plain http to <host> is blocked by this build's network security rules" and the status screen would show it; the sign-in itself still saves.
+- **Voice lanes.** Read `ELEVENLABS_API_KEY` with `Studio54.source(context).get(SecretNames.ELEVENLABS_API_KEY)`. It is null until the phone is granted the shared keys project (see the recommendation above).

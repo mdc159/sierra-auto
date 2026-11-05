@@ -47,7 +47,8 @@ class FakeInfisical : Dispatcher() {
     }
 
     private fun login(request: RecordedRequest): MockResponse {
-        val body = JSONObject(request.body.readUtf8())
+        // clone(): leave the body in place for the test to inspect afterwards.
+        val body = JSONObject(request.body.clone().readUtf8())
         if (body.optString("clientId") != clientId || body.optString("clientSecret") != clientSecret) {
             return error(401, "Invalid credentials")
         }
@@ -58,7 +59,7 @@ class FakeInfisical : Dispatcher() {
     }
 
     private fun renew(request: RecordedRequest): MockResponse {
-        val token = JSONObject(request.body.readUtf8()).optString("accessToken")
+        val token = JSONObject(request.body.clone().readUtf8()).optString("accessToken")
         if (rejectRenew || token !in validTokens) return error(401, "Failed to renew token")
         renewCount++
         return tokenReply(token)
