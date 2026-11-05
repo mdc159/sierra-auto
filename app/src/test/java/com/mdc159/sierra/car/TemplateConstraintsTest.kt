@@ -1,6 +1,7 @@
 package com.mdc159.sierra.car
 
 import androidx.car.app.model.CarIcon
+import androidx.car.app.model.GridTemplate
 import androidx.car.app.model.PaneTemplate
 import androidx.car.app.model.PlaceListMapTemplate
 import org.junit.Assert.assertEquals
@@ -16,9 +17,12 @@ class TemplateConstraintsTest {
     @Test
     fun homeTemplateBuilds() {
         for (configured in listOf(true, false)) {
-            val t = HomeScreen.template(configured, {}, {}, {}, CarIcon.APP_ICON, CarIcon.BACK) as PaneTemplate
-            assertEquals(2, t.actionStrip!!.actions.size)
-            assertEquals(2, t.pane.actions.size)
+            val entries = HomeScreen.entries(
+                configured, demoTruck = true, {}, {}, {}, {},
+                CarIcon.APP_ICON, CarIcon.BACK, CarIcon.ALERT, CarIcon.ERROR,
+            )
+            val t = HomeScreen.template(entries, limit = 6) as GridTemplate
+            assertEquals(4, t.singleList!!.items.size)
         }
     }
 

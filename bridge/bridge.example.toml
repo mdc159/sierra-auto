@@ -1,0 +1,51 @@
+# Sierra bridge configuration. Copy to bridge.toml and edit.
+#
+# The bearer token the phone sends is NOT in this file: set SIERRA_BRIDGE_TOKEN
+# in the environment (see README.md). Upstream API keys are also read from the
+# environment, via the *_env keys below.
+
+[server]
+host = "127.0.0.1"          # Bind to loopback and publish with `tailscale serve`, or
+                            # bind to the machine's Tailscale IP (100.x.y.z) directly.
+port = 8787
+timeout_seconds = 120       # per request; models may override
+speech_max_chars = 600      # what the car hears; the full reply goes to log_file
+log_file = "/var/log/sierra-bridge/replies.jsonl"
+
+# Each [models.<name>] is one agent. The phone selects it with the Model field.
+
+# A Pi coding agent on this machine, one Pi session per conversation.
+[models.pi]
+adapter = "pi"
+command = ["pi"]                       # or an absolute path
+cwd = "/home/me/projects/sierra-auto"  # the project Pi works in
+session_dir = "/var/lib/sierra-bridge/pi-sessions"
+extra_args = ["--no-approve"]          # see `pi --help`; e.g. "--model", "anthropic/claude-sonnet-4-5"
+driving_prompt = true                  # answer in one to three spoken sentences
+timeout_seconds = 180
+idle_seconds = 600                     # stop an idle Pi process; the session file keeps the context
+
+# A Hermes agent on another Tailscale node (API server enabled, see README).
+[models.hermes]
+adapter = "hermes"
+base_url = "http://hermes-box.<tailnet>.ts.net:8642/v1"
+api_key_env = "HERMES_API_KEY"         # the value of API_SERVER_KEY on the Hermes box
+# model = "hermes-agent"               # or a profile name
+# session_header = true                # sends X-Hermes-Session-Id per conversation (unverified, see adapter notes)
+driving_prompt = true
+
+# Any CLI agent: the question goes to stdin, stdout comes back.
+[models.claude]
+adapter = "command"
+command = ["claude", "-p", "--output-format", "text"]
+cwd = "/home/me/projects/sierra-auto"
+driving_prompt = true
+timeout_seconds = 240
+# input_format = "messages"            # send the whole history as a JSON array instead of plain text
+
+# Plain pass-through, so one bridge can front the LiteLLM gateway too.
+[models.fast]
+adapter = "openai"
+base_url = "http://<litellm-host>.<tailnet>.ts.net:4000/v1"
+api_key_env = "LITELLM_KEY"
+model = "gpt-4.1-mini"

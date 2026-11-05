@@ -76,18 +76,25 @@ From `docs/android-auto-constraints.md` section 7 (Google's car-microphone page 
 | Tools | `tools` in `session.update`; `response.function_call_arguments.done` → `conversation.item.create {function_call_output}` → `response.create`. | "Client tools" defined in the dashboard; `client_tool_call` → `client_tool_result {tool_call_id, result, is_error}`. |
 | Transcripts | Input transcription is a separate model (`gpt-4o-mini-transcribe` by default here) and arrives as deltas plus a final. Output transcript deltas come with the audio. | `user_transcript` (final only), `internal_tentative_agent_response` (partial), `agent_response` (final), `agent_response_correction` after an interruption. |
 | Keep-alive | None required by the protocol; OkHttp pings every 20 s. | Server `ping` must be answered with `pong` (done). |
-| Delay (speech end → first audio) | Third-party measurements cluster around **0.5 to 1 s** for `gpt-realtime` class models over a websocket; OpenAI itself recommends WebRTC for browsers and mobile because the websocket path adds client-side buffering. **Unverified.** | ElevenLabs quotes ~75 ms TTS model latency for Flash v2.5; independent measurements put TTS time-to-first-byte at **~250 ms median**, and the full turn (STT + LLM + TTS) at roughly **0.6 to 1.2 s** depending on the LLM. **Unverified.** |
+| Delay (speech end → first audio) | **Measured (#39, from the PC through the gateway):** 1144 ms with `openai/gpt-realtime-2.1-mini`, 1310 ms with `openai/gpt-realtime-2.1`, including the 500 ms silence window. Third-party figures for OpenAI direct are a little lower. OpenAI recommends WebRTC for browsers and mobile; the websocket path adds client-side buffering (**unverified** how much on the A54). | ElevenLabs TTS alone measured 180 to 340 ms to first byte (#39). The Agents turn adds STT and the LLM: roughly **0.6 to 1.2 s** by third-party accounts, **unverified**; Agents were not in the #39 run. |
 | Voice quality | Native speech-to-speech; voices like `marin` and `cedar` (the SDK's built-in list). Expressive, but fewer voices and no cloning. | Best-in-class TTS, thousands of voices, cloning. The owner can pick the exact voice in the dashboard or override `voice_id` from the phone. |
 | Cost per minute | Token priced. Search results (**unverified**, all third-party, 2026): `gpt-realtime` audio **$32 / 1M input tokens, $64 / 1M output tokens**, cached input $0.40; `gpt-realtime-mini` **$10 / $20**. At roughly 600 input tokens and 1200 output tokens per spoken minute, a minute where both sides talk half the time is about **$0.06 (full) or $0.02 (mini)**, before the growing context is re-billed each turn. Vendors quoting real sessions see **$0.15 to $0.45 per minute** for the full model once context accumulates. Sources: [forasoft], [lavx], [cekura], [layer3]. | Platform fee of about **$0.08 per conversation minute** on every self-serve plan (reported as $0.10 before a May 2026 cut), plus LLM tokens passed through at cost (fractions of a cent per minute for small models), plus plan minutes (for example 275 minutes on Creator, 12,375 on Business). **Unverified.** Sources: [macha], [cloudzero], [superdupr]. |
 | What must be publicly reachable | Nothing of ours. The phone connects out to OpenAI or to the owner's gateway. If the gateway is on the tailnet, the phone must be on the tailnet. | Nothing of ours, **unless** the agent uses a custom LLM: then ElevenLabs's servers must reach an OpenAI-compatible chat URL on the public internet (not a tailnet name). The owner's agent is reached instead through the `ask_agent` client tool, which runs on the phone, so no public URL is needed. |
-| Gateway (LiteLLM) | LiteLLM documents a `/v1/realtime` websocket route that forwards to OpenAI with `?model=`. Whether the owner's gateway has it enabled and forwards `session.updated` is **unverified** (lane brief). `OpenAiRealtimeSession` tolerates a gateway that forwards audio but swallows `session.updated` (it continues after the handshake timeout with a warning). | Not involved. ElevenLabs is called directly with the owner's ElevenLabs key. |
+| Gateway (LiteLLM) | **Verified by #39:** the owner's gateway upgrades `/v1/realtime?model=…` with the bearer key alone and speaks the GA event names. `OpenAiRealtimeSession` also tolerates a model that never sends `session.updated` (continues after the handshake timeout with a warning). | Not involved. ElevenLabs is called directly with the owner's ElevenLabs key. |
 | Account setup | An API key. | See section 3. |
 
 **Recommendation for tonight:** test OpenAI Realtime first against OpenAI directly (fewest unknowns), then against the gateway. Test ElevenLabs once the agent exists in the dashboard. Keep both; the owner's direction allows a combination, and the `DuplexProvider` switch costs nothing.
 
-### Where the "Gateway voice check results" fit
+### What the "Gateway voice check results" (issue #39) settle
 
-The lane brief says a worker is measuring the owner's gateway tonight and will post an issue or PR comment titled "Gateway voice check results". At the time of writing (2026-11-05 02:30 UTC) no such issue or comment exists on `mdc159/sierra-auto`. When it appears, the numbers that matter here are: whether `/v1/realtime` upgrades at all through LiteLLM; whether `session.updated` comes back; and the measured round-trip for a short utterance. Until then the gateway realtime route is **unverified** and the default base URL in `DuplexConfig` is OpenAI itself.
+Measured from the owner's PC on 2026-11-04 against the LiteLLM gateway (full write-up in PR #38, `docs/VOICE-GATEWAY-CHECK.md`). These are the only measured numbers in this document; everything else in the delay and cost rows is third-party.
+
+- **The gateway's realtime route works** at `/v1/realtime?model=<model>` with only `Authorization: Bearer <gateway key>`, in the current (non-beta) event format: `session.type = "realtime"`, 24 kHz `audio/pcm` in and out, `response.output_audio.delta` for audio. This is exactly what `OpenAiRealtimeSession` sends and expects, so the gateway is a supported base URL: enter the gateway URL and the gateway's model name (`openai/gpt-realtime-2.1-mini`) on the phone.
+- **Delay.** End of speech (server VAD, 500 ms silence) to first audio: `openai/gpt-realtime-2.1-mini` **1144 ms**, `openai/gpt-realtime-2.1` 1310 ms, `xai/grok-voice-3.0` 1522 ms, `gemini/gemini-3.8-live` 1870 ms. Dial to `session.created`: 1130 ms for the mini model, 2563 ms on a cold first connection. So open the socket as soon as the conversation screen appears, which the controller does, and expect the first reply about a second after you stop talking. From the truck each stage adds a mobile round trip, not measured.
+- **Gemini Live through the gateway** sends no `session.updated` and wanted 16 kHz input. `OpenAiRealtimeSession` tolerates the missing `session.updated` (it continues after the handshake timeout with a warning) but always declares 24 kHz, so Gemini Live is **not supported** by this code without a per-model input-rate setting.
+- **Not measured there:** realtime tool calls and barge-in (both exercised here only against the fake server), long sessions, anything from the phone or truck.
+- **ElevenLabs** direct TTS (`eleven_flash_v2_5`, `pcm_24000`) streamed with about 180 to 340 ms to first byte; Agents were not tested. That is the voice path ElevenLabs Agents uses, so the Agents turn should land near the LLM's time plus a few hundred milliseconds. **Unverified** for Agents specifically.
+- **Recommended default from #39:** realtime through the gateway with `openai/gpt-realtime-2.1-mini`. The app's built-in default stays OpenAI direct with `gpt-realtime`, because the gateway hostname is private and must be typed on the phone anyway.
 
 ---
 
@@ -174,20 +181,20 @@ Prerequisites: the duplex settings saved on the phone, an OpenAI key (or the gat
 
 ---
 
-## 7. Phase 2 wiring (not done: `talk-tools` was not merged)
+## 7. Phase 2 wiring (done: `talk-tools` merged at 02:17 UTC)
 
-The smallest change to `car/TalkScreen.kt` once lane B's tools are in main:
+- `car/TalkScreen.kt`: one new action, **Conversation**, on the Listening and Failed message templates (both stay within the two-action limit). It stops the one-shot exchange, pops the Talk screen and pushes `ConversationScreen`, so the step count is unchanged (Home + 1).
+- `car/ConversationScreen.kt` (new): checks the duplex settings, car-mic support (API 5) and the mic permission, then runs a `DuplexController` with `CarMicSource`, `AudioTrackSink` and `AndroidFocus`. One `MessageTemplate` whose text never changes while the session runs (**Interrupt** and **Stop** actions); it pops itself when stopped, and shows the reason once if the session ends on an error (one more step, well inside the quota). Transcripts are not shown on the car screen on purpose: every text change would be a step.
+- `voice/duplex/TalkToolAdapter.kt` (new): wraps lane B's `agent.tools.Tool` as a `DuplexTool`, so `find_places`, `navigate_to` and `file_idea` (and `read_vehicle` when it lands) are offered to the realtime model next to `ask_agent`. `Duplex.tools(context, extra)` builds the registry.
 
-1. Add a `Conversation` action to the Talk screen's `Replied`/`Failed` `MessageTemplate`/`PaneTemplate` (there is room: the pane has two actions, the message template has one). On click, build `DuplexController(session = Duplex.session(DuplexConfigStore.load(carContext), tools), mic = CarMicSource(carContext), sink = AudioTrackSink(), focus = AndroidFocus(carContext), mode = config.mode, guardRatio = config.guardRatio, listener = …)` and `start()` it on `Dispatchers.IO`. Show a single `MessageTemplate("Conversation… tap Stop to end")` with two actions, **Stop** (`controller.stop()`) and **Interrupt** (`controller.tapInterrupt()`), and refresh its text with the latest final transcripts (same title, so each update is a refresh, not a step; see constraints doc section 4). Pop the screen on `Ended`.
-2. Adapt lane B's `Tool` interface to `DuplexTool`: a one-class adapter `class TalkToolAdapter(val t: agent.tools.Tool) : DuplexTool` mapping name, description, JSON Schema and a blocking invoke; register `find_places`, `navigate_to`, `file_idea` alongside `ask_agent` in `Duplex.defaultTools`. Both interfaces are (name, schema, invoke), so the adapter is a few lines.
-3. Mic permission: reuse `CarMic.hasPermission` and the existing `NeedsMic` state.
+Not done, by design: the car screen does not show transcripts, and the Talk screen's turn-based path is untouched otherwise.
 
 ---
 
 ## 8. Unverified items (summary)
 
-- Every number in the cost and delay rows of section 2 (third-party sources only; vendor pricing pages were unreachable).
-- That the GA OpenAI websocket needs no `OpenAI-Beta` header; that the owner's LiteLLM gateway forwards `/v1/realtime` and `session.updated`.
+- Every cost number in section 2, and every delay number except the gateway measurements from #39 (vendor pricing pages were unreachable).
+- That OpenAI direct (as opposed to the gateway, which #39 verified) needs no `OpenAI-Beta` header on the GA websocket.
 - ElevenLabs dashboard wording for audio formats, client tools and overrides; signed-URL lifetime; whether `user_activity` affects an audio agent.
 - Maximum `CarAudioRecord` session length; whether the Sierra head unit cancels echo on the Android Auto mic path; how the car routes `USAGE_ASSISTANT` playback.
 - Everything in the truck test plan, by definition.

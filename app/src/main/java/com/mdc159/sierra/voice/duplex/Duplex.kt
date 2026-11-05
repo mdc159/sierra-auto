@@ -31,8 +31,11 @@ object Duplex {
         }
 
     /** The default tool set: `ask_agent` bound to the agent configured in Sierra's settings. */
-    fun defaultTools(context: Context): ToolRegistry =
-        ToolRegistry(listOf(AskAgentTool(ConfiguredAgentBridge(context))))
+    fun defaultTools(context: Context): ToolRegistry = tools(context, emptyList())
+
+    /** `ask_agent` plus [extra] (on the car, the Talk screen's tools through [TalkToolAdapter]). */
+    fun tools(context: Context, extra: List<DuplexTool>): ToolRegistry =
+        ToolRegistry(listOf(AskAgentTool(ConfiguredAgentBridge(context))) + extra)
 }
 
 /** Forwards `ask_agent` questions to the OpenAI-compatible agent from the main settings. */

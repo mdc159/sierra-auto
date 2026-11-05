@@ -98,7 +98,7 @@ class DuplexSettingsActivity : ComponentActivity() {
         heading("OpenAI Realtime")
         openAiUrl = field("Base URL", DuplexConfig.DEFAULT_OPENAI_BASE_URL)
         openAiKey = field("API key", "sk-…", secret = true)
-        openAiModel = field("Model", DuplexConfig.DEFAULT_OPENAI_MODEL)
+        openAiModel = field("Model (gateway: openai/gpt-realtime-2.1-mini)", DuplexConfig.DEFAULT_OPENAI_MODEL)
         openAiVoice = field("Voice", DuplexConfig.DEFAULT_OPENAI_VOICE)
         openAiStt = field("Transcription model (blank = none)", DuplexConfig.DEFAULT_OPENAI_TRANSCRIPTION_MODEL)
 
