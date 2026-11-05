@@ -143,14 +143,21 @@ class FakeMic(override val sampleRate: Int = 16_000) : MicSource {
         started++
     }
 
+    private var pending: ByteArray = ByteArray(0)
+
     override fun read(buf: ByteArray, offset: Int, length: Int): Int {
-        val chunk = queue.poll(5, TimeUnit.SECONDS) ?: return 0
-        if (chunk === end) {
-            queue.put(end) // keep returning -1
-            return -1
+        if (pending.isEmpty()) {
+            val chunk = queue.poll(5, TimeUnit.SECONDS) ?: return 0
+            if (chunk === end) {
+                queue.put(end) // keep returning -1
+                return -1
+            }
+            pending = chunk
         }
-        val n = minOf(length, chunk.size)
-        System.arraycopy(chunk, 0, buf, offset, n)
+        // Hand over at most [length] bytes; the rest waits for the next read, like a real mic.
+        val n = minOf(length, pending.size)
+        System.arraycopy(pending, 0, buf, offset, n)
+        pending = pending.copyOfRange(n, pending.size)
         return n
     }
 
@@ -187,14 +194,14 @@ class FakeTranscriber(vararg results: String) : Transcriber {
 }
 
 /** Scripted agent. */
-class FakeAgent(private val reply: (String) -> String = { "You said $it." }) : ConversationAgent {
+class FakeAgent(private val answer: (String) -> String = { "You said $it." }) : ConversationAgent {
     val asked = mutableListOf<String>()
     var failWith: Exception? = null
 
     override suspend fun reply(userText: String): String {
         asked += userText
         failWith?.let { throw it }
-        return reply(userText)
+        return answer(userText)
     }
 }
 
