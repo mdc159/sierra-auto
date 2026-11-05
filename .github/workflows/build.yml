@@ -14,7 +14,114 @@ permissions:
   contents: read
 
 jobs:
+  # A committed key, keystore or token fails the build before anything is compiled.
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Refuse tracked key and keystore files
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -iE '\.(jks|keystore|bks|p12|pfx|pem|key|asc|gpg)$'; then
+            echo "::error::The files above look like signing keys or keystores. Remove them from git and rotate them."
+            exit 1
+          fi
+          echo "No key or keystore files are tracked."
+
+      - name: Scan commits for secrets (gitleaks, rules in .gitleaks.toml)
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_SUMMARY: "true"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+
+  # Android lint runs beside the build so a PR's wall-clock time stays short.
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          # Gradle user home (wrapper, dependencies, build cache) is restored on every run and
+          # written back only from main, so PR builds start warm without thrashing the cache.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Android lint (errors fail the build; see app/lint.xml)
+        run: ./gradlew --no-daemon lintDebug
+
+      - name: Upload lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+            app/build/reports/lint-results-debug.sarif
+          if-no-files-found: ignore
+
   build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # PR builds run PR-controlled Gradle code: keep them on the read-only token and do not
+    # leave the token in .git/config. Publishing happens in the `release` job below.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Cache Robolectric Android framework jars
+        # Robolectric downloads android-all-instrumented into ~/.m2 at test time (~100 MB).
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ runner.os }}-${{ hashFiles('app/build.gradle.kts') }}
+          restore-keys: robolectric-${{ runner.os }}-
+
+      - name: Build debug and run unit tests
+        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest -PversionCode=${{ github.run_number }}
+
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          if-no-files-found: ignore
+
+  # Only a push to main reaches this job. The steps below are the original release steps,
+  # unchanged; they just run under their own write-scoped token after build is green.
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -28,16 +135,6 @@ jobs:
           java-version: "17"
 
       - uses: gradle/actions/setup-gradle@v5
-
-      - name: Build debug and run unit tests
-        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest -PversionCode=${{ github.run_number }}
-
-      - name: Upload unit test reports
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-reports
-          path: app/build/reports/tests/
 
       - name: Decode release keystore
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
