@@ -2,6 +2,7 @@ package com.mdc159.sierra.net
 
 import okhttp3.OkHttpClient
 import java.io.InterruptedIOException
+import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
@@ -23,6 +24,8 @@ object Http {
         is SocketTimeoutException -> "Timed out. Check signal and try again."
         is InterruptedIOException -> "Timed out. Check signal and try again."
         is UnknownHostException -> "No connection, or the server name is wrong."
+        // OkHttp's message here is "Failed to connect to host/1.2.3.4:443", not car-screen text.
+        is ConnectException -> "Couldn't reach the server."
         is SSLException -> "Secure connection failed."
         else -> e.message?.takeIf { it.isNotBlank() }?.take(120) ?: "Network error."
     }

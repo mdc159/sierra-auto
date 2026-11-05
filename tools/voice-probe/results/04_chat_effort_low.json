@@ -1,0 +1,283 @@
+{
+  "recorded_at": "2026-11-04T18:13:47-08:00",
+  "gateway_rtt_ms": [
+    1012,
+    356,
+    164,
+    203,
+    142
+  ],
+  "system": "You are Sierra, a voice assistant in a pickup truck. Replies are spoken aloud. Answer in exactly two short sentences.",
+  "question": "I'm towing a camper uphill and my transmission temperature just hit 215 degrees. Should I be worried?",
+  "tool_request": "Find me a diesel station nearby.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "find_places",
+        "description": "Find places of one category near the truck's current position.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "enum": [
+                "fuel",
+                "diesel",
+                "food",
+                "coffee",
+                "rest_area",
+                "hotel",
+                "parking"
+              ],
+              "description": "The kind of place to look for."
+            }
+          },
+          "required": [
+            "category"
+          ]
+        }
+      }
+    }
+  ],
+  "extra_params": {
+    "reasoning_effort": "low"
+  },
+  "plain": [
+    {
+      "model": "groq/openai/gpt-oss-20b",
+      "status": 200,
+      "headers_ms": 352,
+      "response_duration_ms": 203.154,
+      "overhead_duration_ms": 2.576,
+      "version": "1.102.1",
+      "first_reasoning_ms": 475,
+      "first_token_ms": 575,
+      "first_sentence_ms": 612,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 56,
+        "prompt_tokens": 118,
+        "total_tokens": 174
+      },
+      "total_ms": 705,
+      "text": "A transmission hitting 215°F while towing uphill is definitely on the high side—it's a red flag. Keep an eye on it, but stop and let it cool before continuing to avoid damage.",
+      "reasoning_chars": 33,
+      "attempt": 1
+    },
+    {
+      "model": "groq/openai/gpt-oss-120b",
+      "status": 200,
+      "headers_ms": 323,
+      "response_duration_ms": 59.935,
+      "overhead_duration_ms": 2.905,
+      "version": "1.102.1",
+      "first_reasoning_ms": 345,
+      "first_token_ms": 438,
+      "first_sentence_ms": 440,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 44,
+        "prompt_tokens": 118,
+        "total_tokens": 162
+      },
+      "total_ms": 453,
+      "text": "Yes, that's dangerously high and can cause serious damage. Pull over, let it cool, and consider checking the cooling system before continuing.",
+      "reasoning_chars": 33,
+      "attempt": 1
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "status": 200,
+      "headers_ms": 1455,
+      "response_duration_ms": 1135.746,
+      "overhead_duration_ms": 2.832,
+      "version": "1.102.1",
+      "first_token_ms": 1455,
+      "first_sentence_ms": 1738,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 104,
+        "prompt_tokens": 54,
+        "total_tokens": 158
+      },
+      "total_ms": 1804,
+      "text": "215°F is warm but not necessarily an emergency; check your owner’s manual for the transmission’s limit. If it keeps climbing or a warning appears, pull over safely, let it cool, and get help.",
+      "attempt": 1
+    },
+    {
+      "model": "openai/gpt-5.4-nano",
+      "status": 200,
+      "headers_ms": 1050,
+      "response_duration_ms": 777.878,
+      "overhead_duration_ms": 2.638,
+      "version": "1.102.1",
+      "first_token_ms": 1051,
+      "first_sentence_ms": 1326,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 118,
+        "prompt_tokens": 54,
+        "total_tokens": 172
+      },
+      "total_ms": 1479,
+      "text": "215°F is high, so yes you should pay attention—slow down, find a safe place to pull over, and let it cool while checking your transmission fluid level. If it keeps climbing toward about 220–230°F or you notice burning smell/shuddering, don’t continue uphill; shut down and get service.",
+      "attempt": 1
+    },
+    {
+      "model": "groq/openai/gpt-oss-20b",
+      "status": 200,
+      "headers_ms": 1162,
+      "response_duration_ms": 569.693,
+      "overhead_duration_ms": 2.774,
+      "version": "1.102.1",
+      "first_reasoning_ms": 1162,
+      "first_token_ms": 1178,
+      "first_sentence_ms": 1246,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 51,
+        "prompt_tokens": 118,
+        "total_tokens": 169
+      },
+      "total_ms": 1250,
+      "text": "Yeah, 215°F is pretty hot for a transmission—it's above the usual safe range. Pull over, let it cool, and get it checked out before you keep driving.",
+      "reasoning_chars": 25,
+      "attempt": 2
+    },
+    {
+      "model": "groq/openai/gpt-oss-120b",
+      "status": 200,
+      "headers_ms": 574,
+      "response_duration_ms": 343.358,
+      "overhead_duration_ms": 3.22,
+      "version": "1.102.1",
+      "first_reasoning_ms": 574,
+      "first_token_ms": 598,
+      "first_sentence_ms": 660,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 45,
+        "prompt_tokens": 118,
+        "total_tokens": 163
+      },
+      "total_ms": 676,
+      "text": "Yes, that temperature is high enough to risk overheating and damage. Pull over, let it cool, and consider adding a transmission cooler before you continue.",
+      "reasoning_chars": 25,
+      "attempt": 2
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "status": 200,
+      "headers_ms": 1392,
+      "response_duration_ms": 1163.304,
+      "overhead_duration_ms": 3.341,
+      "version": "1.102.1",
+      "first_token_ms": 1403,
+      "first_sentence_ms": 1570,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 104,
+        "prompt_tokens": 54,
+        "total_tokens": 158
+      },
+      "total_ms": 1755,
+      "text": "215°F is warm but can be normal while towing uphill; check your truck’s manual for its limit. If it keeps climbing or a warning appears, pull over safely and let the transmission cool before continuing.",
+      "attempt": 2
+    },
+    {
+      "model": "openai/gpt-5.4-nano",
+      "status": 200,
+      "headers_ms": 774,
+      "response_duration_ms": 517.894,
+      "overhead_duration_ms": 2.859,
+      "version": "1.102.1",
+      "first_token_ms": 778,
+      "first_sentence_ms": 980,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 66,
+        "prompt_tokens": 54,
+        "total_tokens": 120
+      },
+      "total_ms": 1247,
+      "text": "215°F transmission fluid is getting hot and you should take it seriously—slow down, reduce load, and check fluid level/condition when it’s safe. If the temperature keeps rising toward 230°F or you notice slipping, burning smells, or warning lights, stop and let it cool and have the system checked.",
+      "attempt": 2
+    }
+  ],
+  "tool_runs": [
+    {
+      "model": "groq/openai/gpt-oss-20b",
+      "status": 200,
+      "headers_ms": 486,
+      "response_duration_ms": 53.389,
+      "overhead_duration_ms": 2.577,
+      "version": "1.102.1",
+      "first_reasoning_ms": 505,
+      "first_tool_delta_ms": 620,
+      "finish_reason": "tool_calls",
+      "total_ms": 621,
+      "text": "",
+      "reasoning_chars": 57,
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\":\"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    },
+    {
+      "model": "groq/openai/gpt-oss-120b",
+      "status": 200,
+      "headers_ms": 461,
+      "response_duration_ms": 142.383,
+      "overhead_duration_ms": 2.722,
+      "version": "1.102.1",
+      "first_reasoning_ms": 462,
+      "finish_reason": "stop",
+      "total_ms": 612,
+      "text": "",
+      "reasoning_chars": 24,
+      "verdict": "no tool call"
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "status": 200,
+      "headers_ms": 876,
+      "response_duration_ms": 335.127,
+      "overhead_duration_ms": 4.828,
+      "version": "1.102.1",
+      "first_tool_delta_ms": 878,
+      "finish_reason": "tool_calls",
+      "total_ms": 1106,
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\":\"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    },
+    {
+      "model": "openai/gpt-5.4-nano",
+      "status": 200,
+      "headers_ms": 865,
+      "response_duration_ms": 343.752,
+      "overhead_duration_ms": 5.003,
+      "version": "1.102.1",
+      "first_tool_delta_ms": 866,
+      "finish_reason": "tool_calls",
+      "total_ms": 1081,
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\":\"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    }
+  ]
+}

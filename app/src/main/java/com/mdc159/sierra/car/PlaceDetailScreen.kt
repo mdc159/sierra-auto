@@ -8,6 +8,8 @@ import androidx.car.app.model.PaneTemplate
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import com.mdc159.sierra.places.NearbyPlace
+import com.mdc159.sierra.places.displayDetail
+import com.mdc159.sierra.places.displayName
 import java.util.Locale
 
 /** One place, with a Navigate action that hands off to Google Maps. */
@@ -20,11 +22,12 @@ class PlaceDetailScreen(
         val pane = Pane.Builder()
             .addRow(
                 Row.Builder()
-                    .setTitle(place.name)
+                    .setTitle(place.displayName)
                     .addText(String.format(Locale.US, "%.1f mi away", miles))
                     .build()
             )
-        place.detail?.let { pane.addRow(Row.Builder().setTitle(it).build()) }
+        // An empty row title is rejected by the host, so a blank detail gets no row.
+        place.displayDetail?.let { pane.addRow(Row.Builder().setTitle(it).build()) }
         pane.addAction(
             Action.Builder()
                 .setTitle("Navigate")
@@ -33,7 +36,7 @@ class PlaceDetailScreen(
                 .build()
         )
         return PaneTemplate.Builder(pane.build())
-            .setTitle(place.name)
+            .setTitle(place.displayName)
             .setHeaderAction(Action.BACK)
             .build()
     }

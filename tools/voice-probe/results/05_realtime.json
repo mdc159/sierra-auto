@@ -1,0 +1,865 @@
+{
+  "recorded_at": "2026-11-04T18:14:55-08:00",
+  "request": "websocket /v1/realtime?model=..., header Authorization: Bearer <key>",
+  "rows": [
+    {
+      "model": "openai/gpt-realtime-2.1",
+      "url": "ws://<gateway-host>.ts.net:4000/v1/realtime?model=openai/gpt-realtime-2.1",
+      "connect_ms": 1476,
+      "first_event": "session.created",
+      "first_event_ms": 2563,
+      "session": {
+        "model": "gpt-realtime-2.1",
+        "type": "realtime",
+        "object": "realtime.session",
+        "output_modalities": [
+          "audio"
+        ],
+        "output_audio_format": {
+          "type": "audio/pcm",
+          "rate": 24000
+        },
+        "input_audio_format": {
+          "type": "audio/pcm",
+          "rate": 24000
+        },
+        "voice": "marin"
+      },
+      "turns": [
+        {
+          "prompt": "Say hello to the driver in one short sentence.",
+          "events": [
+            [
+              145,
+              "conversation.item.added"
+            ],
+            [
+              146,
+              "conversation.item.done"
+            ],
+            [
+              229,
+              "response.created"
+            ],
+            [
+              583,
+              "response.output_item.added"
+            ],
+            [
+              595,
+              "response.content_part.added"
+            ],
+            [
+              595,
+              "response.output_audio_transcript.delta"
+            ],
+            [
+              968,
+              "response.output_audio.delta"
+            ],
+            [
+              1493,
+              "response.output_audio.done"
+            ],
+            [
+              1493,
+              "response.output_audio_transcript.done"
+            ],
+            [
+              1493,
+              "response.content_part.done"
+            ],
+            [
+              1493,
+              "response.output_item.done"
+            ],
+            [
+              1497,
+              "response.done"
+            ]
+          ],
+          "first_text_ms": 595,
+          "first_audio_ms": 968,
+          "status": "completed",
+          "usage": {
+            "total_tokens": 267,
+            "input_tokens": 132,
+            "output_tokens": 135
+          },
+          "total_ms": 1497,
+          "audio_bytes": 211200,
+          "transcript": "Hello, driver, hope your route is smooth and your day is going well.",
+          "event_counts": {
+            "conversation.item.added": 2,
+            "conversation.item.done": 2,
+            "response.created": 1,
+            "response.output_item.added": 1,
+            "response.content_part.added": 1,
+            "response.output_audio_transcript.delta": 16,
+            "response.output_audio.delta": 11,
+            "response.output_audio.done": 1,
+            "response.output_audio_transcript.done": 1,
+            "response.content_part.done": 1,
+            "response.output_item.done": 1,
+            "response.done": 1
+          }
+        },
+        {
+          "prompt": "In one short sentence, is 215 degrees too hot for a transmission while towing?",
+          "events": [
+            [
+              51,
+              "rate_limits.updated"
+            ],
+            [
+              150,
+              "conversation.item.added"
+            ],
+            [
+              150,
+              "conversation.item.done"
+            ],
+            [
+              205,
+              "response.created"
+            ],
+            [
+              544,
+              "response.output_item.added"
+            ],
+            [
+              556,
+              "response.content_part.added"
+            ],
+            [
+              556,
+              "response.output_audio_transcript.delta"
+            ],
+            [
+              818,
+              "response.output_audio.delta"
+            ],
+            [
+              2000,
+              "response.output_audio.done"
+            ],
+            [
+              2001,
+              "response.output_audio_transcript.done"
+            ],
+            [
+              2002,
+              "response.content_part.done"
+            ],
+            [
+              2003,
+              "response.output_item.done"
+            ],
+            [
+              2005,
+              "response.done"
+            ]
+          ],
+          "first_text_ms": 556,
+          "first_audio_ms": 818,
+          "status": "completed",
+          "usage": {
+            "total_tokens": 367,
+            "input_tokens": 175,
+            "output_tokens": 192
+          },
+          "total_ms": 2005,
+          "audio_bytes": 324000,
+          "transcript": "It’s getting hot; 215 degrees is higher than ideal for many setups, so it’s worth backing off or improving cooling.",
+          "event_counts": {
+            "rate_limits.updated": 1,
+            "conversation.item.added": 2,
+            "conversation.item.done": 2,
+            "response.created": 1,
+            "response.output_item.added": 1,
+            "response.content_part.added": 1,
+            "response.output_audio_transcript.delta": 26,
+            "response.output_audio.delta": 17,
+            "response.output_audio.done": 1,
+            "response.output_audio_transcript.done": 1,
+            "response.content_part.done": 1,
+            "response.output_item.done": 1,
+            "response.done": 1
+          }
+        }
+      ]
+    },
+    {
+      "model": "openai/gpt-realtime-2.1-mini",
+      "url": "ws://<gateway-host>.ts.net:4000/v1/realtime?model=openai/gpt-realtime-2.1-mini",
+      "connect_ms": 209,
+      "first_event": "session.created",
+      "first_event_ms": 1130,
+      "session": {
+        "model": "gpt-realtime-2.1-mini",
+        "type": "realtime",
+        "object": "realtime.session",
+        "output_modalities": [
+          "audio"
+        ],
+        "output_audio_format": {
+          "type": "audio/pcm",
+          "rate": 24000
+        },
+        "input_audio_format": {
+          "type": "audio/pcm",
+          "rate": 24000
+        },
+        "voice": "marin"
+      },
+      "turns": [
+        {
+          "prompt": "Say hello to the driver in one short sentence.",
+          "events": [
+            [
+              148,
+              "conversation.item.added"
+            ],
+            [
+              149,
+              "conversation.item.done"
+            ],
+            [
+              277,
+              "response.created"
+            ],
+            [
+              563,
+              "response.output_item.added"
+            ],
+            [
+              573,
+              "response.content_part.added"
+            ],
+            [
+              573,
+              "response.output_audio_transcript.delta"
+            ],
+            [
+              812,
+              "response.output_audio.delta"
+            ],
+            [
+              1017,
+              "response.output_audio.done"
+            ],
+            [
+              1017,
+              "response.output_audio_transcript.done"
+            ],
+            [
+              1017,
+              "response.content_part.done"
+            ],
+            [
+              1020,
+              "response.output_item.done"
+            ],
+            [
+              1023,
+              "response.done"
+            ]
+          ],
+          "first_text_ms": 573,
+          "first_audio_ms": 812,
+          "status": "completed",
+          "usage": {
+            "total_tokens": 242,
+            "input_tokens": 132,
+            "output_tokens": 110
+          },
+          "total_ms": 1023,
+          "audio_bytes": 139200,
+          "transcript": "Hello, driver! Hope your journey is smooth and safe.",
+          "event_counts": {
+            "conversation.item.added": 2,
+            "conversation.item.done": 2,
+            "response.created": 1,
+            "response.output_item.added": 1,
+            "response.content_part.added": 1,
+            "response.output_audio_transcript.delta": 12,
+            "response.output_audio.delta": 8,
+            "response.output_audio.done": 1,
+            "response.output_audio_transcript.done": 1,
+            "response.content_part.done": 1,
+            "response.output_item.done": 1,
+            "response.done": 1
+          }
+        },
+        {
+          "prompt": "In one short sentence, is 215 degrees too hot for a transmission while towing?",
+          "events": [
+            [
+              42,
+              "rate_limits.updated"
+            ],
+            [
+              150,
+              "conversation.item.added"
+            ],
+            [
+              150,
+              "conversation.item.done"
+            ],
+            [
+              207,
+              "response.created"
+            ],
+            [
+              506,
+              "response.output_item.added"
+            ],
+            [
+              515,
+              "response.content_part.added"
+            ],
+            [
+              515,
+              "response.output_audio_transcript.delta"
+            ],
+            [
+              637,
+              "response.output_audio.delta"
+            ],
+            [
+              1198,
+              "response.output_audio.done"
+            ],
+            [
+              1198,
+              "response.output_audio_transcript.done"
+            ],
+            [
+              1198,
+              "response.content_part.done"
+            ],
+            [
+              1198,
+              "response.output_item.done"
+            ],
+            [
+              1200,
+              "response.done"
+            ]
+          ],
+          "first_text_ms": 515,
+          "first_audio_ms": 637,
+          "status": "completed",
+          "usage": {
+            "total_tokens": 355,
+            "input_tokens": 171,
+            "output_tokens": 184
+          },
+          "total_ms": 1200,
+          "audio_bytes": 288000,
+          "transcript": "215 degrees is quite hot for a transmission while towing, so it’s best to keep things cooler than that.",
+          "event_counts": {
+            "rate_limits.updated": 1,
+            "conversation.item.added": 2,
+            "conversation.item.done": 2,
+            "response.created": 1,
+            "response.output_item.added": 1,
+            "response.content_part.added": 1,
+            "response.output_audio_transcript.delta": 22,
+            "response.output_audio.delta": 15,
+            "response.output_audio.done": 1,
+            "response.output_audio_transcript.done": 1,
+            "response.content_part.done": 1,
+            "response.output_item.done": 1,
+            "response.done": 1
+          }
+        }
+      ]
+    },
+    {
+      "model": "gemini/gemini-3.8-live",
+      "url": "ws://<gateway-host>.ts.net:4000/v1/realtime?model=gemini/gemini-3.8-live",
+      "connect_ms": 208,
+      "first_event": "session.created",
+      "first_event_ms": 639,
+      "session": {
+        "model": "gemini-3.8-live",
+        "type": null,
+        "object": null,
+        "output_modalities": [
+          "audio"
+        ],
+        "output_audio_format": null,
+        "input_audio_format": null,
+        "voice": null
+      },
+      "turns": [
+        {
+          "prompt": "Say hello to the driver in one short sentence.",
+          "events": [
+            [
+              640,
+              "response.created"
+            ],
+            [
+              640,
+              "response.output_item.added"
+            ],
+            [
+              640,
+              "conversation.item.added"
+            ],
+            [
+              640,
+              "response.content_part.added"
+            ],
+            [
+              640,
+              "response.output_audio_transcript.delta"
+            ],
+            [
+              640,
+              "response.output_audio.delta"
+            ],
+            [
+              889,
+              "response.output_audio.done"
+            ],
+            [
+              889,
+              "response.content_part.done"
+            ],
+            [
+              889,
+              "response.output_item.done"
+            ],
+            [
+              2803,
+              "response.done"
+            ]
+          ],
+          "first_text_ms": 640,
+          "first_audio_ms": 640,
+          "status": "completed",
+          "usage": {
+            "input_tokens": 551,
+            "output_tokens": 109,
+            "total_tokens": 610
+          },
+          "total_ms": 2803,
+          "audio_bytes": 103682,
+          "transcript": "Hello, driver, have a great day.",
+          "event_counts": {
+            "response.created": 1,
+            "response.output_item.added": 1,
+            "conversation.item.added": 1,
+            "response.content_part.added": 1,
+            "response.output_audio_transcript.delta": 2,
+            "response.output_audio.delta": 12,
+            "response.output_audio.done": 1,
+            "response.content_part.done": 1,
+            "response.output_item.done": 1,
+            "response.done": 1
+          }
+        },
+        {
+          "prompt": "In one short sentence, is 215 degrees too hot for a transmission while towing?",
+          "events": [
+            [
+              823,
+              "response.created"
+            ],
+            [
+              823,
+              "response.output_item.added"
+            ],
+            [
+              823,
+              "conversation.item.added"
+            ],
+            [
+              823,
+              "response.content_part.added"
+            ],
+            [
+              823,
+              "response.output_audio_transcript.delta"
+            ],
+            [
+              823,
+              "response.output_audio.delta"
+            ],
+            [
+              1510,
+              "response.output_audio.done"
+            ],
+            [
+              1510,
+              "response.content_part.done"
+            ],
+            [
+              1510,
+              "response.output_item.done"
+            ],
+            [
+              6508,
+              "response.done"
+            ]
+          ],
+          "first_text_ms": 823,
+          "first_audio_ms": 823,
+          "status": "completed",
+          "usage": {
+            "input_tokens": 652,
+            "output_tokens": 280,
+            "total_tokens": 800
+          },
+          "total_ms": 6508,
+          "audio_bytes": 272640,
+          "transcript": "No, 215 degrees is within the normal operating range for a transmission while towing.",
+          "event_counts": {
+            "response.created": 1,
+            "response.output_item.added": 1,
+            "conversation.item.added": 1,
+            "response.content_part.added": 1,
+            "response.output_audio_transcript.delta": 5,
+            "response.output_audio.delta": 16,
+            "response.output_audio.done": 1,
+            "response.content_part.done": 1,
+            "response.output_item.done": 1,
+            "response.done": 1
+          }
+        }
+      ]
+    },
+    {
+      "model": "gemini/gemini-3.1-flash-live-preview",
+      "url": "ws://<gateway-host>.ts.net:4000/v1/realtime?model=gemini/gemini-3.1-flash-live-preview",
+      "connect_ms": 198,
+      "first_event": "session.created",
+      "first_event_ms": 543,
+      "session": {
+        "model": "gemini-3.1-flash-live-preview",
+        "type": null,
+        "object": null,
+        "output_modalities": [
+          "audio"
+        ],
+        "output_audio_format": null,
+        "input_audio_format": null,
+        "voice": null
+      },
+      "turns": [
+        {
+          "prompt": "Say hello to the driver in one short sentence.",
+          "events": [
+            [
+              684,
+              "response.created"
+            ],
+            [
+              685,
+              "response.output_item.added"
+            ],
+            [
+              685,
+              "conversation.item.added"
+            ],
+            [
+              685,
+              "response.content_part.added"
+            ],
+            [
+              685,
+              "response.output_audio_transcript.delta"
+            ],
+            [
+              685,
+              "response.output_audio.delta"
+            ],
+            [
+              913,
+              "response.output_audio.done"
+            ],
+            [
+              913,
+              "response.content_part.done"
+            ],
+            [
+              914,
+              "response.output_item.done"
+            ],
+            [
+              1702,
+              "response.done"
+            ]
+          ],
+          "first_text_ms": 685,
+          "first_audio_ms": 685,
+          "status": "completed",
+          "usage": {
+            "input_tokens": 148,
+            "output_tokens": 33,
+            "total_tokens": 181
+          },
+          "total_ms": 1702,
+          "audio_bytes": 48962,
+          "transcript": "Hello, driver!",
+          "event_counts": {
+            "response.created": 1,
+            "response.output_item.added": 1,
+            "conversation.item.added": 1,
+            "response.content_part.added": 1,
+            "response.output_audio_transcript.delta": 1,
+            "response.output_audio.delta": 8,
+            "response.output_audio.done": 1,
+            "response.content_part.done": 1,
+            "response.output_item.done": 1,
+            "response.done": 1
+          }
+        },
+        {
+          "prompt": "In one short sentence, is 215 degrees too hot for a transmission while towing?",
+          "events": [
+            [
+              637,
+              "response.created"
+            ],
+            [
+              637,
+              "response.output_item.added"
+            ],
+            [
+              637,
+              "conversation.item.added"
+            ],
+            [
+              637,
+              "response.content_part.added"
+            ],
+            [
+              637,
+              "response.output_audio_transcript.delta"
+            ],
+            [
+              637,
+              "response.output_audio.delta"
+            ],
+            [
+              2056,
+              "response.output_audio.done"
+            ],
+            [
+              2056,
+              "response.content_part.done"
+            ],
+            [
+              2056,
+              "response.output_item.done"
+            ],
+            [
+              5967,
+              "response.done"
+            ]
+          ],
+          "first_text_ms": 637,
+          "first_audio_ms": 637,
+          "status": "completed",
+          "usage": {
+            "input_tokens": 216,
+            "output_tokens": 139,
+            "total_tokens": 355
+          },
+          "total_ms": 5967,
+          "audio_bytes": 255842,
+          "transcript": "Yes, 215 degrees is generally considered too hot for most transmissions when towing.",
+          "event_counts": {
+            "response.created": 1,
+            "response.output_item.added": 1,
+            "conversation.item.added": 1,
+            "response.content_part.added": 1,
+            "response.output_audio_transcript.delta": 8,
+            "response.output_audio.delta": 26,
+            "response.output_audio.done": 1,
+            "response.content_part.done": 1,
+            "response.output_item.done": 1,
+            "response.done": 1
+          }
+        }
+      ]
+    },
+    {
+      "model": "xai/grok-voice-3.0",
+      "url": "ws://<gateway-host>.ts.net:4000/v1/realtime?model=xai/grok-voice-3.0",
+      "connect_ms": 191,
+      "first_event": "session.created",
+      "first_event_ms": 440,
+      "session": {
+        "model": "grok-voice-3.0",
+        "type": null,
+        "object": "realtime.session",
+        "output_modalities": [
+          "audio"
+        ],
+        "output_audio_format": null,
+        "input_audio_format": null,
+        "voice": "xai_ara"
+      },
+      "turns": [
+        {
+          "prompt": "Say hello to the driver in one short sentence.",
+          "events": [
+            [
+              0,
+              "conversation.created"
+            ],
+            [
+              113,
+              "conversation.item.added"
+            ],
+            [
+              231,
+              "response.created"
+            ],
+            [
+              487,
+              "response.output_item.added"
+            ],
+            [
+              487,
+              "response.content_part.added"
+            ],
+            [
+              779,
+              "response.output_audio.delta"
+            ],
+            [
+              779,
+              "response.output_audio_transcript.delta"
+            ],
+            [
+              939,
+              "response.output_audio_transcript.done"
+            ],
+            [
+              939,
+              "response.content_part.done"
+            ],
+            [
+              939,
+              "response.output_audio.done"
+            ],
+            [
+              939,
+              "response.output_item.done"
+            ],
+            [
+              939,
+              "response.done"
+            ]
+          ],
+          "first_audio_ms": 779,
+          "first_text_ms": 779,
+          "status": "completed",
+          "status_details": "\"unimplemented\"",
+          "usage": {
+            "total_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0
+          },
+          "total_ms": 939,
+          "audio_bytes": 107040,
+          "transcript": "Hello, driver, good to have you with us.",
+          "event_counts": {
+            "conversation.created": 1,
+            "conversation.item.added": 2,
+            "response.created": 1,
+            "response.output_item.added": 1,
+            "response.content_part.added": 1,
+            "response.output_audio.delta": 6,
+            "response.output_audio_transcript.delta": 2,
+            "response.output_audio_transcript.done": 1,
+            "response.content_part.done": 1,
+            "response.output_audio.done": 1,
+            "response.output_item.done": 1,
+            "response.done": 1
+          }
+        },
+        {
+          "prompt": "In one short sentence, is 215 degrees too hot for a transmission while towing?",
+          "events": [
+            [
+              117,
+              "conversation.item.added"
+            ],
+            [
+              237,
+              "response.created"
+            ],
+            [
+              438,
+              "response.output_item.added"
+            ],
+            [
+              439,
+              "response.content_part.added"
+            ],
+            [
+              674,
+              "response.output_audio.delta"
+            ],
+            [
+              674,
+              "response.output_audio_transcript.delta"
+            ],
+            [
+              1533,
+              "response.output_audio_transcript.done"
+            ],
+            [
+              1533,
+              "response.content_part.done"
+            ],
+            [
+              1533,
+              "response.output_audio.done"
+            ],
+            [
+              1533,
+              "response.output_item.done"
+            ],
+            [
+              1533,
+              "response.done"
+            ]
+          ],
+          "first_audio_ms": 674,
+          "first_text_ms": 674,
+          "status": "completed",
+          "status_details": "\"unimplemented\"",
+          "usage": {
+            "total_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0
+          },
+          "total_ms": 1534,
+          "audio_bytes": 444480,
+          "transcript": "Yes, 215 is getting high. Most automatics like to stay under about 200, so keep an eye on it and consider a transmission cooler if it climbs.",
+          "event_counts": {
+            "conversation.item.added": 2,
+            "response.created": 1,
+            "response.output_item.added": 1,
+            "response.content_part.added": 1,
+            "response.output_audio.delta": 13,
+            "response.output_audio_transcript.delta": 4,
+            "response.output_audio_transcript.done": 1,
+            "response.content_part.done": 1,
+            "response.output_audio.done": 1,
+            "response.output_item.done": 1,
+            "response.done": 1
+          }
+        }
+      ]
+    }
+  ]
+}

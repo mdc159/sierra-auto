@@ -1,0 +1,21 @@
+LANE J: full-duplex voice. Branch `duplex-voice`.
+The owner's direction: "whatever is full duplex and best in class; if that's a combination of OpenAI and ElevenLabs, so be it." Lane G is building the turn-based conversation (listen, think, speak, listen again). You build the real thing: both sides can talk at once, the assistant can be interrupted mid-sentence, and the delay is as low as the services allow.
+You own: a new package voice/duplex/, a new DuplexSettingsActivity, tests, and docs/DUPLEX.md. Do not touch voice/realtime/ (lane G), any existing file under voice/, agent/ or car/ in phase 1.
+Shared-file edits allowed: AndroidManifest.xml (your Activity), MainActivity.kt (one button row to open DuplexSettingsActivity), app/build.gradle.kts (add-only dependencies).
+
+A worker on the owner's PC is measuring the owner's gateway tonight (speech models, realtime route, ElevenLabs). Look for a GitHub issue or PR comment titled "Gateway voice check results" and use its numbers once it appears; until then, treat the gateway's realtime route as unverified.
+
+Phase 1:
+1. A DuplexSession interface: start with a config, accept microphone PCM frames continuously, and emit events: assistant audio frames, partial and final transcripts for both sides, tool-call requests, "user started speaking" (so playback can be cut), errors, and end.
+2. Two implementations. Read each vendor's current documentation; do not guess event names or audio formats.
+   - OpenAI Realtime protocol over websocket, pointed at any OpenAI-compatible base URL (the owner's gateway or OpenAI directly). Server-side turn detection, function calling, and cutting the assistant's audio when the driver starts talking.
+   - ElevenLabs Agents (conversational) over websocket, feeding it our own PCM and playing its audio ourselves, with client tools. Cover how the session is authorised (API key, signed URL or conversation token) and what has to be set up in the ElevenLabs account first.
+3. Audio plumbing: a resampler between the microphone rate and each service's rate; low-delay playback with a small jitter buffer; audio focus requested and released the way docs/android-auto-constraints.md describes.
+4. Microphone sources behind one interface: the car microphone and the phone microphone. For the phone microphone use the voice-communication source and Android's echo canceller.
+5. The echo problem is the main risk: in a truck the speakers feed the microphone, so the assistant hears itself and interrupts itself. Provide two modes and make them selectable: true full duplex, and a guarded mode that ignores the microphone while the assistant is speaking unless the input is clearly louder than the playback, with a tap as the fallback interrupt.
+6. Tools: define a minimal tool interface in your own package (name, JSON schema, invoke). Include one built-in tool, `ask_agent(question)`, which forwards to the owner's own agent through an interface you define, so the realtime voice can hand hard questions to the owner's agent. Lane B is building find_places, navigate_to and file_idea separately; do not depend on its code yet.
+7. DuplexSettingsActivity: provider, model or agent id, voice, mode, keys stored encrypted like ConfigStore does, and a "Try it on this phone" button that runs a live session with the phone's microphone and speaker. That button is how the owner tests this tonight without the truck.
+8. Tests with a fake websocket server for both protocols: handshake, audio framing both ways, interruption, a tool-call round trip, timeouts and reconnects. Tests for the resampler and the guarded-mode gate.
+9. docs/DUPLEX.md: the architecture, the two services compared (delay, voice quality, cost per minute with sources, what must be publicly reachable), what Android Auto allows for a long microphone session, and a step-by-step truck test plan for the echo problem. Mark every unverified claim.
+
+Phase 2, only after the `talk-tools` PR is merged into main: merge main and add a "Conversation" action to the Talk screen that starts and stops a duplex session, with the smallest possible change, and adapt lane B's tools to your tool interface. If talk-tools is not merged by 10:15 PM PST, describe the exact wiring in your PR and stop.

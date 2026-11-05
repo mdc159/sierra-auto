@@ -1,6 +1,7 @@
 package com.mdc159.sierra.car
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.text.SpannableString
 import android.text.Spanned
 import androidx.car.app.CarContext
@@ -18,12 +19,15 @@ import androidx.car.app.model.PlaceMarker
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import androidx.car.app.versioning.CarAppApiLevels
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.net.Http
 import com.mdc159.sierra.places.NearbyPlace
 import com.mdc159.sierra.places.NearbyPlaces
 import com.mdc159.sierra.places.PhoneLocation
 import com.mdc159.sierra.places.PlaceCategory
+import com.mdc159.sierra.places.displayDetail
+import com.mdc159.sierra.places.displayName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -122,11 +126,19 @@ class PlaceListScreen(
             )
             is State.Loaded -> {
                 val builder = baseBuilder(category.label, onRefresh, hostRefresh)
-                builder.setCurrentLocationEnabled(PhoneLocation.hasPermission(carContext))
+                // setCurrentLocationEnabled requires a location permission (lint checks it here).
+                if (ContextCompat.checkSelfPermission(carContext, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                    PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(carContext, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    builder.setCurrentLocationEnabled(true)
+                }
                 builder.setAnchor(Place.Builder(CarLocation.create(s.lat, s.lng)).build())
                 val items = ItemList.Builder()
                     .setNoItemsMessage("No ${category.label.lowercase()} found nearby.")
-                s.places.forEach { place -> items.addItem(placeRow(place)) }
+                // The host ignores rows past its limit; never send them even if a source does.
+                s.places.take(CarLimits.placeListLimit(carContext)).forEach { place -> items.addItem(placeRow(place)) }
                 builder.setItemList(items.build())
                 return builder.build()
             }
@@ -141,7 +153,7 @@ class PlaceListScreen(
             )
         }
         val row = Row.Builder()
-            .setTitle(place.name)
+            .setTitle(place.displayName)
             .addText(distance)
             .setMetadata(
                 Metadata.Builder()
@@ -153,7 +165,7 @@ class PlaceListScreen(
                     .build()
             )
             .setOnClickListener { screenManager.push(PlaceDetailScreen(carContext, place)) }
-        place.detail?.let { row.addText(it) }
+        place.displayDetail?.let { row.addText(it) }
         return row.build()
     }
 

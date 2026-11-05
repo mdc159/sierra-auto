@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android lint configuration. CI runs `lintDebug` and fails on any issue at error severity
+  (the default severities apply unless changed here). Keep this list short: every entry
+  needs a reason.
+-->
+<lint>
+    <!-- Version nags only add noise to the uploaded report; dependency bumps are deliberate. -->
+    <issue id="GradleDependency" severity="ignore" />
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <issue id="NewerVersionAvailable" severity="ignore" />
+    <!-- Car screens build their text in code; there is no phone UI to localise. -->
+    <issue id="HardcodedText" severity="ignore" />
+</lint>

@@ -1,0 +1,3716 @@
+{
+  "recorded_at": "2026-11-04T18:29:50-08:00",
+  "env_names": [
+    "ELEVENLABS_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "GROQ_API_KEY",
+    "LANGFUSE_BASE_URL",
+    "LANGFUSE_HOST",
+    "LANGFUSE_PUBLIC_KEY",
+    "LANGFUSE_SECRET_KEY",
+    "LITELLM_API_KEY",
+    "LITELLM_BASE_URL",
+    "OPENAI_API_KEY",
+    "OPENAI_BASE_URL",
+    "XAI_API_KEY"
+  ],
+  "base_url": "http://<gateway-host>.ts.net:4000/v1",
+  "models_status": 200,
+  "models_ms": 415,
+  "model_count": 470,
+  "/model/info": {
+    "status": 200,
+    "rows": [
+      {
+        "name": "featherless_ai/featherless-ai/Qwerky-72B",
+        "mode": "chat",
+        "litellm_provider": "featherless_ai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "featherless_ai/featherless-ai/Qwerky-QwQ-32B",
+        "mode": "chat",
+        "litellm_provider": "featherless_ai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini-2.5-flash-native-audio-latest",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 2e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini-2.5-flash-native-audio-preview-09-2025",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 2e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini-2.5-flash-native-audio-preview-12-2025",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 2e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini-2.5-flash-preview-tts",
+        "mode": "audio_speech",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 1e-05,
+        "output_cost_per_audio_token": 1e-05
+      },
+      {
+        "name": "gemini-3.1-flash-live-preview",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 4.5e-06,
+        "input_cost_per_second": 8.33333333333e-05,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini-3.8-live",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 4.5e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini-3.8-live-extended-thinking",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 4.5e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini-exp-1206",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-07,
+        "output_cost_per_token": 2.5e-06,
+        "input_cost_per_audio_token": 1e-06
+      },
+      {
+        "name": "gemini-flash-latest",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 3.75e-06
+      },
+      {
+        "name": "gemini-flash-lite-latest",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-07,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "gemini-pro-latest",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "gemini/deep-research-max-preview-04-2026",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "gemini/deep-research-preview-04-2026",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "gemini/deep-research-pro-preview-12-2025",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-2.5-computer-use-preview-10-2025",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "gemini/gemini-2.5-flash",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-07,
+        "output_cost_per_token": 2.5e-06,
+        "input_cost_per_audio_token": 1e-06
+      },
+      {
+        "name": "gemini/gemini-2.5-flash-image",
+        "mode": "image_generation",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 3e-07,
+        "output_cost_per_token": 2.5e-06,
+        "input_cost_per_audio_token": 1e-06
+      },
+      {
+        "name": "gemini/gemini-2.5-flash-lite",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 4e-07,
+        "input_cost_per_audio_token": 3e-07
+      },
+      {
+        "name": "gemini/gemini-2.5-flash-native-audio-latest",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 2e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-2.5-flash-native-audio-preview-09-2025",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 2e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-2.5-flash-native-audio-preview-12-2025",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 2e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-2.5-flash-preview-tts",
+        "mode": "audio_speech",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 1e-05,
+        "output_cost_per_audio_token": 1e-05
+      },
+      {
+        "name": "gemini/gemini-2.5-pro",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "gemini/gemini-2.5-pro-preview-tts",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 2e-05,
+        "input_cost_per_audio_token": 7e-07,
+        "output_cost_per_audio_token": 2e-05
+      },
+      {
+        "name": "gemini/gemini-3-flash-preview",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 3e-06,
+        "input_cost_per_audio_token": 1e-06
+      },
+      {
+        "name": "gemini/gemini-3-pro-image",
+        "mode": "image_generation",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-3-pro-image-preview",
+        "mode": "image_generation",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-3.1-flash-image",
+        "mode": "image_generation",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 3e-06
+      },
+      {
+        "name": "gemini/gemini-3.1-flash-image-preview",
+        "mode": "image_generation",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 3e-06
+      },
+      {
+        "name": "gemini/gemini-3.1-flash-lite",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-07,
+        "output_cost_per_token": 1.5e-06,
+        "input_cost_per_audio_token": 5e-07
+      },
+      {
+        "name": "gemini/gemini-3.1-flash-lite-image",
+        "mode": "image_generation",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 2.5e-07,
+        "output_cost_per_token": 1.5e-06
+      },
+      {
+        "name": "gemini/gemini-3.1-flash-lite-preview",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-07,
+        "output_cost_per_token": 1.5e-06,
+        "input_cost_per_audio_token": 5e-07
+      },
+      {
+        "name": "gemini/gemini-3.1-flash-live-preview",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 4.5e-06,
+        "input_cost_per_second": 8.33333333333e-05,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-3.1-flash-tts-preview",
+        "mode": "audio_speech",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 2e-05,
+        "output_cost_per_audio_token": 2e-05
+      },
+      {
+        "name": "gemini/gemini-3.1-pro-preview",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-3.1-pro-preview-customtools",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-3.5-flash",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-06,
+        "output_cost_per_token": 9e-06,
+        "input_cost_per_audio_token": 1.5e-06
+      },
+      {
+        "name": "gemini/gemini-3.5-flash-lite",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-07,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "gemini/gemini-3.5-live-translate-preview",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 3.5e-06,
+        "output_cost_per_token": 2.1e-05,
+        "input_cost_per_audio_token": 3.5e-06,
+        "output_cost_per_audio_token": 2.1e-05
+      },
+      {
+        "name": "gemini/gemini-3.5-transcribe",
+        "mode": "audio_transcription",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05,
+        "input_cost_per_audio_token": 2e-06
+      },
+      {
+        "name": "gemini/gemini-3.5-transcribe-live",
+        "mode": "audio_transcription",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 3.5e-06,
+        "output_cost_per_token": 2.1e-05,
+        "input_cost_per_audio_token": 3.5e-06
+      },
+      {
+        "name": "gemini/gemini-3.6-flash",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 3.75e-06
+      },
+      {
+        "name": "gemini/gemini-3.7-flash",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 3.75e-06
+      },
+      {
+        "name": "gemini/gemini-3.8-flash",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 3.75e-06
+      },
+      {
+        "name": "gemini/gemini-3.8-flash-lite-tts",
+        "mode": "audio_speech",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 6e-06,
+        "output_cost_per_audio_token": 6e-06
+      },
+      {
+        "name": "gemini/gemini-3.8-flash-tts",
+        "mode": "audio_speech",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 9e-06,
+        "output_cost_per_audio_token": 9e-06
+      },
+      {
+        "name": "gemini/gemini-3.8-live",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 4.5e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-3.8-live-extended-thinking",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 4.5e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-4-argon",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "gemini/gemini-embedding-001",
+        "mode": "embedding",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 1.5e-07,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/gemini-embedding-2",
+        "mode": "embedding",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 2e-07,
+        "output_cost_per_token": 0,
+        "input_cost_per_audio_token": 6.5e-06
+      },
+      {
+        "name": "gemini/gemini-embedding-2-preview",
+        "mode": "embedding",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 2e-07,
+        "output_cost_per_token": 0,
+        "input_cost_per_audio_token": 6.5e-06
+      },
+      {
+        "name": "gemini/gemini-exp-1114",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/gemini-exp-1206",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/gemini-flash-latest",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 3.75e-06
+      },
+      {
+        "name": "gemini/gemini-flash-lite-latest",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-07,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "gemini/gemini-gemma-2-27b-it",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3.5e-07,
+        "output_cost_per_token": 1.05e-06
+      },
+      {
+        "name": "gemini/gemini-gemma-2-9b-it",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3.5e-07,
+        "output_cost_per_token": 1.05e-06
+      },
+      {
+        "name": "gemini/gemini-live-2.5-flash-preview-native-audio-09-2025",
+        "mode": "realtime",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 2e-06,
+        "input_cost_per_audio_token": 3e-06,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-nano-banana-2.1",
+        "mode": "image_generation",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1.5e-06,
+        "output_cost_per_token": 7.5e-06
+      },
+      {
+        "name": "gemini/gemini-omni-1.1-flash",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 1.5e-06,
+        "output_cost_per_token": 9e-06,
+        "input_cost_per_audio_token": 1.5e-06
+      },
+      {
+        "name": "gemini/gemini-omni-flash-preview",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 1.5e-06,
+        "output_cost_per_token": 9e-06,
+        "input_cost_per_audio_token": 1.5e-06
+      },
+      {
+        "name": "gemini/gemini-pro-latest",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "gemini/gemini-robotics-er-2-preview",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 5e-06,
+        "input_cost_per_audio_token": 1e-06
+      },
+      {
+        "name": "gemini/gemini-robotics-er-2-streaming-preview",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 5e-06,
+        "input_cost_per_audio_token": 1e-06
+      },
+      {
+        "name": "gemini/gemma-3-27b-it",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_character": 0
+      },
+      {
+        "name": "gemini/gemma-4-26b-a4b-it",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0.0,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "gemini/gemma-4-31b-it",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0.0,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "gemini/imagen-3.0-fast-generate-001",
+        "mode": "image_generation",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/imagen-3.0-generate-001",
+        "mode": "image_generation",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/learnlm-1.5-pro-experimental",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_character": 0
+      },
+      {
+        "name": "gemini/lyria-3-clip-preview",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/lyria-3-pro-preview",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/lyria-3.5",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/lyria-3.5-clip-preview",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/lyria-3.5-pro-preview",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/lyria-realtime-exp",
+        "mode": "chat",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/nano-banana-pro-preview",
+        "mode": "image_generation",
+        "litellm_provider": "gemini",
+        "supports_function_calling": false,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "gemini/veo-3.1-fast-generate-001",
+        "mode": "video_generation",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/veo-3.1-fast-generate-preview",
+        "mode": "video_generation",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/veo-3.1-generate-001",
+        "mode": "video_generation",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/veo-3.1-generate-preview",
+        "mode": "video_generation",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "gemini/veo-3.1-lite-generate-preview",
+        "mode": "video_generation",
+        "litellm_provider": "gemini",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "groq/canopylabs/orpheus-arabic-saudi",
+        "mode": "audio_speech",
+        "litellm_provider": "groq",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_character": 4e-05
+      },
+      {
+        "name": "groq/canopylabs/orpheus-v1-english",
+        "mode": "audio_speech",
+        "litellm_provider": "groq",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_character": 2.2e-05
+      },
+      {
+        "name": "groq/meta-llama/llama-prompt-guard-2-22m",
+        "mode": "chat",
+        "litellm_provider": "groq",
+        "input_cost_per_token": 3e-08,
+        "output_cost_per_token": 3e-08
+      },
+      {
+        "name": "groq/meta-llama/llama-prompt-guard-2-86m",
+        "mode": "chat",
+        "litellm_provider": "groq",
+        "input_cost_per_token": 4e-08,
+        "output_cost_per_token": 4e-08
+      },
+      {
+        "name": "groq/openai/gpt-oss-120b",
+        "mode": "chat",
+        "litellm_provider": "groq",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-07,
+        "output_cost_per_token": 6e-07
+      },
+      {
+        "name": "groq/openai/gpt-oss-20b",
+        "mode": "chat",
+        "litellm_provider": "groq",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-08,
+        "output_cost_per_token": 3e-07
+      },
+      {
+        "name": "groq/openai/gpt-oss-safeguard-20b",
+        "mode": "chat",
+        "litellm_provider": "groq",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-08,
+        "output_cost_per_token": 3e-07
+      },
+      {
+        "name": "groq/qwen/qwen3.8-27b",
+        "mode": "chat",
+        "litellm_provider": "groq",
+        "supports_function_calling": true,
+        "input_cost_per_token": 8e-07,
+        "output_cost_per_token": 4e-06
+      },
+      {
+        "name": "groq/whisper-large-v3",
+        "mode": "audio_transcription",
+        "litellm_provider": "groq",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 3.083e-05
+      },
+      {
+        "name": "groq/whisper-large-v3-turbo",
+        "mode": "audio_transcription",
+        "litellm_provider": "groq",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 1.111e-05
+      },
+      {
+        "name": "nvidia_nim/nvidia/llama-3_2-nv-rerankqa-1b-v2",
+        "mode": "rerank",
+        "litellm_provider": "nvidia_nim",
+        "input_cost_per_token": 0.0,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "nvidia_nim/nvidia/nv-rerankqa-mistral-4b-v3",
+        "mode": "rerank",
+        "litellm_provider": "nvidia_nim",
+        "input_cost_per_token": 0.0,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "nvidia_nim/ranking/nvidia/llama-3.2-nv-rerankqa-1b-v2",
+        "mode": "rerank",
+        "litellm_provider": "nvidia_nim",
+        "input_cost_per_token": 0.0,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "openai/1024-x-1024/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/1024-x-1024/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/1024-x-1536/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/1024-x-1536/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/1536-x-1024/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/1536-x-1024/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/babbage-002"
+      },
+      {
+        "name": "openai/chat-latest",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 3e-05
+      },
+      {
+        "name": "openai/chatgpt-image-latest",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/computer-use-preview",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "openai/computer-use-preview-2025-03-11",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "openai/container",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/davinci-002"
+      },
+      {
+        "name": "openai/daybreak-blue-latest",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 2e-05
+      },
+      {
+        "name": "openai/daybreak-red-latest",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-05,
+        "output_cost_per_token": 7.5e-05
+      },
+      {
+        "name": "openai/ft:babbage-002"
+      },
+      {
+        "name": "openai/ft:davinci-002"
+      },
+      {
+        "name": "openai/gpt-3.5-turbo",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 1.5e-06
+      },
+      {
+        "name": "openai/gpt-3.5-turbo-0125",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 1.5e-06
+      },
+      {
+        "name": "openai/gpt-3.5-turbo-1106",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 2e-06
+      },
+      {
+        "name": "openai/gpt-3.5-turbo-16k",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 3e-06,
+        "output_cost_per_token": 4e-06
+      },
+      {
+        "name": "openai/gpt-3.5-turbo-instruct"
+      },
+      {
+        "name": "openai/gpt-3.5-turbo-instruct-0914"
+      },
+      {
+        "name": "openai/gpt-4",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-05,
+        "output_cost_per_token": 6e-05
+      },
+      {
+        "name": "openai/gpt-4-0613",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-05,
+        "output_cost_per_token": 6e-05
+      },
+      {
+        "name": "openai/gpt-4-1106-preview",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 3e-05
+      },
+      {
+        "name": "openai/gpt-4-turbo",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 3e-05
+      },
+      {
+        "name": "openai/gpt-4-turbo-2024-04-09",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 3e-05
+      },
+      {
+        "name": "openai/gpt-4.1",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 8e-06
+      },
+      {
+        "name": "openai/gpt-4.1-2025-04-14",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 8e-06
+      },
+      {
+        "name": "openai/gpt-4.1-mini",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-07,
+        "output_cost_per_token": 1.6e-06
+      },
+      {
+        "name": "openai/gpt-4.1-mini-2025-04-14",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-07,
+        "output_cost_per_token": 1.6e-06
+      },
+      {
+        "name": "openai/gpt-4.1-nano",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 4e-07
+      },
+      {
+        "name": "openai/gpt-4.1-nano-2025-04-14",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 4e-07
+      },
+      {
+        "name": "openai/gpt-4o",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-4o-2024-05-13",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 1.5e-05
+      },
+      {
+        "name": "openai/gpt-4o-2024-08-06",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-4o-2024-11-20",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-4o-audio-preview-2024-12-17",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05,
+        "input_cost_per_audio_token": 4e-05,
+        "output_cost_per_audio_token": 8e-05
+      },
+      {
+        "name": "openai/gpt-4o-audio-preview-2025-06-03",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05,
+        "input_cost_per_audio_token": 4e-05,
+        "output_cost_per_audio_token": 8e-05
+      },
+      {
+        "name": "openai/gpt-4o-mini",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-07,
+        "output_cost_per_token": 6e-07
+      },
+      {
+        "name": "openai/gpt-4o-mini-2024-07-18",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-07,
+        "output_cost_per_token": 6e-07
+      },
+      {
+        "name": "openai/gpt-4o-mini-audio-preview-2024-12-17",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-07,
+        "output_cost_per_token": 6e-07,
+        "input_cost_per_audio_token": 1e-05,
+        "output_cost_per_audio_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-4o-mini-realtime-preview-2024-12-17",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 2.4e-06,
+        "input_cost_per_audio_token": 1e-05,
+        "output_cost_per_audio_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-4o-mini-search-preview",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-07,
+        "output_cost_per_token": 6e-07
+      },
+      {
+        "name": "openai/gpt-4o-mini-search-preview-2025-03-11",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-07,
+        "output_cost_per_token": 6e-07
+      },
+      {
+        "name": "openai/gpt-4o-mini-transcribe",
+        "mode": "audio_transcription",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 5e-06,
+        "input_cost_per_second": 5e-05,
+        "input_cost_per_audio_token": 1.25e-06
+      },
+      {
+        "name": "openai/gpt-4o-mini-transcribe-2025-03-20",
+        "mode": "audio_transcription",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 5e-06,
+        "input_cost_per_second": 5e-05,
+        "input_cost_per_audio_token": 1.25e-06
+      },
+      {
+        "name": "openai/gpt-4o-mini-transcribe-2025-12-15",
+        "mode": "audio_transcription",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 5e-06,
+        "input_cost_per_second": 5e-05,
+        "input_cost_per_audio_token": 1.25e-06
+      },
+      {
+        "name": "openai/gpt-4o-mini-tts",
+        "mode": "audio_speech",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 1e-05,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "openai/gpt-4o-mini-tts-2025-03-20",
+        "mode": "audio_speech",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 1e-05,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "openai/gpt-4o-mini-tts-2025-12-15",
+        "mode": "audio_speech",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 1e-05,
+        "output_cost_per_audio_token": 1.2e-05
+      },
+      {
+        "name": "openai/gpt-4o-search-preview",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-4o-search-preview-2025-03-11",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-4o-transcribe",
+        "mode": "audio_transcription",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05,
+        "input_cost_per_second": 0.0001,
+        "input_cost_per_audio_token": 2.5e-06
+      },
+      {
+        "name": "openai/gpt-4o-transcribe-diarize",
+        "mode": "audio_transcription",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05,
+        "input_cost_per_second": 0.0001,
+        "input_cost_per_audio_token": 2.5e-06
+      },
+      {
+        "name": "openai/gpt-5",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5-2025-08-07",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5-chat",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5-chat-latest",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5-codex",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5-mini",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-07,
+        "output_cost_per_token": 2e-06
+      },
+      {
+        "name": "openai/gpt-5-mini-2025-08-07",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-07,
+        "output_cost_per_token": 2e-06
+      },
+      {
+        "name": "openai/gpt-5-nano",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-08,
+        "output_cost_per_token": 4e-07
+      },
+      {
+        "name": "openai/gpt-5-nano-2025-08-07",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-08,
+        "output_cost_per_token": 4e-07
+      },
+      {
+        "name": "openai/gpt-5-pro",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-05,
+        "output_cost_per_token": 0.00012
+      },
+      {
+        "name": "openai/gpt-5-pro-2025-10-06",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-05,
+        "output_cost_per_token": 0.00012
+      },
+      {
+        "name": "openai/gpt-5-search-api",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5-search-api-2025-10-14",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5.1",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5.1-2025-11-13",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5.1-chat-latest",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5.1-codex",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5.1-codex-max",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-5.1-codex-mini",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-07,
+        "output_cost_per_token": 2e-06
+      },
+      {
+        "name": "openai/gpt-5.2",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.75e-06,
+        "output_cost_per_token": 1.4e-05
+      },
+      {
+        "name": "openai/gpt-5.2-2025-12-11",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.75e-06,
+        "output_cost_per_token": 1.4e-05
+      },
+      {
+        "name": "openai/gpt-5.2-chat-latest",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.75e-06,
+        "output_cost_per_token": 1.4e-05
+      },
+      {
+        "name": "openai/gpt-5.2-codex",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.75e-06,
+        "output_cost_per_token": 1.4e-05
+      },
+      {
+        "name": "openai/gpt-5.2-pro",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.1e-05,
+        "output_cost_per_token": 0.000168
+      },
+      {
+        "name": "openai/gpt-5.2-pro-2025-12-11",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.1e-05,
+        "output_cost_per_token": 0.000168
+      },
+      {
+        "name": "openai/gpt-5.3-chat-latest",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.75e-06,
+        "output_cost_per_token": 1.4e-05
+      },
+      {
+        "name": "openai/gpt-5.3-codex",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.75e-06,
+        "output_cost_per_token": 1.4e-05
+      },
+      {
+        "name": "openai/gpt-5.4",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1.5e-05
+      },
+      {
+        "name": "openai/gpt-5.4-2026-03-05",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1.5e-05
+      },
+      {
+        "name": "openai/gpt-5.4-mini",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 4.5e-06
+      },
+      {
+        "name": "openai/gpt-5.4-mini-2026-03-17",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 4.5e-06
+      },
+      {
+        "name": "openai/gpt-5.4-nano",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-07,
+        "output_cost_per_token": 1.25e-06
+      },
+      {
+        "name": "openai/gpt-5.4-nano-2026-03-17",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-07,
+        "output_cost_per_token": 1.25e-06
+      },
+      {
+        "name": "openai/gpt-5.4-pro",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-05,
+        "output_cost_per_token": 0.00018
+      },
+      {
+        "name": "openai/gpt-5.4-pro-2026-03-05",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-05,
+        "output_cost_per_token": 0.00018
+      },
+      {
+        "name": "openai/gpt-5.5",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 3e-05
+      },
+      {
+        "name": "openai/gpt-5.5-2026-04-23",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 3e-05
+      },
+      {
+        "name": "openai/gpt-5.5-cyber",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 1.25e-05,
+        "output_cost_per_token": 7.5e-05
+      },
+      {
+        "name": "openai/gpt-5.5-cyber-preview",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 1.25e-05,
+        "output_cost_per_token": 7.5e-05
+      },
+      {
+        "name": "openai/gpt-5.5-pro",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-05,
+        "output_cost_per_token": 0.00018
+      },
+      {
+        "name": "openai/gpt-5.5-pro-2026-04-23",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-05,
+        "output_cost_per_token": 0.00018
+      },
+      {
+        "name": "openai/gpt-5.6",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-5.6-cyber",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-05,
+        "output_cost_per_token": 7.5e-05
+      },
+      {
+        "name": "openai/gpt-5.6-luna",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-07,
+        "output_cost_per_token": 1.2e-06
+      },
+      {
+        "name": "openai/gpt-5.6-sol",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-5.6-terra",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "openai/gpt-6-astra",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 5e-05
+      },
+      {
+        "name": "openai/gpt-6-astra-law",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 5e-05
+      },
+      {
+        "name": "openai/gpt-6-luna",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 5e-07
+      },
+      {
+        "name": "openai/gpt-6-rosalind",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-05,
+        "output_cost_per_token": 7.5e-05
+      },
+      {
+        "name": "openai/gpt-6-sol",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-6.1-sol",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-6.1-terra",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 5e-06
+      },
+      {
+        "name": "openai/gpt-audio",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05,
+        "input_cost_per_audio_token": 3.2e-05,
+        "output_cost_per_audio_token": 6.4e-05
+      },
+      {
+        "name": "openai/gpt-audio-1.5",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05,
+        "input_cost_per_audio_token": 3.2e-05,
+        "output_cost_per_audio_token": 6.4e-05
+      },
+      {
+        "name": "openai/gpt-audio-2025-08-28",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1e-05,
+        "input_cost_per_audio_token": 3.2e-05,
+        "output_cost_per_audio_token": 6.4e-05
+      },
+      {
+        "name": "openai/gpt-audio-mini",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 2.4e-06,
+        "input_cost_per_audio_token": 1e-05,
+        "output_cost_per_audio_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-audio-mini-2025-10-06",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 2.4e-06,
+        "input_cost_per_audio_token": 1e-05,
+        "output_cost_per_audio_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-audio-mini-2025-12-15",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 2.4e-06,
+        "input_cost_per_audio_token": 1e-05,
+        "output_cost_per_audio_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-daybreak-blue-latest",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-daybreak-red-latest",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-05,
+        "output_cost_per_token": 7.5e-05
+      },
+      {
+        "name": "openai/gpt-image-1",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/gpt-image-1-mini",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "openai/gpt-image-2",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/gpt-image-2-2026-04-21",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/gpt-image-2.5-flare",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/gpt-image-2.5-flare-2026-09-08",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/gpt-image-2.5-sunburst",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/gpt-image-2.5-sunburst-2026-09-08",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/gpt-live-1",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 0.000833333333333
+      },
+      {
+        "name": "openai/gpt-live-transcribe",
+        "mode": "audio_transcription",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 0.000283333333333
+      },
+      {
+        "name": "openai/gpt-realtime",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 1.6e-05,
+        "input_cost_per_audio_token": 3.2e-05,
+        "output_cost_per_audio_token": 6.4e-05
+      },
+      {
+        "name": "openai/gpt-realtime-1.5",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 1.6e-05,
+        "input_cost_per_audio_token": 3.2e-05,
+        "output_cost_per_audio_token": 6.4e-05
+      },
+      {
+        "name": "openai/gpt-realtime-2",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 2.4e-05,
+        "input_cost_per_audio_token": 3.2e-05,
+        "output_cost_per_audio_token": 6.4e-05
+      },
+      {
+        "name": "openai/gpt-realtime-2.1",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 2.4e-05,
+        "input_cost_per_audio_token": 3.2e-05,
+        "output_cost_per_audio_token": 6.4e-05
+      },
+      {
+        "name": "openai/gpt-realtime-2.1-mini",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 2.4e-06,
+        "input_cost_per_audio_token": 1e-05,
+        "output_cost_per_audio_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-realtime-2025-08-28",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 1.6e-05,
+        "input_cost_per_audio_token": 3.2e-05,
+        "output_cost_per_audio_token": 6.4e-05
+      },
+      {
+        "name": "openai/gpt-realtime-mini",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 2.4e-06,
+        "input_cost_per_audio_token": 1e-05,
+        "output_cost_per_audio_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-realtime-mini-2025-12-15",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 2.4e-06,
+        "input_cost_per_audio_token": 1e-05,
+        "output_cost_per_audio_token": 2e-05
+      },
+      {
+        "name": "openai/gpt-realtime-translate",
+        "mode": "realtime",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 0.000566666666667
+      },
+      {
+        "name": "openai/gpt-realtime-whisper",
+        "mode": "audio_transcription",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 0.000283333333333
+      },
+      {
+        "name": "openai/gpt-rosalind-discovery",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05
+      },
+      {
+        "name": "openai/gpt-rosalind-research",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05
+      },
+      {
+        "name": "openai/gpt-transcribe",
+        "mode": "audio_transcription",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 7.5e-05
+      },
+      {
+        "name": "openai/high/1024-x-1024/gpt-image-1",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/high/1024-x-1024/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/high/1024-x-1024/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/high/1024-x-1536/gpt-image-1",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/high/1024-x-1536/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/high/1024-x-1536/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/high/1536-x-1024/gpt-image-1",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/high/1536-x-1024/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/high/1536-x-1024/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1024-x-1024/gpt-image-1",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1024-x-1024/gpt-image-1-mini",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1024-x-1024/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1024-x-1024/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1024-x-1536/gpt-image-1",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1024-x-1536/gpt-image-1-mini",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1024-x-1536/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1024-x-1536/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1536-x-1024/gpt-image-1",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1536-x-1024/gpt-image-1-mini",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1536-x-1024/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/low/1536-x-1024/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1024-x-1024/gpt-image-1",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1024-x-1024/gpt-image-1-mini",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1024-x-1024/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1024-x-1024/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1024-x-1536/gpt-image-1",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1024-x-1536/gpt-image-1-mini",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1024-x-1536/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1024-x-1536/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1536-x-1024/gpt-image-1",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1536-x-1024/gpt-image-1-mini",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1536-x-1024/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/medium/1536-x-1024/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/o1",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-05,
+        "output_cost_per_token": 6e-05
+      },
+      {
+        "name": "openai/o1-2024-12-17",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-05,
+        "output_cost_per_token": 6e-05
+      },
+      {
+        "name": "openai/o1-pro",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0.00015,
+        "output_cost_per_token": 0.0006
+      },
+      {
+        "name": "openai/o1-pro-2025-03-19",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0.00015,
+        "output_cost_per_token": 0.0006
+      },
+      {
+        "name": "openai/o3",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 8e-06
+      },
+      {
+        "name": "openai/o3-2025-04-16",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 8e-06
+      },
+      {
+        "name": "openai/o3-deep-research",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 4e-05
+      },
+      {
+        "name": "openai/o3-deep-research-2025-06-26",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 4e-05
+      },
+      {
+        "name": "openai/o3-mini",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.1e-06,
+        "output_cost_per_token": 4.4e-06
+      },
+      {
+        "name": "openai/o3-mini-2025-01-31",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.1e-06,
+        "output_cost_per_token": 4.4e-06
+      },
+      {
+        "name": "openai/o3-pro",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-05,
+        "output_cost_per_token": 8e-05
+      },
+      {
+        "name": "openai/o3-pro-2025-06-10",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-05,
+        "output_cost_per_token": 8e-05
+      },
+      {
+        "name": "openai/o4-mini",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.1e-06,
+        "output_cost_per_token": 4.4e-06
+      },
+      {
+        "name": "openai/o4-mini-2025-04-16",
+        "mode": "chat",
+        "litellm_provider": "openai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.1e-06,
+        "output_cost_per_token": 4.4e-06
+      },
+      {
+        "name": "openai/o4-mini-deep-research",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 8e-06
+      },
+      {
+        "name": "openai/o4-mini-deep-research-2025-06-26",
+        "mode": "responses",
+        "litellm_provider": "openai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 8e-06
+      },
+      {
+        "name": "openai/omni-moderation-2024-09-26",
+        "mode": "moderation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0.0,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "openai/omni-moderation-latest",
+        "mode": "moderation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0.0,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "openai/sora-2",
+        "mode": "video_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/sora-2",
+        "mode": "video_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/sora-2-pro",
+        "mode": "video_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/sora-2-pro",
+        "mode": "video_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/sora-2-pro-high-res",
+        "mode": "video_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/sora-2-pro-high-res",
+        "mode": "video_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/standard/1024-x-1024/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/standard/1024-x-1024/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/standard/1024-x-1536/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/standard/1024-x-1536/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/standard/1536-x-1024/gpt-image-1.5",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/standard/1536-x-1024/gpt-image-1.5-2025-12-16",
+        "mode": "image_generation",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "openai/text-embedding-3-large",
+        "mode": "embedding",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 1.3e-07,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "openai/text-embedding-3-small",
+        "mode": "embedding",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 2e-08,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "openai/text-embedding-ada-002",
+        "mode": "embedding",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "openai/text-embedding-ada-002-v2",
+        "mode": "embedding",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "openai/tts-1",
+        "mode": "audio_speech",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_character": 1.5e-05
+      },
+      {
+        "name": "openai/tts-1-1106",
+        "mode": "audio_speech",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_character": 1.5e-05
+      },
+      {
+        "name": "openai/tts-1-hd",
+        "mode": "audio_speech",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_character": 3e-05
+      },
+      {
+        "name": "openai/tts-1-hd-1106",
+        "mode": "audio_speech",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_character": 3e-05
+      },
+      {
+        "name": "openai/whisper-1",
+        "mode": "audio_transcription",
+        "litellm_provider": "openai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 0.0001
+      },
+      {
+        "name": "openrouter/*",
+        "litellm_provider": "openrouter",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "perplexity/anthropic/claude-fable-5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 5e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-fable-5-1",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 5e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-haiku-4-5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 5e-06
+      },
+      {
+        "name": "perplexity/anthropic/claude-haiku-5-5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 5e-07
+      },
+      {
+        "name": "perplexity/anthropic/claude-opus-4-5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-opus-4-6",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-opus-4-7",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-opus-4-8",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-opus-5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 2.5e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-opus-5-5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 2e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-sonnet-4-5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-06,
+        "output_cost_per_token": 1.5e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-sonnet-4-6",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-06,
+        "output_cost_per_token": 1.5e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-sonnet-5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "perplexity/anthropic/claude-sonnet-5-5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "perplexity/codellama-34b-instruct",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 3.5e-07,
+        "output_cost_per_token": 1.4e-06
+      },
+      {
+        "name": "perplexity/codellama-70b-instruct",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 7e-07,
+        "output_cost_per_token": 2.8e-06
+      },
+      {
+        "name": "perplexity/google/gemini-2.5-flash",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "perplexity/google/gemini-2.5-pro",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "perplexity/google/gemini-3-flash-preview",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 3e-06
+      },
+      {
+        "name": "perplexity/google/gemini-3-pro-preview",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "perplexity/google/gemini-3.1-flash-lite",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-07,
+        "output_cost_per_token": 1.5e-06
+      },
+      {
+        "name": "perplexity/google/gemini-3.1-pro-preview",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "perplexity/google/gemini-3.5-flash",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-06,
+        "output_cost_per_token": 9e-06
+      },
+      {
+        "name": "perplexity/google/gemini-3.5-flash-lite",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-07,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "perplexity/google/gemini-3.6-flash",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-06,
+        "output_cost_per_token": 7.5e-06
+      },
+      {
+        "name": "perplexity/google/gemini-3.7-flash",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 3.75e-06
+      },
+      {
+        "name": "perplexity/google/gemini-3.8-flash",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 3.75e-06
+      },
+      {
+        "name": "perplexity/google/gemini-4-argon",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "perplexity/llama-2-70b-chat",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 7e-07,
+        "output_cost_per_token": 2.8e-06
+      },
+      {
+        "name": "perplexity/llama-3.1-70b-instruct",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 1e-06
+      },
+      {
+        "name": "perplexity/llama-3.1-8b-instruct",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-07,
+        "output_cost_per_token": 2e-07
+      },
+      {
+        "name": "perplexity/mistral-7b-instruct",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 7e-08,
+        "output_cost_per_token": 2.8e-07
+      },
+      {
+        "name": "perplexity/mixtral-8x7b-instruct",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 7e-08,
+        "output_cost_per_token": 2.8e-07
+      },
+      {
+        "name": "perplexity/openai/gpt-5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "perplexity/openai/gpt-5-mini",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-07,
+        "output_cost_per_token": 2e-06
+      },
+      {
+        "name": "perplexity/openai/gpt-5-nano",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 5e-08,
+        "output_cost_per_token": 4e-07
+      },
+      {
+        "name": "perplexity/openai/gpt-5.1",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "perplexity/openai/gpt-5.2",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.75e-06,
+        "output_cost_per_token": 1.4e-05
+      },
+      {
+        "name": "perplexity/openai/gpt-5.3-codex",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 3.5e-06,
+        "output_cost_per_token": 2.8e-05
+      },
+      {
+        "name": "perplexity/openai/gpt-5.4",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-06,
+        "output_cost_per_token": 1.5e-05
+      },
+      {
+        "name": "perplexity/openai/gpt-5.4-mini",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 7.5e-07,
+        "output_cost_per_token": 4.5e-06
+      },
+      {
+        "name": "perplexity/openai/gpt-5.4-nano",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-07,
+        "output_cost_per_token": 1.25e-06
+      },
+      {
+        "name": "perplexity/openai/gpt-5.5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 5e-06,
+        "output_cost_per_token": 3e-05
+      },
+      {
+        "name": "perplexity/openai/gpt-5.6-luna",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-07,
+        "output_cost_per_token": 1.2e-06
+      },
+      {
+        "name": "perplexity/openai/gpt-5.6-sol",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 4e-06,
+        "output_cost_per_token": 2e-05
+      },
+      {
+        "name": "perplexity/openai/gpt-5.6-terra",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1.2e-05
+      },
+      {
+        "name": "perplexity/openai/gpt-6-astra",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 5e-05
+      },
+      {
+        "name": "perplexity/openai/gpt-6-luna",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 5e-07
+      },
+      {
+        "name": "perplexity/openai/gpt-6-sol",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "perplexity/openai/gpt-6.1-sol",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 1e-05
+      },
+      {
+        "name": "perplexity/perplexity/deepseek-v4-flash-0731",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.3e-07,
+        "output_cost_per_token": 2.6e-07
+      },
+      {
+        "name": "perplexity/perplexity/deepseek-v4-pro-0813",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 1.32e-06,
+        "output_cost_per_token": 3.96e-06
+      },
+      {
+        "name": "perplexity/perplexity/glm-5.2",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.4e-06,
+        "output_cost_per_token": 4.4e-06
+      },
+      {
+        "name": "perplexity/perplexity/glm-5.3",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.4e-06,
+        "output_cost_per_token": 4.4e-06
+      },
+      {
+        "name": "perplexity/perplexity/glm-5.3-flash",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.5e-07,
+        "output_cost_per_token": 5e-07
+      },
+      {
+        "name": "perplexity/perplexity/kimi-k2.7-code",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 9.5e-07,
+        "output_cost_per_token": 4e-06
+      },
+      {
+        "name": "perplexity/perplexity/kimi-k3",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 3e-06,
+        "output_cost_per_token": 1.5e-05
+      },
+      {
+        "name": "perplexity/perplexity/nemotron-3-ultra-550b-a55b",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-07,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "perplexity/perplexity/nemotron-3.5-lightning-30b-a3b",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.15e-08,
+        "output_cost_per_token": 1.7e-07
+      },
+      {
+        "name": "perplexity/perplexity/nemotron-3.5-super-120b-a12b",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-07,
+        "output_cost_per_token": 5e-07
+      },
+      {
+        "name": "perplexity/perplexity/sonar",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2.5e-07,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "perplexity/pplx-70b-chat",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 7e-07,
+        "output_cost_per_token": 2.8e-06
+      },
+      {
+        "name": "perplexity/pplx-70b-online",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 0.0,
+        "output_cost_per_token": 2.8e-06
+      },
+      {
+        "name": "perplexity/pplx-7b-chat",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 7e-08,
+        "output_cost_per_token": 2.8e-07
+      },
+      {
+        "name": "perplexity/pplx-7b-online",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 0.0,
+        "output_cost_per_token": 2.8e-07
+      },
+      {
+        "name": "perplexity/pplx-decider-flash-latest",
+        "mode": "evaluation",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 1e-08,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "perplexity/pplx-decider-flash-v1.2",
+        "mode": "evaluation",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 1e-08,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "perplexity/pplx-decider-latest",
+        "mode": "evaluation",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-08,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "perplexity/pplx-decider-v1-27b",
+        "mode": "evaluation",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-08,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "perplexity/pplx-decider-v1.1-27b",
+        "mode": "evaluation",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-08,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "perplexity/pplx-decider-v1.2",
+        "mode": "evaluation",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-08,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "perplexity/pplx-embed-context-v1-0.6b",
+        "mode": "embedding",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 8e-09,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "perplexity/pplx-embed-context-v1-4b",
+        "mode": "embedding",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 5e-08,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "perplexity/pplx-embed-v1-0.6b",
+        "mode": "embedding",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 4e-09,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "perplexity/pplx-embed-v1-4b",
+        "mode": "embedding",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 3e-08,
+        "output_cost_per_token": 0.0
+      },
+      {
+        "name": "perplexity/preset/advanced-deep-research",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "perplexity/preset/deep-research",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "perplexity/preset/fast-search",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "perplexity/preset/pro-search",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "perplexity/search",
+        "mode": "search",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "perplexity/sonar",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 1e-06
+      },
+      {
+        "name": "perplexity/sonar-deep-research",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 8e-06
+      },
+      {
+        "name": "perplexity/sonar-medium-chat",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 6e-07,
+        "output_cost_per_token": 1.8e-06
+      },
+      {
+        "name": "perplexity/sonar-medium-online",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 1.8e-06
+      },
+      {
+        "name": "perplexity/sonar-pro",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 3e-06,
+        "output_cost_per_token": 1.5e-05
+      },
+      {
+        "name": "perplexity/sonar-reasoning",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 5e-06
+      },
+      {
+        "name": "perplexity/sonar-reasoning-pro",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 8e-06
+      },
+      {
+        "name": "perplexity/sonar-small-chat",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 7e-08,
+        "output_cost_per_token": 2.8e-07
+      },
+      {
+        "name": "perplexity/sonar-small-online",
+        "mode": "chat",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 2.8e-07
+      },
+      {
+        "name": "perplexity/xai/grok-4-1-fast-non-reasoning",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "perplexity/xai/grok-4.20-multi-agent",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "perplexity/xai/grok-4.20-non-reasoning",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "perplexity/xai/grok-4.20-reasoning",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "perplexity/xai/grok-4.3",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "perplexity/xai/grok-4.5",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 6e-06
+      },
+      {
+        "name": "perplexity/xai/grok-4.6",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 6e-06
+      },
+      {
+        "name": "perplexity/xai/grok-4.7",
+        "mode": "responses",
+        "litellm_provider": "perplexity",
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 6e-06
+      },
+      {
+        "name": "xai/grok-4.20",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-0309",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-0309-non-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-0309-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-beta",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-beta-0309",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-beta-0309-non-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-beta-0309-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-beta-latest",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-beta-latest-non-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-beta-latest-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-beta-non-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-beta-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-experimental-beta-0304",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-experimental-beta-0304-non-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-experimental-beta-0304-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-experimental-beta-latest",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-experimental-beta-non-reasoning-latest",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-experimental-beta-reasoning-latest",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-multi-agent",
+        "mode": "responses",
+        "litellm_provider": "xai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-multi-agent-0309",
+        "mode": "responses",
+        "litellm_provider": "xai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-multi-agent-beta-0309",
+        "mode": "responses",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-multi-agent-beta-latest",
+        "mode": "responses",
+        "litellm_provider": "xai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-multi-agent-experimental-beta-0304",
+        "mode": "responses",
+        "litellm_provider": "xai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-multi-agent-experimental-beta-latest",
+        "mode": "responses",
+        "litellm_provider": "xai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-multi-agent-latest",
+        "mode": "responses",
+        "litellm_provider": "xai",
+        "supports_function_calling": false,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-non-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-non-reasoning-gv2",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-non-reasoning-latest",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-reasoning",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-reasoning-gv2",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.20-reasoning-latest",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.3",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.3-latest",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1.25e-06,
+        "output_cost_per_token": 2.5e-06
+      },
+      {
+        "name": "xai/grok-4.5",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 6e-06
+      },
+      {
+        "name": "xai/grok-4.5-latest",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 6e-06
+      },
+      {
+        "name": "xai/grok-4.6",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 6e-06
+      },
+      {
+        "name": "xai/grok-4.7",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 6e-06
+      },
+      {
+        "name": "xai/grok-build-0.1",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 2e-06
+      },
+      {
+        "name": "xai/grok-build-latest",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 2e-06,
+        "output_cost_per_token": 6e-06
+      },
+      {
+        "name": "xai/grok-code-fast",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 2e-06
+      },
+      {
+        "name": "xai/grok-code-fast-1",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 2e-06
+      },
+      {
+        "name": "xai/grok-code-fast-1-0825",
+        "mode": "chat",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 1e-06,
+        "output_cost_per_token": 2e-06
+      },
+      {
+        "name": "xai/grok-imagine-image",
+        "mode": "image_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-image-2.0",
+        "mode": "image_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-image-2026-03-02",
+        "mode": "image_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-image-pro",
+        "mode": "image_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-image-quality",
+        "mode": "image_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-image-quality-20260403",
+        "mode": "image_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-image-quality-latest",
+        "mode": "image_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-video",
+        "mode": "video_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-video-1.5",
+        "mode": "video_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-video-1.5-2026-05-30",
+        "mode": "video_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-video-1.5-lite",
+        "mode": "video_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-imagine-video-1.5-preview",
+        "mode": "video_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      },
+      {
+        "name": "xai/grok-voice-2.0",
+        "mode": "realtime",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 0.001333333333333
+      },
+      {
+        "name": "xai/grok-voice-3.0",
+        "mode": "realtime",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 0.001333333333333
+      },
+      {
+        "name": "xai/grok-voice-latest",
+        "mode": "realtime",
+        "litellm_provider": "xai",
+        "supports_function_calling": true,
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 0.001333333333333
+      },
+      {
+        "name": "xai/grok-voice-transcribe-1.0",
+        "mode": "audio_transcription",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 2.778e-05
+      },
+      {
+        "name": "xai/grok-voice-transcribe-2.0",
+        "mode": "audio_transcription",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0,
+        "input_cost_per_second": 2.778e-05
+      },
+      {
+        "name": "xai/low/1024-x-1024/grok-imagine-image-2.0",
+        "mode": "image_generation",
+        "litellm_provider": "xai",
+        "input_cost_per_token": 0,
+        "output_cost_per_token": 0
+      }
+    ]
+  },
+  "/health/readiness": {
+    "status": 200,
+    "litellm_version": null,
+    "status_text": "healthy",
+    "keys": [
+      "db",
+      "status"
+    ]
+  }
+}

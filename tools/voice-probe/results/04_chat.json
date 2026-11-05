@@ -1,0 +1,390 @@
+{
+  "recorded_at": "2026-11-04T18:09:40-08:00",
+  "gateway_rtt_ms": [
+    193,
+    82,
+    82,
+    82,
+    82
+  ],
+  "system": "You are Sierra, a voice assistant in a pickup truck. Replies are spoken aloud. Answer in exactly two short sentences.",
+  "question": "I'm towing a camper uphill and my transmission temperature just hit 215 degrees. Should I be worried?",
+  "tool_request": "Find me a diesel station nearby.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "find_places",
+        "description": "Find places of one category near the truck's current position.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "enum": [
+                "fuel",
+                "diesel",
+                "food",
+                "coffee",
+                "rest_area",
+                "hotel",
+                "parking"
+              ],
+              "description": "The kind of place to look for."
+            }
+          },
+          "required": [
+            "category"
+          ]
+        }
+      }
+    }
+  ],
+  "extra_params": {},
+  "plain": [
+    {
+      "model": "groq/openai/gpt-oss-20b",
+      "status": 200,
+      "headers_ms": 1839,
+      "response_duration_ms": 1690.762,
+      "overhead_duration_ms": 5.114,
+      "version": "1.102.1",
+      "first_reasoning_ms": 1839,
+      "first_token_ms": 2239,
+      "first_sentence_ms": 2245,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 340,
+        "prompt_tokens": 118,
+        "total_tokens": 458
+      },
+      "total_ms": 2318,
+      "text": "Yes, that’s dangerously high. Stop immediately and check fluid, load, and possibly reduce towing weight.",
+      "reasoning_chars": 1435,
+      "attempt": 1
+    },
+    {
+      "model": "groq/openai/gpt-oss-120b",
+      "status": 200,
+      "headers_ms": 247,
+      "response_duration_ms": 44.666,
+      "overhead_duration_ms": 2.683,
+      "version": "1.102.1",
+      "first_reasoning_ms": 254,
+      "first_token_ms": 659,
+      "first_sentence_ms": 693,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 231,
+        "prompt_tokens": 118,
+        "total_tokens": 349
+      },
+      "total_ms": 764,
+      "text": "Yes, 215°F is hotter than the normal safe range and could cause damage. Pull over, let it cool, and check the transmission fluid or get help.",
+      "reasoning_chars": 883,
+      "attempt": 1
+    },
+    {
+      "model": "gemini/gemini-3.5-flash-lite",
+      "status": 200,
+      "headers_ms": 3536,
+      "response_duration_ms": 4.368,
+      "version": "1.102.1",
+      "first_token_ms": 3536,
+      "first_sentence_ms": 3591,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 34,
+        "prompt_tokens": 49,
+        "total_tokens": 83
+      },
+      "total_ms": 3670,
+      "text": "Two hundred fifteen degrees is normal for towing uphill, so don't panic yet. Just keep an eye on it and pull over if it climbs past two hundred thirty.",
+      "attempt": 1
+    },
+    {
+      "model": "gemini/gemini-3.8-flash",
+      "status": 503,
+      "headers_ms": 6465,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"b'{\\\\n  \\\"error\\\": {\\\\n    \\\"code\\\": 503,\\\\n    \\\"message\\\": \\\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\\\",\\\\n    \\\"status\\\": \\\"UNAVAILABLE\\\"\\\\n  }\\\\n}\\\\n'. Received Model Group=gemini/gemini-3.8-flash\\nAvailable Model Group Fallbacks=None\",\"type\":\"internal_server_error\",\"param\":null,\"code\":\"503\"}}",
+      "attempt": 1
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "status": 200,
+      "headers_ms": 3514,
+      "response_duration_ms": 3388.132,
+      "overhead_duration_ms": 3.359,
+      "version": "1.102.1",
+      "first_token_ms": 3514,
+      "first_sentence_ms": 3674,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 270,
+        "prompt_tokens": 54,
+        "total_tokens": 324
+      },
+      "total_ms": 3859,
+      "text": "215°F is warm but not necessarily an emergency; ease off and check your owner’s manual. If it keeps rising, a warning appears, or you smell burning, pull over safely and let it cool.",
+      "attempt": 1
+    },
+    {
+      "model": "openai/gpt-4.1-nano",
+      "status": 404,
+      "headers_ms": 566,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"litellm.NotFoundError: OpenAIException - The model `gpt-4.1-nano` has been deprecated, learn more here: https://platform.openai.com/docs/deprecations. Received Model Group=openai/gpt-4.1-nano\\nAvailable Model Group Fallbacks=None\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"404\"}}",
+      "attempt": 1
+    },
+    {
+      "model": "xai/grok-4.20-non-reasoning",
+      "status": 200,
+      "headers_ms": 563,
+      "response_duration_ms": 431.084,
+      "overhead_duration_ms": 24.235,
+      "version": "1.102.1",
+      "first_token_ms": 563,
+      "first_sentence_ms": 661,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 231,
+        "total_tokens": 251
+      },
+      "total_ms": 820,
+      "text": "Yes, pull over safely and let it cool. Towing uphill at that temp risks damage soon.",
+      "attempt": 1
+    },
+    {
+      "model": "groq/openai/gpt-oss-20b",
+      "status": 200,
+      "headers_ms": 234,
+      "response_duration_ms": 49.147,
+      "overhead_duration_ms": 2.788,
+      "version": "1.102.1",
+      "first_reasoning_ms": 284,
+      "first_token_ms": 559,
+      "first_sentence_ms": 575,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 256,
+        "prompt_tokens": 118,
+        "total_tokens": 374
+      },
+      "total_ms": 636,
+      "text": "215°F is well above the typical 180–200°F range for most transmissions. Pull over, let it cool, and check the fluid before you keep going.",
+      "reasoning_chars": 970,
+      "attempt": 2
+    },
+    {
+      "model": "groq/openai/gpt-oss-120b",
+      "status": 200,
+      "headers_ms": 261,
+      "response_duration_ms": 61.705,
+      "overhead_duration_ms": 3.226,
+      "version": "1.102.1",
+      "first_reasoning_ms": 265,
+      "first_token_ms": 593,
+      "first_sentence_ms": 623,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 192,
+        "prompt_tokens": 118,
+        "total_tokens": 310
+      },
+      "total_ms": 693,
+      "text": "Yes, 215 °F is above the normal safe range for most transmissions. Pull over safely, let it cool, and consider checking the fluid or reducing the load.",
+      "reasoning_chars": 723,
+      "attempt": 2
+    },
+    {
+      "model": "gemini/gemini-3.5-flash-lite",
+      "status": 200,
+      "headers_ms": 2465,
+      "response_duration_ms": 2.204,
+      "version": "1.102.1",
+      "first_token_ms": 2465,
+      "first_sentence_ms": 2580,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 32,
+        "prompt_tokens": 49,
+        "total_tokens": 81
+      },
+      "total_ms": 2676,
+      "text": "Two hundred fifteen degrees is totally normal while towing uphill. Just keep an eye on it, and pull over to let it cool if it passes two hundred thirty.",
+      "attempt": 2
+    },
+    {
+      "model": "gemini/gemini-3.8-flash",
+      "status": 503,
+      "headers_ms": 5504,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"b'{\\\\n  \\\"error\\\": {\\\\n    \\\"code\\\": 503,\\\\n    \\\"message\\\": \\\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\\\",\\\\n    \\\"status\\\": \\\"UNAVAILABLE\\\"\\\\n  }\\\\n}\\\\n'. Received Model Group=gemini/gemini-3.8-flash\\nAvailable Model Group Fallbacks=None\",\"type\":\"internal_server_error\",\"param\":null,\"code\":\"503\"}}",
+      "attempt": 2
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "status": 200,
+      "headers_ms": 2011,
+      "response_duration_ms": 1896.392,
+      "overhead_duration_ms": 2.769,
+      "version": "1.102.1",
+      "first_token_ms": 2012,
+      "first_sentence_ms": 2154,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 185,
+        "prompt_tokens": 54,
+        "total_tokens": 239
+      },
+      "total_ms": 2406,
+      "text": "215°F is warm but can be normal briefly while towing uphill; check your owner’s manual for the limit. Ease off and use a lower gear if appropriate, then pull over safely to cool if the temperature keeps rising or a warning appears.",
+      "attempt": 2
+    },
+    {
+      "model": "openai/gpt-4.1-nano",
+      "status": 404,
+      "headers_ms": 396,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"litellm.NotFoundError: OpenAIException - The model `gpt-4.1-nano` has been deprecated, learn more here: https://platform.openai.com/docs/deprecations. Received Model Group=openai/gpt-4.1-nano\\nAvailable Model Group Fallbacks=None\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"404\"}}",
+      "attempt": 2
+    },
+    {
+      "model": "xai/grok-4.20-non-reasoning",
+      "status": 200,
+      "headers_ms": 523,
+      "response_duration_ms": 412.549,
+      "overhead_duration_ms": 4.348,
+      "version": "1.102.1",
+      "first_token_ms": 523,
+      "first_sentence_ms": 523,
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 19,
+        "prompt_tokens": 231,
+        "total_tokens": 250
+      },
+      "total_ms": 636,
+      "text": "Yes, pull over safely and let it cool. Towing uphill at that temp risks damage.",
+      "attempt": 2
+    }
+  ],
+  "tool_runs": [
+    {
+      "model": "groq/openai/gpt-oss-20b",
+      "status": 200,
+      "headers_ms": 351,
+      "response_duration_ms": 160.321,
+      "overhead_duration_ms": 39.334,
+      "version": "1.102.1",
+      "first_reasoning_ms": 359,
+      "first_tool_delta_ms": 599,
+      "finish_reason": "tool_calls",
+      "total_ms": 599,
+      "text": "",
+      "reasoning_chars": 407,
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\":\"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    },
+    {
+      "model": "groq/openai/gpt-oss-120b",
+      "status": 200,
+      "headers_ms": 239,
+      "response_duration_ms": 43.762,
+      "overhead_duration_ms": 2.963,
+      "version": "1.102.1",
+      "first_reasoning_ms": 247,
+      "first_tool_delta_ms": 489,
+      "finish_reason": "tool_calls",
+      "total_ms": 489,
+      "text": "",
+      "reasoning_chars": 385,
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\":\"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    },
+    {
+      "model": "gemini/gemini-3.5-flash-lite",
+      "status": 200,
+      "headers_ms": 2204,
+      "response_duration_ms": 6.088,
+      "version": "1.102.1",
+      "first_tool_delta_ms": 2204,
+      "finish_reason": "tool_calls",
+      "total_ms": 2211,
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\": \"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    },
+    {
+      "model": "gemini/gemini-3.8-flash",
+      "status": 429,
+      "headers_ms": 5348,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"b'{\\\\n  \\\"error\\\": {\\\\n    \\\"code\\\": 429,\\\\n    \\\"message\\\": \\\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\\\\\\\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-3.8-flash, description: Generate content requests per minute limit exceeded on Free Tier. See https://ai.google.dev/gemini-api/docs/rate-limits.\\\\\\ ...[truncated]",
+      "verdict": "request failed"
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "status": 200,
+      "headers_ms": 1241,
+      "response_duration_ms": 635.08,
+      "overhead_duration_ms": 36.358,
+      "version": "1.102.1",
+      "first_tool_delta_ms": 1241,
+      "finish_reason": "tool_calls",
+      "total_ms": 1490,
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\":\"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    },
+    {
+      "model": "openai/gpt-4.1-nano",
+      "status": 404,
+      "headers_ms": 310,
+      "response_cost": 0.0,
+      "error": "{\"error\":{\"message\":\"litellm.NotFoundError: OpenAIException - The model `gpt-4.1-nano` has been deprecated, learn more here: https://platform.openai.com/docs/deprecations. Received Model Group=openai/gpt-4.1-nano\\nAvailable Model Group Fallbacks=None\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"404\"}}",
+      "verdict": "request failed"
+    },
+    {
+      "model": "xai/grok-4.20-non-reasoning",
+      "status": 200,
+      "headers_ms": 5041,
+      "response_duration_ms": 4936.94,
+      "overhead_duration_ms": 2.659,
+      "version": "1.102.1",
+      "first_tool_delta_ms": 5041,
+      "finish_reason": "tool_calls",
+      "total_ms": 5041,
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "find_places",
+          "arguments": "{\"category\":\"diesel\"}"
+        }
+      ],
+      "verdict": "ok"
+    }
+  ]
+}

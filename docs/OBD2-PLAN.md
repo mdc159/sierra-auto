@@ -1,6 +1,6 @@
 # Sierra Auto — OBD-II Plan
 
-**Status:** groundwork, not wired into any screen  
+**Status:** wired to the car screen (Truck and Codes) through demo, Bluetooth classic and Bluetooth LE transports. Demo mode is tested; the real transports are unverified until an adapter is plugged in. See section 11.  
 **Vehicle:** 2018 GMC Sierra 1500 Denali (6.2L L86, 8-speed 8L90 or 10-speed 10L80 depending on build)  
 **Phone:** Samsung Galaxy A54, Android 14+  
 **Adapter:** Bluetooth ELM327-class dongle in the OBD-II port under the dash
@@ -174,20 +174,66 @@ These are enforced in `ObdSafety`, tested in `ObdSafetyTest`, and must stay true
 8. **Secrets and privacy.** The VIN is personal data; log it only at debug level and never ship it to the agent endpoint without the owner choosing to.
 9. **Label what we don't trust.** Anything from `GmExtendedPids` carries `verified = false` until proven.
 
-## 9. Android wiring (next step, not done here)
+## 9. Android wiring (done 2026-11-04, lane C)
 
-- A `BluetoothClassicTransport : ObdTransport` around `BluetoothSocket`, using `InputStream.available()` plus a short sleep loop or `SO_TIMEOUT`-style polling to honour `read(buffer, timeoutMillis)`.
-- Permissions: `BLUETOOTH_CONNECT` at runtime (API 31+). Bluetooth state and device pairing live on the phone UI, never on the car screen.
-- A single foreground service owns the `Elm327Client` and exposes a `StateFlow` of decoded values; the car screen only renders.
-- Car App Library constraints apply: a gauges screen should use `PaneTemplate` or a short `ListTemplate`, refresh no faster than the host repaints, and show at most a handful of values.
-- The agent (M3) can answer "why is my check engine light on?" by reading `readStoredCodes()` and `MONITOR_STATUS` and feeding them into the prompt as text.
+### Transports (`obd/bt/`)
+
+| Class | What it does | Status |
+| --- | --- | --- |
+| `BluetoothClassicTransport` | RFCOMM socket on the SPP UUID. `read()` polls `available()` in 10 ms slices up to the deadline. `connect()` runs a watchdog thread that closes the socket after 15 s, because `BluetoothSocket.connect()` has no timeout of its own and a paired-but-unplugged dongle otherwise hangs for the stack's internal limit. | Code complete, **not tried on a real adapter** |
+| `BluetoothLeTransport` | GATT "UART": write characteristic + notify characteristic. Tries each candidate layout in `BleUartLayouts.CANDIDATES` (Nordic UART; `FFF0/FFF1/FFF2`, which OBDLink's developer notes give for the OBDLink CX and which cheap modules also use; `FFE0/FFE1`; `18F0/2AF0/2AF1`; the `E7810A71-…` custom service that open-source projects attribute to Vgate), enables notifications through the CCCD, requests MTU 247, chunks writes to the negotiated payload and serializes them on the write callback. Replies are queued in `ByteInbox`, which gives `read()` its timeout. | Code complete, **every UUID is UNVERIFIED**; the matched layout name is shown by the phone's adapter test |
+| `BluetoothPermissions` | `BLUETOOTH_CONNECT` / `BLUETOOTH_SCAN` on API 31+, `ACCESS_FINE_LOCATION` for scans on 29–30. | Manifest declares both runtime permissions, `BLUETOOTH_SCAN` with `neverForLocation`, plus the legacy `BLUETOOTH`/`BLUETOOTH_ADMIN` capped at API 30 |
+
+### Demo adapter (`obd/live/DemoTransport.kt`)
+
+A simulated ELM327 in front of a simulated 6.2L V8 (`DemoEngine`). It is the default until an adapter is picked, and it is how everything above the transport is tested on the emulator:
+
+- Speaks the real init sequence: echo, spaces and linefeeds start **on** (like a freshly reset chip) and turn off with `ATE0`/`ATS0`/`ATL0`, so the parser's stripping is exercised. `ATZ` returns `ELM327 v1.5 DEMO`, `ATDPN` returns `6`, `ATRV` returns the simulated voltage.
+- Supported-PID bitmaps for `0100`/`0120`/`0140`; one-PID and multi-PID Mode 01 requests; multi-frame replies for the VIN (`SIERRADEMO0000001`).
+- 90 s drive cycle (20 s idle, 15 s accelerate, 30 s cruise at ~65 mph, 15 s slow down, 10 s idle), coolant warming from ~62 °C to ~92 °C over three minutes, fuel dropping ~4 %/hour, small ripples on everything so a 1 Hz screen visibly changes.
+- Mode 03 returns **P0420 and P0171**; Mode 07 and 0A return none; PID 01 reports MIL on with 2 codes. Mode 22 to the TCM header returns `7F 22 31`.
+- Commands that `ObdSafety` would block get `?`, so the demo cannot be used to sneak a Mode 04 past the tests.
+
+### Settings on the phone (`ObdSettingsActivity`)
+
+Reached by the "Truck data settings" button in `MainActivity`. Lists demo mode, every paired device (classic, LE or both for dual-mode devices), and anything found by an 8 s BLE scan. The choice is saved to plain SharedPreferences (`ObdSettingsStore`; a MAC address is not a secret). **Test adapter** opens the transport on an IO thread, runs `initialize()`, reads `ATRV`, and prints the banner, the protocol by name (`ObdProtocols`), the battery voltage and, for BLE, which layout matched.
+
+### Monitor (`obd/live/TruckMonitor.kt`)
+
+One worker thread per Truck screen. It opens the transport, runs init, walks the supported PIDs once, then loops: RPM, speed, coolant, intake air, engine load, fuel level and control-module voltage (falling back to `ATRV` when PID `42` is unsupported), publishing a `TruckReadings` on a `StateFlow`. A PID that answers `NO DATA` shows as `n/a` rather than failing the screen. Three consecutive timeouts count as a dropped link. A link that drops after it worked is reconnected up to three times, 3 s apart; an adapter that cannot be reached at all (`AdapterUnavailableException`: Bluetooth off, permission missing, not paired, connect timed out) fails immediately with a message that says what to do on the phone. Codes are read on request from the same thread, so one command is in flight at any time. `close()` stops the thread, aborts a connect still in flight (`PendingConnect`: the transport registers its `BluetoothSocket` or GATT link, and closing it unblocks the connect) and closes the socket, so backing out of "Connecting…" and tapping Truck again never leaves two workers racing for the dongle.
+
+### Car screens
+
+- **Home** is now a `GridTemplate` with Talk, Places, Truck and History (four items; the host grid limit is never below six).
+- **Truck** (`TruckScreen`) is a `PaneTemplate` with four fixed-title rows ("Engine", "Speed", "Temperature", "Fuel and battery") whose secondary text carries the seven values in US units. Fixed titles mean each update is a refresh of the same template, not a new task step. The screen collects the monitor's flow and calls `invalidate()` **at most once per second** (`TruckScreen.MIN_REFRESH_MILLIS`), whatever rate the adapter answers at; the constraints doc gives no number, so this is a deliberate, conservative choice. Loading, failure (`MessageTemplate` with Retry) and missing-permission (`MessageTemplate` with Allow, which raises the dialog on the phone) are separate states. Retry pops and pushes a fresh screen so the popped template steps are handed back. The monitor is created with the screen and closed in `onDestroy`.
+- **Codes** (`TruckCodesScreen`) is a read-only `ListTemplate`: MIL status row, one row per stored code within the host list limit (overflow collapses into a "+N more" row), and a final "Read-only: Sierra never clears codes" row. There is no clear action anywhere on the car screen; see section 6.
+
+### Not done
+
+- The agent does not yet read codes or live data into its prompt (that belongs with lane B's tools).
+- No foreground service: the connection lives only while the Truck screen is on the stack. That is deliberate for this milestone, so the socket cannot outlive the screen.
 
 ## 10. Testing
 
 `app/src/test/java/com/mdc159/sierra/obd/` runs on the JVM with no Android SDK or device:
 
 - `FakeTransport` scripts command → reply pairs, can stay silent to force timeouts, and can inject late bytes.
-- `Elm327ClientTest` covers init sequence, multi-ECU replies, `NO DATA`, negative responses, timeout + resync, disconnect, DTC reading, VIN multi-frame reassembly, supported-PID walking, header switching for Mode 22, and every Mode 04 refusal path.
+- `Elm327ClientTest` covers init sequence, multi-ECU replies, `NO DATA`, negative responses, timeout + resync, disconnect, DTC reading, VIN multi-frame reassembly, supported-PID walking, header switching for Mode 22, and every Mode 04 refusal path. `Elm327BatteryVoltageTest` covers `ATRV`.
 - `ObdSafetyTest` is the regression gate for section 8. Any change that makes a write service pass must fail there.
+- `obd/live/DemoTransportTest` drives the demo through the real client: init, plausible idle values, the drive cycle changing them, warm-up, supported-PID bitmaps, the two stored codes, VIN, and that Mode 04 is still blocked.
+- `obd/live/TruckMonitorTest` runs the worker against the demo: going live with all seven values, codes on request, a missing adapter failing without retry, an init failure, a dropped link reconnecting, and `close()` closing the transport.
+- `obd/bt/ByteInboxTest` covers the BLE inbox (chunk boundaries, timeouts, close) and the layout picker and write chunking.
+- `car/TruckTemplatesTest` builds every Truck, Codes and Home template state with the real Car App Library builders, which throw on host-rule violations.
 
-Run: `./gradlew testDebugUnitTest --tests 'com.mdc159.sierra.obd.*'`
+Run: `./gradlew testDebugUnitTest --tests 'com.mdc159.sierra.obd.*' --tests 'com.mdc159.sierra.car.*'`
+
+## 11. What still needs a real adapter
+
+None of this has met a physical ELM327 on this truck. In order of risk:
+
+1. **Bluetooth classic connect on the Galaxy A54.** Some phones need `createInsecureRfcommSocketToServiceRecord` for cheap clones; this code uses the secure variant. If `connect()` fails with "Couldn't connect", try the insecure call first. The likely adapter is the **OBDLink LX**: classic Bluetooth only, paired by pressing its button (no PIN), and it warm-resets when it wakes from sleep. The init sequence therefore has to run on every reconnect; `TruckMonitor` does that (a fresh `Elm327Client.initialize()` per transport open), but it is untested against a sleeping LX.
+2. **`InputStream.available()` on `BluetoothSocket`.** Documented to work, and it is how most Android OBD apps poll, but a stack that always returns 0 would make every command time out. The fallback is a reader thread that blocks on `read()` and feeds a `ByteInbox`, the same shape the BLE transport already uses.
+3. **BLE layouts.** Every UUID in `BleUartLayouts` is unverified. Sources, for the record: OBDLink's developer notes give `FFF0`/`FFF1`/`FFF2` for the OBDLink CX; open-source projects attribute `E7810A71-…` to Vgate (not OBDLink, as an earlier draft of this PR said). The adapter test on the phone prints which layout matched; record it here with the adapter model once confirmed. If none matches, the message says "no known serial service" and the service table from a BLE scanner app is what to add.
+4. **Protocol.** `ATSP6` is correct for every 2008+ GM truck. If the first `0100` returns `UNABLE TO CONNECT` with the key on, try `ATSP0` (auto) once by changing `Elm327Config.protocol`.
+5. **PID support.** The demo answers every PID the Truck screen asks for. The real ECM may not report fuel level (PID `2F`) or oil temperature on all builds; those rows show `n/a`, which is the intended behavior, but confirm the rest match the cluster.
+6. **Timing.** 250 ms between polls of seven PIDs is comfortable on a genuine ELM327 or STN chip and may be slow on a $10 clone. The screen's 1 Hz refresh is independent of this.

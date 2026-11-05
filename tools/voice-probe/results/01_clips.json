@@ -1,0 +1,23 @@
+{
+  "recorded_at": "2026-11-04T18:04:53-08:00",
+  "tts_model": "openai/gpt-4o-mini-tts",
+  "voice": "alloy",
+  "snr_db": {
+    "noisy": 15.0,
+    "heavy": 3.0
+  },
+  "clips": {
+    "short": {
+      "text": "Find the nearest gas station with diesel on my route.",
+      "seconds": 3.55,
+      "tts_ms": 1566,
+      "clean_bytes": 113644
+    },
+    "long": {
+      "text": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now, and is there a rest area with truck parking in the next thirty miles? Also remind me to check the trailer brakes.",
+      "seconds": 13.85,
+      "tts_ms": 2942,
+      "clean_bytes": 443244
+    }
+  }
+}

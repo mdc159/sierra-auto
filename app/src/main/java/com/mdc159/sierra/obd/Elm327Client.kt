@@ -115,6 +115,17 @@ class Elm327Client(
         return replies.flatMap { Dtc.parseList(it) }.distinct()
     }
 
+    /**
+     * The adapter's own reading of the voltage on OBD pin 16 (`ATRV`), e.g. `14.1V`.
+     * Works with the key off, so it is a good "is the adapter alive" check.
+     */
+    fun readBatteryVoltage(): Double = synchronized(lock) {
+        val lines = ElmResponseParser.lines(command("ATRV", config.commandTimeoutMillis), "ATRV")
+        val match = lines.firstNotNullOfOrNull { VOLTAGE.find(it) }
+            ?: throw ObdParseException("No voltage in '${lines.joinToString(" ")}'")
+        match.groupValues[1].toDouble()
+    }
+
     /** VIN from Mode 09 PID 02. */
     fun readVin(): String {
         val reply = query(0x09, byteArrayOf(0x02)).firstOrNull()
@@ -266,5 +277,10 @@ class Elm327Client(
             }
             if (n <= 0) return
         }
+    }
+
+    private companion object {
+        /** `ATRV` prints a number followed by `V`, for example `14.1V` or `12.6V`. */
+        val VOLTAGE = Regex("([0-9]+(?:\\.[0-9]+)?)\\s*V", RegexOption.IGNORE_CASE)
     }
 }

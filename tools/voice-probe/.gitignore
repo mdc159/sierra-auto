@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+audio/
+*.wav
+*.mp3
+*.opus
+*.pcm

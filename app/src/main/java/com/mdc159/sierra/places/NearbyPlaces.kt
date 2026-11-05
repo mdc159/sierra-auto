@@ -11,6 +11,12 @@ data class NearbyPlace(
     val detail: String?,
 )
 
+/** A row title the host accepts: never blank, no stray whitespace. */
+val NearbyPlace.displayName: String get() = name.trim().ifBlank { "Unnamed place" }
+
+/** Secondary text, or null when there is nothing worth a line. */
+val NearbyPlace.displayDetail: String? get() = detail?.trim()?.ifBlank { null }
+
 /** A keyless source of nearby places. Throws [IOException] on failure. */
 fun interface PlaceSource {
     fun search(category: PlaceCategory, lat: Double, lng: Double, limit: Int): List<NearbyPlace>

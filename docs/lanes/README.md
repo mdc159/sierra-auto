@@ -27,3 +27,5 @@ Your lane is the single file in this folder that your prompt named. Do only that
 | F: GM-specific truck data | f-gm-pids.md | gm-pids |
 | G: conversational voice | g-voice.md | voice |
 | H: agent bridge | h-agent-bridge.md | agent-bridge |
+| I: Studio 54 sign-in | i-studio54-signin.md | studio54-signin |
+| J: full-duplex voice | j-duplex-voice.md | duplex-voice |

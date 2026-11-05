@@ -65,4 +65,17 @@ object ConfigStore {
             .putString("stt_model", config.sttModel.trim())
             .apply()
     }
+
+    /**
+     * The fine-grained GitHub token the `file_idea` tool uses (Issues: read and write on
+     * mdc159/sierra-auto only). Kept in the same encrypted store as the agent key, under
+     * its own key so saving the agent settings never touches it.
+     */
+    fun loadIdeaToken(context: Context): String = prefs(context).getString(IDEA_TOKEN, "").orEmpty()
+
+    fun saveIdeaToken(context: Context, token: String) {
+        prefs(context).edit().putString(IDEA_TOKEN, token.trim()).apply()
+    }
+
+    private const val IDEA_TOKEN = "github_idea_token"
 }
