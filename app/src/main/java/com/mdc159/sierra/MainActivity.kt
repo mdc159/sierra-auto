@@ -118,6 +118,12 @@ class MainActivity : ComponentActivity() {
             setOnClickListener { requestMissing() }
         })
 
+        heading("Idea loop")
+        form.addView(Button(this).apply {
+            text = "Idea settings (GitHub token)"
+            setOnClickListener { startActivity(Intent(this@MainActivity, IdeaSettingsActivity::class.java)) }
+        })
+
         setContentView(ScrollView(this).apply { addView(form) })
         loadConfig()
         refreshPermissions()
