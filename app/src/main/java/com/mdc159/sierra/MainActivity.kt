@@ -111,6 +111,12 @@ class MainActivity : ComponentActivity() {
             setOnClickListener { startActivity(Intent(this@MainActivity, Studio54Activity::class.java)) }
         })
 
+        heading("Truck data (OBD-II)")
+        form.addView(Button(this).apply {
+            text = "Truck data settings"
+            setOnClickListener { startActivity(Intent(this@MainActivity, ObdSettingsActivity::class.java)) }
+        })
+
         heading("Permissions")
         status = TextView(this)
         form.addView(status)
