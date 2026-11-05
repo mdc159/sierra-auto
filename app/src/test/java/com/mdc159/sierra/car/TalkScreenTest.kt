@@ -111,8 +111,7 @@ class TalkScreenTest {
         CarTestHost.installConfig(carContext, config(carMic = false))
         val screen = TalkScreen(carContext, session)
         CarTestHost.show(screen)
-        CarTestHost.await(what = "failure") { screen.onGetTemplate().let { it is MessageTemplate && it.actions.isNotEmpty() } }
-        val t = screen.onGetTemplate() as MessageTemplate
+        val t = awaitFailure(screen)
         assertEquals("No speech recognizer on this phone. Set a transcription URL.", t.message.toString())
         assertEquals("Try again", t.actions.single().title.toString())
         assertEquals(Action.FLAG_PRIMARY, t.actions.single().flags and Action.FLAG_PRIMARY)
@@ -175,12 +174,19 @@ class TalkScreenTest {
         shadowOf(tts).clearLastSpokenText()
         CarTestHost.click(pane.pane.actions[1])
         assertEquals(reply, shadowOf(tts).lastSpokenText)
+        // Ask again starts a fresh screen that records a second question straight away.
+        transcript = "how far to reno"
+        reply = "About two hours on I-80."
+        carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(800, 2_500)))
         CarTestHost.click(pane.pane.actions[0])
         val manager = carContext.getCarService(TestScreenManager::class.java)
         val fresh = manager.screensPushed.last()
         assertTrue(fresh is TalkScreen && fresh !== screen)
-        // The fake microphone stream is spent, so the fresh screen sees a dismissed mic and pops.
-        CarTestHost.await(what = "fresh screen to settle") { manager.screensRemoved.contains(fresh) }
+        CarTestHost.await(what = "second reply") { fresh.onGetTemplate() is PaneTemplate }
+        val second = fresh.onGetTemplate() as PaneTemplate
+        assertEquals("You: how far to reno", (second.pane.rows[0] as Row).titleText)
+        assertEquals(listOf("how far to reno", "find gas"), History.list(carContext).map { it.question })
+        assertEquals(2, session.conversation.size())
     }
 
     @Test
@@ -207,8 +213,7 @@ class TalkScreenTest {
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(800, 2_500)))
         val screen = TalkScreen(carContext, session)
         CarTestHost.show(screen)
-        CarTestHost.await(what = "failure") { screen.onGetTemplate().let { it is MessageTemplate && !it.isLoading && it.actions.isNotEmpty() } }
-        val t = screen.onGetTemplate() as MessageTemplate
+        val t = awaitFailure(screen)
         assertEquals("Agent error 503: model is overloaded", t.message.toString())
         assertEquals("Try again", t.actions.single().title.toString())
     }
@@ -221,8 +226,7 @@ class TalkScreenTest {
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(800, 2_500)))
         val screen = TalkScreen(carContext, session)
         CarTestHost.show(screen)
-        CarTestHost.await(what = "failure") { screen.onGetTemplate().let { it is MessageTemplate && !it.isLoading && it.actions.isNotEmpty() } }
-        assertEquals("Didn't catch that.", (screen.onGetTemplate() as MessageTemplate).message.toString())
+        assertEquals("Didn't catch that.", awaitFailure(screen).message.toString())
         assertTrue(History.list(carContext).isEmpty())
     }
 
@@ -233,8 +237,7 @@ class TalkScreenTest {
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(0, 7_500)))
         val screen = TalkScreen(carContext, session)
         CarTestHost.show(screen)
-        CarTestHost.await(what = "failure") { screen.onGetTemplate().let { it is MessageTemplate && !it.isLoading && it.actions.isNotEmpty() } }
-        assertEquals("Didn't hear anything.", (screen.onGetTemplate() as MessageTemplate).message.toString())
+        assertEquals("Didn't hear anything.", awaitFailure(screen).message.toString())
         assertEquals(0, server.requestCount)
     }
 
@@ -254,23 +257,10 @@ class TalkScreenTest {
         assertTrue(History.list(carContext).isEmpty())
     }
 
-    @Test
-    fun doneButtonStopsRecordingEarly() {
-        CarTestHost.installConfig(carContext, config(carMic = true))
-        CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
-        // 20 s of speech: without Done the recorder would run to its 15 s cap.
-        carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(20_000, 0)))
-        val screen = TalkScreen(carContext, session)
-        CarTestHost.show(screen)
-        val listening = screen.onGetTemplate() as MessageTemplate
-        CarTestHost.click(listening.actions.single())
-        CarTestHost.await(what = "reply") { screen.onGetTemplate() is PaneTemplate }
-        assertEquals(2, server.requestCount)
-        val upload = server.takeRequest(5, TimeUnit.SECONDS)!!
-        assertTrue(upload.path!!.endsWith("/audio/transcriptions"))
-        // 15 s of 16 kHz 16-bit PCM is 480,000 bytes; Done cut the clip well short of that.
-        assertTrue("uploaded ${upload.bodySize} bytes", upload.bodySize < 400_000)
-    }
+    // The Done button (stop recording early) is not tested end to end: the fake microphone is
+    // file-backed, so a whole clip is consumed in milliseconds and a tap can never land
+    // mid-recording deterministically. CarMicTest covers requestStop(); Done itself is an
+    // emulator check (see the PR notes).
 
     @Test
     fun everyTemplateHasABackActionAndATitle() {
@@ -278,6 +268,17 @@ class TalkScreenTest {
         val screen = TalkScreen(carContext, session)
         CarTestHost.show(screen)
         check(screen.onGetTemplate())
+    }
+
+    /**
+     * Waits for the Failed state. The Listening template is also a MessageTemplate with an
+     * action (Done), so the discriminator is the "Try again" button.
+     */
+    private fun awaitFailure(screen: TalkScreen): MessageTemplate {
+        fun failed(): MessageTemplate? = (screen.onGetTemplate() as? MessageTemplate)
+            ?.takeIf { t -> !t.isLoading && t.actions.any { it.title.toString() == "Try again" } }
+        CarTestHost.await(what = "failure") { failed() != null }
+        return failed()!!
     }
 
     private fun check(t: Template) {
