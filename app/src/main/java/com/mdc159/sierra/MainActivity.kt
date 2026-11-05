@@ -1,6 +1,7 @@
 package com.mdc159.sierra
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
@@ -102,6 +103,12 @@ class MainActivity : ComponentActivity() {
         form.addView(testButton)
         testResult = TextView(this)
         form.addView(testResult)
+
+        heading("Truck data (OBD-II)")
+        form.addView(Button(this).apply {
+            text = "Truck data settings"
+            setOnClickListener { startActivity(Intent(this@MainActivity, ObdSettingsActivity::class.java)) }
+        })
 
         heading("Permissions")
         status = TextView(this)

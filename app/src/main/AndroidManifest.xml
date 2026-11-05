@@ -7,6 +7,16 @@
     <!-- Required to use PlaceListMapTemplate (host-drawn map). -->
     <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- OBD-II adapter over Bluetooth. Android 12+ uses the runtime CONNECT/SCAN pair;
+         older versions use the install-time permissions. The scan is never for location. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 
     <!-- Package visibility for SpeechRecognizer and TextToSpeech engines (Android 11+). -->
     <queries>
@@ -50,5 +60,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- OBD-II adapter choice and test, opened from MainActivity. -->
+        <activity
+            android:name=".ObdSettingsActivity"
+            android:exported="false" />
     </application>
 </manifest>
