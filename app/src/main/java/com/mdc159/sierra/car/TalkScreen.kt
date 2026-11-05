@@ -257,16 +257,19 @@ class TalkScreen(
 }
 
 /**
- * A one-line "doing it" message shown on top of TalkScreen while a tool runs. It has no
- * header action, so the driver cannot pop it out from under TalkScreen's bookkeeping.
+ * A one-line "doing it" message shown on top of TalkScreen while a tool runs. BACK lets
+ * the driver leave it early (the tool keeps running; TalkScreen's `hideToolStatus()`
+ * tolerates a screen that is already gone). A blank status falls back to "Working…"
+ * because MessageTemplate refuses an empty message.
  */
 class ToolStatusScreen(carContext: CarContext, private val status: String) : Screen(carContext) {
     override fun onGetTemplate(): Template = template(status)
 
     companion object {
         fun template(status: String): Template =
-            MessageTemplate.Builder(Conversation.truncateForScreen(status, 80))
+            MessageTemplate.Builder(Conversation.truncateForScreen(status, 80).ifBlank { "Working…" })
                 .setTitle("Sierra")
+                .setHeaderAction(Action.BACK)
                 .setLoading(true)
                 .build()
     }

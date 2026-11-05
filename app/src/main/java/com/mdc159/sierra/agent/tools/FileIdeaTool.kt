@@ -13,7 +13,10 @@ import java.io.IOException
 
 /**
  * `file_idea`: the "speak a feature idea" loop in docs/IDEA-LOOP.md. Creates a GitHub
- * issue labelled `idea` on the Sierra repo, which starts the cloud agent that opens a PR.
+ * issue on the Sierra repo labelled [LABEL] (`idea-voice`), deliberately not `idea`:
+ * the model that calls this tool also reads text from OpenStreetMap (place names and
+ * addresses), so an issue it files must not start the cloud agent on its own. The owner
+ * reads the issue and adds the `idea` label from the GitHub app to run it.
  *
  * The fine-grained token (Issues: read and write on this one repo) comes from
  * IdeaSettingsActivity and is held encrypted by ConfigStore; it never appears in a log
@@ -79,7 +82,7 @@ class FileIdeaTool(
                     .put("ok", true)
                     .put("issue_number", number)
                     .put("label", LABEL)
-                    .put("note", "Tell the driver: filed as issue number $number.")
+                    .put("note", "Tell the driver: filed as issue number $number, to review on GitHub later.")
                     .toString()
             } catch (e: JSONException) {
                 throw ToolException("GitHub sent a reply Sierra couldn't read.", e)
@@ -125,9 +128,12 @@ class FileIdeaTool(
 
     companion object {
         const val REPO = "mdc159/sierra-auto"
-        const val LABEL = "idea"
+
+        /** Not `idea`: that label runs the cloud agent, and only the owner should apply it. */
+        const val LABEL = "idea-voice"
         const val MAX_TITLE = 80
-        private const val FOOTER = "_Spoken from the truck through Sierra Talk._"
+        private const val FOOTER =
+            "_Spoken from the truck through Sierra Talk. Add the `idea` label to hand it to the cloud agent._"
         private val JSON = "application/json; charset=utf-8".toMediaType()
 
         fun describeFailure(code: Int, body: String): String = when (code) {
