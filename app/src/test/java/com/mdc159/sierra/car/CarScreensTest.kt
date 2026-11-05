@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit
  * from the builder, which is exactly the class of crash these tests exist to catch.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [35])
 class CarScreensTest {
 
     private lateinit var carContext: TestCarContext

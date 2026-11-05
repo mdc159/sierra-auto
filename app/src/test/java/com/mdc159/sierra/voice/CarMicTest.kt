@@ -24,7 +24,7 @@ import java.io.ByteArrayInputStream
 
 /** Records from the Car App Library's fake car microphone. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [35])
 class CarMicTest {
 
     private lateinit var carContext: TestCarContext

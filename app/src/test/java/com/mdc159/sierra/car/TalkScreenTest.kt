@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit
  * what was spoken.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [35])
 class TalkScreenTest {
 
     private lateinit var carContext: TestCarContext

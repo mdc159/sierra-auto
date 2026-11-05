@@ -31,7 +31,7 @@ import org.robolectric.annotation.Config
  * checks live in [TemplateConstraintsTest].
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [35])
 class HostRulesTest {
 
     // Crash 1 (M1 home screen): two titled buttons in a PaneTemplate action strip.
