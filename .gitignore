@@ -9,3 +9,6 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+*.apk
+*.p12
+.kotlin/
