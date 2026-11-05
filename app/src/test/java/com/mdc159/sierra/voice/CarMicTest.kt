@@ -100,6 +100,14 @@ class CarMicTest {
     }
 
     @Test
+    fun missingPermissionThrowsBeforeTouchingTheHost() {
+        CarTestHost.deny(Manifest.permission.RECORD_AUDIO)
+        val e = assertThrows(AgentException::class.java) { CarMic(carContext).recordWav() }
+        assertEquals("Allow the microphone on your phone.", e.message)
+        assertFalse(carContext.fakeHost.hasToldHostToStopRecording())
+    }
+
+    @Test
     fun supportNeedsCarApi5() {
         assertFalse(CarMic.isSupported(CarTestHost.carContext(CarAppApiLevels.LEVEL_4)))
         assertTrue(CarMic.isSupported(CarTestHost.carContext(CarAppApiLevels.LEVEL_5)))
