@@ -19,10 +19,13 @@ class NominatimClient(
         .callTimeout(8, TimeUnit.SECONDS)
         .build(),
     private val baseUrl: String = "https://nominatim.openstreetmap.org/search",
+    private val requestSpacingMs: Long = 1_100,
 ) : PlaceSource {
 
     override fun search(category: PlaceCategory, lat: Double, lng: Double, limit: Int): List<NearbyPlace> {
-        val all = category.nominatimTerms.flatMap { term ->
+        val all = category.nominatimTerms.flatMapIndexed { i, term ->
+            // The public Nominatim service allows at most one request per second.
+            if (i > 0) Thread.sleep(requestSpacingMs)
             parse(get(buildUrl(baseUrl, term, lat, lng, category.radiusMeters)), category, lat, lng)
         }
         return Geo.dedupeAndSort(all)

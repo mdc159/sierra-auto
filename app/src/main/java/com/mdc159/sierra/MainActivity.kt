@@ -14,7 +14,14 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.mdc159.sierra.agent.AgentClient
 import com.mdc159.sierra.agent.AgentConfig
+import com.mdc159.sierra.net.Http
+import com.mdc159.sierra.voice.Pcm
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.mdc159.sierra.agent.ConfigStore
 
 /**
@@ -30,6 +37,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var sttUrl: EditText
     private lateinit var sttKey: EditText
     private lateinit var sttModel: EditText
+    private lateinit var testButton: Button
+    private lateinit var testResult: TextView
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refreshPermissions() }
@@ -86,6 +95,13 @@ class MainActivity : ComponentActivity() {
             text = "Save"
             setOnClickListener { save() }
         })
+        testButton = Button(this).apply {
+            text = "Test connection"
+            setOnClickListener { testConnection() }
+        }
+        form.addView(testButton)
+        testResult = TextView(this)
+        form.addView(testResult)
 
         heading("Permissions")
         status = TextView(this)
@@ -132,11 +148,48 @@ class MainActivity : ComponentActivity() {
         Toast.makeText(this, note, Toast.LENGTH_SHORT).show()
     }
 
+    /** Saves, then sends a tiny chat request (and a silent clip, if transcription is set). */
+    private fun testConnection() {
+        val config = currentConfig()
+        ConfigStore.save(this, config)
+        if (!config.isConfigured) {
+            testResult.text = "Enter a base URL and model first."
+            return
+        }
+        testButton.isEnabled = false
+        testResult.text = "Testing…"
+        lifecycleScope.launch {
+            val lines = mutableListOf<String>()
+            val client = AgentClient(config)
+            lines += try {
+                val reply = withContext(Dispatchers.IO) { client.testConnection() }
+                "Agent OK: \"$reply\""
+            } catch (e: Exception) {
+                "Agent failed: ${e.message ?: Http.describe(e)}"
+            }
+            if (config.hasTranscription) {
+                lines += try {
+                    withContext(Dispatchers.IO) { client.transcribe(Pcm.toWav(ByteArray(Pcm.SAMPLE_RATE))) }
+                    "Transcription OK."
+                } catch (e: Exception) {
+                    "Transcription failed: ${e.message ?: Http.describe(e)}"
+                }
+            }
+            testResult.text = lines.joinToString(separator = "\n")
+            testButton.isEnabled = true
+        }
+    }
+
     private fun missing(): List<String> =
         REQUIRED.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
 
     private fun requestMissing() {
-        val needed = missing()
+        val needed = missing().toMutableSet()
+        // Android 12+ ignores a fine-only request after an approximate grant; ask for both.
+        if (needed.any { it.contains("LOCATION") }) {
+            needed += Manifest.permission.ACCESS_FINE_LOCATION
+            needed += Manifest.permission.ACCESS_COARSE_LOCATION
+        }
         if (needed.isNotEmpty()) permissionLauncher.launch(needed.toTypedArray())
     }
 

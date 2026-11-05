@@ -77,6 +77,17 @@ class ConversationTest {
     }
 
     @Test
+    fun endpointerHandlesSpeechFromTheFirstChunk() {
+        val e = SpeechEndpointer(silenceMs = 300, noSpeechMs = 7_000, maxMs = 10_000)
+        var stopped = false
+        repeat(60) { if (e.offer(3000.0, 32)) stopped = true } // ~2 s of speech straight away
+        assertFalse(stopped)
+        repeat(20) { if (e.offer(150.0, 32)) stopped = true }
+        assertTrue(e.heardSpeech)
+        assertTrue(stopped)
+    }
+
+    @Test
     fun endpointerGivesUpWithoutSpeech() {
         val e = SpeechEndpointer(noSpeechMs = 320)
         var stopped = false

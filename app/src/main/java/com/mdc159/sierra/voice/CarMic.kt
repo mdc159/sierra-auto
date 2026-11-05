@@ -26,8 +26,11 @@ class CarMic(private val carContext: CarContext) {
         stopRequested = true
     }
 
-    /** Blocking; call off the main thread. Returns a WAV file, or throws [AgentException]. */
-    fun recordWav(): ByteArray {
+    /**
+     * Blocking; call off the main thread. Returns a WAV file, or null if the driver
+     * dismissed the microphone (a cancel, so nothing is sent). Throws [AgentException].
+     */
+    fun recordWav(): ByteArray? {
         val audio = carContext.getSystemService(AudioManager::class.java)
         val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
             .setAudioAttributes(
@@ -54,11 +57,15 @@ class CarMic(private val carContext: CarContext) {
             val out = ByteArrayOutputStream()
             val buf = ByteArray(CarAudioRecord.AUDIO_CONTENT_BUFFER_SIZE)
             val endpointer = SpeechEndpointer()
+            var dismissed = false
             record.startRecording()
             try {
                 while (!stopRequested) {
                     val n = record.read(buf, 0, buf.size)
-                    if (n < 0) break // driver dismissed the mic on the car screen
+                    if (n < 0) { // driver dismissed the mic on the car screen
+                        dismissed = true
+                        break
+                    }
                     if (n == 0) continue
                     out.write(buf, 0, n)
                     val chunkMs = n * 1000L / (Pcm.SAMPLE_RATE * 2)
@@ -67,6 +74,7 @@ class CarMic(private val carContext: CarContext) {
             } finally {
                 record.stopRecording()
             }
+            if (dismissed) return null
             if (!endpointer.heardSpeech && !stopRequested) throw AgentException("Didn't hear anything.")
             if (out.size() == 0) throw AgentException("Didn't hear anything.")
             return Pcm.toWav(out.toByteArray(), CarAudioRecord.AUDIO_CONTENT_SAMPLING_RATE)

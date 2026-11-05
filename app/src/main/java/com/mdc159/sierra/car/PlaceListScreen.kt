@@ -17,6 +17,7 @@ import androidx.car.app.model.PlaceListMapTemplate
 import androidx.car.app.model.PlaceMarker
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
+import androidx.car.app.versioning.CarAppApiLevels
 import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.net.Http
 import com.mdc159.sierra.places.NearbyPlace
@@ -27,7 +28,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runInterruptible
 
 /**
  * Host-drawn map plus a list of nearby places in one category.
@@ -60,8 +61,12 @@ class PlaceListScreen(
             if (!initial) invalidate()
             return
         }
-        state = State.Loading
-        if (!initial) invalidate()
+        // A refresh of a loaded list keeps the rows on screen until new ones arrive, so the
+        // host sees a content refresh rather than a new loading template.
+        if (state !is State.Loaded) {
+            state = State.Loading
+            if (!initial) invalidate()
+        }
         job?.cancel()
         job = lifecycleScope.launch {
             val location = PhoneLocation.current(carContext)
@@ -70,7 +75,8 @@ class PlaceListScreen(
             } else {
                 val limit = CarLimits.placeListLimit(carContext)
                 try {
-                    val places = withContext(Dispatchers.IO) {
+                    // runInterruptible lets cancellation interrupt the blocking HTTP calls.
+                    val places = runInterruptible(Dispatchers.IO) {
                         placeSource.search(category, location.latitude, location.longitude, limit)
                     }
                     State.Loaded(location.latitude, location.longitude, places)
@@ -94,8 +100,9 @@ class PlaceListScreen(
 
     override fun onGetTemplate(): Template {
         val onRefresh = { load() }
+        val hostRefresh = carContext.carAppApiLevel >= CarAppApiLevels.LEVEL_5
         when (val s = state) {
-            State.Loading -> return baseBuilder(category.label, onRefresh).setLoading(true).build()
+            State.Loading -> return baseBuilder(category.label, onRefresh, hostRefresh).setLoading(true).build()
             State.NeedsPermission -> return statusTemplate(
                 category.label,
                 listOf(
@@ -105,14 +112,16 @@ class PlaceListScreen(
                     mapsSearchRow(),
                 ),
                 onRefresh,
+                hostRefresh,
             )
             is State.Failed -> return statusTemplate(
                 category.label,
                 listOf(StatusRow("Couldn't load places. Tap to retry.", s.message) { load() }, mapsSearchRow()),
                 onRefresh,
+                hostRefresh,
             )
             is State.Loaded -> {
-                val builder = baseBuilder(category.label, onRefresh)
+                val builder = baseBuilder(category.label, onRefresh, hostRefresh)
                 builder.setCurrentLocationEnabled(PhoneLocation.hasPermission(carContext))
                 builder.setAnchor(Place.Builder(CarLocation.create(s.lat, s.lng)).build())
                 val items = ItemList.Builder()
@@ -157,24 +166,43 @@ class PlaceListScreen(
     class StatusRow(val title: String, val text: String?, val onClick: () -> Unit)
 
     companion object {
-        fun baseBuilder(title: String, onRefresh: () -> Unit): PlaceListMapTemplate.Builder =
-            PlaceListMapTemplate.Builder()
+        /**
+         * On Car API 5+ the host's own refresh control is used (it does not cost a template
+         * step); older hosts get a Refresh action in the strip.
+         */
+        fun baseBuilder(
+            title: String,
+            onRefresh: () -> Unit,
+            hostRefresh: Boolean = false,
+        ): PlaceListMapTemplate.Builder {
+            val builder = PlaceListMapTemplate.Builder()
                 .setTitle(title)
                 .setHeaderAction(Action.BACK)
-                .setActionStrip(
+            if (hostRefresh) {
+                builder.setOnContentRefreshListener(onRefresh)
+            } else {
+                builder.setActionStrip(
                     ActionStrip.Builder()
                         .addAction(Action.Builder().setTitle("Refresh").setOnClickListener(onRefresh).build())
                         .build()
                 )
+            }
+            return builder
+        }
 
-        fun statusTemplate(title: String, rows: List<StatusRow>, onRefresh: () -> Unit): Template {
+        fun statusTemplate(
+            title: String,
+            rows: List<StatusRow>,
+            onRefresh: () -> Unit,
+            hostRefresh: Boolean = false,
+        ): Template {
             val items = ItemList.Builder()
             rows.forEach { r ->
                 val row = Row.Builder().setTitle(r.title).setBrowsable(true).setOnClickListener(r.onClick)
                 r.text?.let { row.addText(it) }
                 items.addItem(row.build())
             }
-            return baseBuilder(title, onRefresh).setItemList(items.build()).build()
+            return baseBuilder(title, onRefresh, hostRefresh).setItemList(items.build()).build()
         }
     }
 }

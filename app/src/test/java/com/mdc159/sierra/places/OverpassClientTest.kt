@@ -77,6 +77,13 @@ class OverpassClientTest {
     }
 
     @Test
+    fun fallsBackToMirrorOnMalformedBody() {
+        primary.enqueue(MockResponse().setBody("<html>busy</html>"))
+        mirror.enqueue(MockResponse().setBody(SAMPLE))
+        assertEquals(3, overpass().search(PlaceCategory.FUEL, 38.5, -121.5, limit = 6).size)
+    }
+
+    @Test
     fun timeoutBecomesReadableError() {
         primary.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
         mirror.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))

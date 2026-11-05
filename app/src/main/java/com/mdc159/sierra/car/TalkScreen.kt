@@ -20,6 +20,7 @@ import com.mdc159.sierra.agent.AgentClient
 import com.mdc159.sierra.agent.AgentException
 import com.mdc159.sierra.agent.ConfigStore
 import com.mdc159.sierra.agent.Conversation
+import com.mdc159.sierra.agent.History
 import com.mdc159.sierra.net.Http
 import com.mdc159.sierra.voice.CarMic
 import com.mdc159.sierra.voice.PhoneRecognizer
@@ -27,6 +28,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 
 /**
@@ -81,17 +83,23 @@ class TalkScreen(
                 val heard = if (useCarMic) {
                     val carMic = CarMic(carContext).also { mic = it }
                     val wav = withContext(Dispatchers.IO) { carMic.recordWav() }
+                    if (wav == null) {
+                        // Mic dismissed on the car screen: treat as cancel, send nothing.
+                        screenManager.pop()
+                        return@launch
+                    }
                     setState(State.Thinking)
-                    withContext(Dispatchers.IO) { client.transcribe(wav) }
+                    runInterruptible(Dispatchers.IO) { client.transcribe(wav) }
                 } else {
                     PhoneRecognizer.recognize(carContext).also { setState(State.Thinking) }
                 }
                 if (heard.isBlank()) throw AgentException("Didn't catch that.")
 
-                val reply = withContext(Dispatchers.IO) {
+                val reply = runInterruptible(Dispatchers.IO) {
                     client.chat(session.conversation.messagesFor(heard))
                 }
                 session.conversation.record(heard, reply)
+                withContext(Dispatchers.IO) { runCatching { History.add(carContext, heard, reply) } }
                 setState(State.Replied(heard, reply))
                 session.speaker.speak(Conversation.forSpeech(reply))
             } catch (e: CancellationException) {
