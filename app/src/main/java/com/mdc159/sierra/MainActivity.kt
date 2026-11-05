@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.mdc159.sierra.agent.ConfigStore
+import com.mdc159.sierra.update.UpdateActivity
 
 /**
  * Phone-side settings. Sierra runs on the truck display; this is where the agent
@@ -122,6 +123,12 @@ class MainActivity : ComponentActivity() {
         form.addView(Button(this).apply {
             text = "Idea settings (GitHub token)"
             setOnClickListener { startActivity(Intent(this@MainActivity, IdeaSettingsActivity::class.java)) }
+        })
+
+        heading("Updates")
+        form.addView(Button(this).apply {
+            text = "Updates and install record"
+            setOnClickListener { startActivity(Intent(this@MainActivity, UpdateActivity::class.java)) }
         })
 
         setContentView(ScrollView(this).apply { addView(form) })
