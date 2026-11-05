@@ -51,6 +51,8 @@ Costs are one-time unless stated. "Record" means the install record from section
 
 ### (b) Shizuku install that records Play as installer
 
+> **Update 2026-11-04:** measured on the A54, this does not work there. The phone has package installer 17, which drops the Play name when the shell launches it, and a work profile that stops Sierra from launching it instead. See [TRUCK-INSTALL.md](TRUCK-INSTALL.md).
+
 | | |
 | --- | --- |
 | **Record** | Installer `com.android.vending`, initiator the system package installer (item 9). Accepted on the phones the two projects tested; not yet tested on the A54. |

@@ -30,6 +30,14 @@ data class InstallRecord(
     val looksLikeAdb: Boolean
         get() = initiating == SHELL
 
+    /**
+     * The system package installer did the install but did not keep Play as installer of record:
+     * it dropped the requested name. Which launcher it accepts the name from depends on the
+     * installer version (docs/TRUCK-INSTALL.md).
+     */
+    val droppedPlayName: Boolean
+        get() = installing != PLAY && initiating?.contains("packageinstaller") == true
+
     fun summary(): String = buildString {
         append("Installer of record: ").append(installing ?: "none").append('\n')
         append("Initiating package: ").append(initiating ?: "none").append('\n')
@@ -39,6 +47,7 @@ data class InstallRecord(
 
     fun verdict(): String = when {
         looksLikePlay -> "Recorded like a Play install. Android Auto should list Sierra in the car (not yet verified on the truck)."
+        droppedPlayName -> "Installed by the system installer, but it did not keep Play as installer of record. A real head unit is expected to hide Sierra. Install again with the other button (system installer or Shizuku)."
         looksLikeAdb -> "Installed over adb. The Desktop Head Unit does not check, but a real head unit is expected to hide Sierra even with Play as installer of record."
         else -> "Not a Play install. The Desktop Head Unit does not check, but a real head unit is expected to hide Sierra."
     }

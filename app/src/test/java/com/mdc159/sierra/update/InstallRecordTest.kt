@@ -35,6 +35,22 @@ class InstallRecordTest {
     }
 
     @Test
+    fun systemInstallerThatDroppedThePlayNameIsCalledOut() {
+        // Galaxy A54, package installer 17, launched by the shell: the requested name was removed.
+        val dropped = record("com.google.android.packageinstaller", "com.google.android.packageinstaller")
+        assertTrue(dropped.droppedPlayName)
+        assertFalse(dropped.looksLikePlay)
+        assertTrue(dropped.verdict().contains("did not keep Play"))
+        // Same phone, launched by Sierra itself: the name was kept.
+        val kept = record("com.android.vending", "com.google.android.packageinstaller")
+        assertFalse(kept.droppedPlayName)
+        assertTrue(kept.looksLikePlay)
+        // adb and self-update records are not this case.
+        assertFalse(record("com.android.vending", "com.android.shell").droppedPlayName)
+        assertFalse(record("com.mdc159.sierra", "com.mdc159.sierra").droppedPlayName)
+    }
+
+    @Test
     fun summaryNamesEveryField() {
         val s = InstallRecord("com.android.vending", "com.google.android.packageinstaller", 2, "com.android.vending").summary()
         assertTrue(s.contains("Installer of record: com.android.vending"))
