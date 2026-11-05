@@ -10,6 +10,12 @@
 #   SIGNING_KEYSTORE_BASE64, SIGNING_STORE_PASSWORD, SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD
 #                               the same release key build.yml uses (it is the Play upload key)
 #
+# Signing key, read before the first run: the first upload enrols the app in Play App
+# Signing. At that enrolment choose "Use an existing key" and upload the release key from
+# SIGNING_KEYSTORE_BASE64 with Google's PEPK tool (docs/UPDATES.md, section 4, step 3).
+# Otherwise Play re-signs with its own key, and a Play install and a GitHub Release
+# install can never update each other (INSTALL_FAILED_UPDATE_INCOMPATIBLE).
+#
 # versionCode: 100000 + this workflow's run number. GitHub Releases from build.yml use the
 # plain build run number, so a Play build always outranks a GitHub build and the in-app
 # updater never offers a downgrade. Play requires a strictly increasing versionCode.
@@ -110,8 +116,8 @@ jobs:
 
       - name: Upload to Play internal testing
         if: steps.secrets.outputs.ready == 'true'
-        # r0adkll/upload-google-play v1 (floating tag; pin to a commit once the first upload works).
-        uses: r0adkll/upload-google-play@v1
+        # v1.1.5, pinned by commit because this step receives the Play service-account key.
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.mdc159.sierra

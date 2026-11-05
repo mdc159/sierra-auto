@@ -41,6 +41,20 @@ class ReleaseInfoTest {
     }
 
     @Test
+    fun apkOutsideThisRepositorysReleasesIsRefused() {
+        val ours = "https://github.com/mdc159/sierra-auto/releases/download/v0.1.57/sierra-auto.apk"
+        for (bad in listOf(
+            "http://github.com/mdc159/sierra-auto/releases/download/v0.1.57/sierra-auto.apk",
+            "https://github.com/someone-else/sierra-auto/releases/download/v0.1.57/sierra-auto.apk",
+            "https://example.com/mdc159/sierra-auto/releases/download/v0.1.57/sierra-auto.apk",
+            "https://github.com/mdc159/sierra-auto/raw/main/sierra-auto.apk",
+        )) {
+            assertNull(bad, ReleaseInfo.parse(LATEST.replace(ours, bad)))
+        }
+        assertEquals(ours, ReleaseInfo.parse(LATEST)!!.apkUrl)
+    }
+
+    @Test
     fun comparesAgainstInstalledVersionCode() {
         val r = ReleaseInfo.parse(LATEST)!!
         assertTrue(r.isNewerThan(56))

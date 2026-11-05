@@ -24,21 +24,28 @@ data class ApkFacts(val packageName: String?, val versionCode: Long, val signers
 /** Reads signing certificates of the installed app and of an APK file through PackageManager. */
 object ApkSigners {
 
+    // Both flags: some OS builds hand back a PackageInfo whose signingInfo is null for an
+    // archive, while the older signatures array is still filled in.
+    @Suppress("DEPRECATION")
+    private const val FLAGS = PackageManager.GET_SIGNING_CERTIFICATES or PackageManager.GET_SIGNATURES
+
     @Suppress("DEPRECATION")
     fun installed(context: Context): Set<String> {
-        val info = context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+        val info = context.packageManager.getPackageInfo(context.packageName, FLAGS)
         return signersOf(info)
     }
 
     @Suppress("DEPRECATION")
     fun ofApk(context: Context, apk: File): ApkFacts {
-        val info = context.packageManager.getPackageArchiveInfo(apk.absolutePath, PackageManager.GET_SIGNING_CERTIFICATES)
+        val info = context.packageManager.getPackageArchiveInfo(apk.absolutePath, FLAGS)
             ?: throw IOException("Not a readable APK.")
         return ApkFacts(info.packageName, info.longVersionCode, signersOf(info))
     }
 
+    @Suppress("DEPRECATION")
     private fun signersOf(info: PackageInfo): Set<String> {
-        val signing = info.signingInfo ?: return emptySet()
-        return signing.apkContentsSigners.map { Fingerprints.sha256(it.toByteArray()) }.toSet()
+        val current = info.signingInfo?.apkContentsSigners
+        val signatures = if (!current.isNullOrEmpty()) current else info.signatures
+        return signatures.orEmpty().map { Fingerprints.sha256(it.toByteArray()) }.toSet()
     }
 }

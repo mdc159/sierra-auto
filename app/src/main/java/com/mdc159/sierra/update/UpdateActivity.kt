@@ -113,6 +113,8 @@ class UpdateActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // A Shizuku install grants the system installer read access to the APK; take it back.
+        shizuku.revokeGrant(File(File(cacheDir, "updates"), ReleaseInfo.APK_NAME))
         refreshInstalled()
         refreshUnknownSources()
         refreshShizuku()
@@ -207,6 +209,10 @@ class UpdateActivity : ComponentActivity() {
                 when {
                     facts.packageName != packageName ->
                         say("Refusing: the APK is ${facts.packageName}, not $packageName.")
+                    facts.signers.isEmpty() ->
+                        say("Refusing: could not read the downloaded APK's signer (PackageManager returned no certificates).")
+                    mine.isEmpty() ->
+                        say("Refusing: could not read the installed app's signer.")
                     !Fingerprints.sameSigner(mine, facts.signers) ->
                         say("Refusing: the APK is signed with a different key.\nInstalled: ${mine.joinToString()}\nDownloaded: ${facts.signers.joinToString()}")
                     else -> {

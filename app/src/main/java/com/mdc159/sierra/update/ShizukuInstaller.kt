@@ -93,6 +93,18 @@ class ShizukuInstaller(private val context: Context) {
         }
     }
 
+    /**
+     * Revokes the read grant [buildInstallerIntent] gave the system installer. The grant is made
+     * outside any activity result flow, so it would otherwise last until revoked.
+     */
+    fun revokeGrant(apk: File) {
+        if (!apk.exists()) return
+        runCatching {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apk)
+            context.revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
     private fun buildInstallerIntent(apk: File): Intent {
         val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apk)
         @Suppress("DEPRECATION")
