@@ -329,6 +329,7 @@ class TalkScreen(
                     )
                 }
             }
+            .addAction(conversationAction())
             .build()
         State.Thinking -> MessageTemplate.Builder("Thinking…")
             .setTitle("Sierra")
@@ -340,8 +341,26 @@ class TalkScreen(
             .setTitle("Sierra")
             .setHeaderAction(Action.BACK)
             .addAction(askAgainAction("Try again"))
+            .addAction(conversationAction())
             .build()
     }
+
+    /** Lane J: swaps this one-shot exchange for the full-duplex ConversationScreen. */
+    private fun conversationAction(): Action =
+        Action.Builder()
+            .setTitle("Conversation")
+            .setOnClickListener {
+                // Hand the car microphone and the audio focus back before the duplex session
+                // asks for them: stop lane G's turn and voice the same way askAgain() does.
+                mic?.requestStop()
+                controller?.stop()
+                speech?.stop()
+                job?.cancel()
+                session.speaker.stop()
+                screenManager.pop()
+                screenManager.push(ConversationScreen(carContext))
+            }
+            .build()
 
     private fun message(title: String, text: String): Template =
         MessageTemplate.Builder(text)
