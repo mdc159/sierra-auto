@@ -55,6 +55,19 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric needs the merged manifest and resources to run car Screens on the JVM.
+        unitTests.isIncludeAndroidResources = true
+    }
+
+    lint {
+        // CI runs `lintDebug` as a separate job: any error fails the build, reports are uploaded.
+        abortOnError = true
+        warningsAsErrors = false
+        checkDependencies = false
+        xmlReport = true
+        htmlReport = true
+        sarifReport = true
+        lintConfig = file("lint.xml")
     }
 }
 
@@ -76,4 +89,8 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     // Real org.json for JVM unit tests (android.jar only ships stubs).
     testImplementation("org.json:json:20240303")
+    // Car App Library test host (TestCarContext, FakeHost, ScreenController). It runs the real
+    // template validators, including the PlaceListMapTemplate row rules, under Robolectric.
+    testImplementation("androidx.car.app:app-testing:1.7.0")
+    testImplementation("org.robolectric:robolectric:4.16")
 }
