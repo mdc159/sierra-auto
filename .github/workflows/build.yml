@@ -58,6 +58,7 @@ jobs:
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
           ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
           cp app/build/outputs/apk/release/app-release.apk sierra-auto.apk
           # Prove the APK carries the release certificate, not the debug one.

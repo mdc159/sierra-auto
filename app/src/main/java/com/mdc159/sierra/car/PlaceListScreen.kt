@@ -93,45 +93,35 @@ class PlaceListScreen(
     }
 
     override fun onGetTemplate(): Template {
-        val builder = PlaceListMapTemplate.Builder()
-            .setTitle(category.label)
-            .setHeaderAction(Action.BACK)
-            .setActionStrip(
-                ActionStrip.Builder()
-                    .addAction(Action.Builder().setTitle("Refresh").setOnClickListener { load() }.build())
-                    .build()
-            )
-
+        val onRefresh = { load() }
         when (val s = state) {
-            State.Loading -> return builder.setLoading(true).build()
-            State.NeedsPermission -> builder.setItemList(
-                ItemList.Builder()
-                    .addItem(
-                        Row.Builder()
-                            .setTitle("Allow location on your phone")
-                            .addText("Sierra needs your location to find places.")
-                            .setOnClickListener { requestPermission() }
-                            .build()
-                    )
-                    .addItem(mapsSearchRow())
-                    .build()
+            State.Loading -> return baseBuilder(category.label, onRefresh).setLoading(true).build()
+            State.NeedsPermission -> return statusTemplate(
+                category.label,
+                listOf(
+                    StatusRow("Allow location on your phone", "Sierra needs it to find places.") {
+                        requestPermission()
+                    },
+                    mapsSearchRow(),
+                ),
+                onRefresh,
             )
-            is State.Failed -> builder.setItemList(
-                ItemList.Builder()
-                    .addItem(Row.Builder().setTitle("Couldn't load places").addText(s.message).build())
-                    .addItem(mapsSearchRow())
-                    .build()
+            is State.Failed -> return statusTemplate(
+                category.label,
+                listOf(StatusRow("Couldn't load places. Tap to retry.", s.message) { load() }, mapsSearchRow()),
+                onRefresh,
             )
             is State.Loaded -> {
+                val builder = baseBuilder(category.label, onRefresh)
                 builder.setCurrentLocationEnabled(PhoneLocation.hasPermission(carContext))
                 builder.setAnchor(Place.Builder(CarLocation.create(s.lat, s.lng)).build())
                 val items = ItemList.Builder()
                     .setNoItemsMessage("No ${category.label.lowercase()} found nearby.")
                 s.places.forEach { place -> items.addItem(placeRow(place)) }
                 builder.setItemList(items.build())
+                return builder.build()
             }
         }
-        return builder.build()
     }
 
     private fun placeRow(place: NearbyPlace): Row {
@@ -158,9 +148,33 @@ class PlaceListScreen(
         return row.build()
     }
 
-    private fun mapsSearchRow(): Row =
-        Row.Builder()
-            .setTitle("Search \"${category.mapsQuery}\" in Maps")
-            .setOnClickListener { NavHandoff.search(carContext, category.mapsQuery) }
-            .build()
+    private fun mapsSearchRow() = StatusRow("Search \"${category.mapsQuery}\" in Maps", null) {
+        NavHandoff.search(carContext, category.mapsQuery)
+    }
+
+    /** A non-place row. It must be browsable: PlaceListMapTemplate requires every
+     * non-browsable row to carry a DistanceSpan. */
+    class StatusRow(val title: String, val text: String?, val onClick: () -> Unit)
+
+    companion object {
+        fun baseBuilder(title: String, onRefresh: () -> Unit): PlaceListMapTemplate.Builder =
+            PlaceListMapTemplate.Builder()
+                .setTitle(title)
+                .setHeaderAction(Action.BACK)
+                .setActionStrip(
+                    ActionStrip.Builder()
+                        .addAction(Action.Builder().setTitle("Refresh").setOnClickListener(onRefresh).build())
+                        .build()
+                )
+
+        fun statusTemplate(title: String, rows: List<StatusRow>, onRefresh: () -> Unit): Template {
+            val items = ItemList.Builder()
+            rows.forEach { r ->
+                val row = Row.Builder().setTitle(r.title).setBrowsable(true).setOnClickListener(r.onClick)
+                r.text?.let { row.addText(it) }
+                items.addItem(row.build())
+            }
+            return baseBuilder(title, onRefresh).setItemList(items.build()).build()
+        }
+    }
 }
