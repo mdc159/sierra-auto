@@ -48,10 +48,11 @@ interface RealtimeChannel {
 }
 
 /**
- * EXPERIMENTAL. OpenAI Realtime protocol over a websocket to the gateway. The LiteLLM
- * realtime route, the auth header it expects, and whether `openai/gpt-realtime-2.1`
- * accepts the GA session shape have not been verified against the owner's gateway: see
- * docs/VOICE.md. The wire format and event handling are unit-tested against a fake server.
+ * EXPERIMENTAL. OpenAI Realtime protocol over a websocket to the gateway. The route
+ * (`/v1/realtime?model=…`), the bearer header and the GA session shape were measured working
+ * on the owner's gateway from a PC on 2026-11-04 (issue #39); nothing has run from the phone.
+ * Tool calls and barge-in on this path are untested. The wire format and event handling are
+ * unit-tested against a fake server. See docs/VOICE.md.
  */
 class RealtimeClient(
     private val config: RealtimeConfig,
@@ -67,6 +68,8 @@ class RealtimeClient(
     override val isOpen: Boolean get() = open.get() && !closed.get()
 
     fun connect() {
+        // Issue #39: the gateway accepted the bearer key with no other header; the beta header
+        // is kept for servers that still want it and was harmless there.
         val builder = Request.Builder().url(config.websocketUrl())
             .header("OpenAI-Beta", "realtime=v1")
         if (config.apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${config.apiKey}")

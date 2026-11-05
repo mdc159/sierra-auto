@@ -9,9 +9,12 @@ import java.util.Base64
  * Settings for one realtime (speech-to-speech) session through the gateway.
  *
  * @property baseUrl the gateway base, for example `http://host:4000/v1`; converted to ws(s).
+ * @property vadSilenceMs server voice detection: how long the driver must be quiet before
+ *   the server treats the turn as finished and answers (issue #39 measured with 500 ms).
  * @property legacyEvents use the 2024 beta event names (`input_audio_format: "pcm16"`,
  *   `response.audio.delta`) instead of the GA names (`audio.input.format`,
- *   `response.output_audio.delta`). Incoming events of both dialects are always understood.
+ *   `response.output_audio.delta`). The owner's gateway speaks the GA dialect (issue #39);
+ *   incoming events of both dialects are always understood.
  */
 data class RealtimeConfig(
     val baseUrl: String,
@@ -23,6 +26,7 @@ data class RealtimeConfig(
     val wireSampleRate: Int = 24_000,
     /** Transcription model for the driver's words, or blank for none. */
     val transcriptionModel: String = "gpt-4o-mini-transcribe",
+    val vadSilenceMs: Int = 500,
     val legacyEvents: Boolean = false,
 ) {
     /** `wss://host/v1/realtime?model=…` (or `ws://` for a plain-http Tailscale gateway). */
@@ -38,8 +42,15 @@ data class RealtimeConfig(
     }
 
     companion object {
-        const val DEFAULT_MODEL = "openai/gpt-realtime-2.1"
+        /** Measured on the owner's gateway (issue #39): 1.1 s dial, 1.1 s end of speech to first audio. */
+        const val DEFAULT_MODEL = "openai/gpt-realtime-2.1-mini"
         const val DEFAULT_VOICE = "marin"
+
+        /** Realtime models that answered through the gateway on 2026-11-04 (issue #39). */
+        val KNOWN_MODELS = listOf(
+            "openai/gpt-realtime-2.1-mini", "openai/gpt-realtime-2.1", "gemini/gemini-3.8-live",
+            "gemini/gemini-3.1-flash-live-preview", "xai/grok-voice-3.0",
+        )
     }
 }
 
@@ -66,14 +77,17 @@ object RealtimeEvents {
                 .put("voice", c.voice)
                 .put("input_audio_format", "pcm16")
                 .put("output_audio_format", "pcm16")
-                .put("turn_detection", JSONObject().put("type", "server_vad"))
+                .put("turn_detection", JSONObject().put("type", "server_vad").put("silence_duration_ms", c.vadSilenceMs))
             if (c.transcriptionModel.isNotBlank()) {
                 session.put("input_audio_transcription", JSONObject().put("model", c.transcriptionModel))
             }
         } else {
             val input = JSONObject()
                 .put("format", JSONObject().put("type", "audio/pcm").put("rate", c.wireSampleRate))
-                .put("turn_detection", JSONObject().put("type", "server_vad"))
+                .put(
+                    "turn_detection",
+                    JSONObject().put("type", "server_vad").put("silence_duration_ms", c.vadSilenceMs).put("create_response", true),
+                )
             if (c.transcriptionModel.isNotBlank()) {
                 input.put("transcription", JSONObject().put("model", c.transcriptionModel))
             }

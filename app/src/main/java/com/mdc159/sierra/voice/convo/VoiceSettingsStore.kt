@@ -64,7 +64,9 @@ object VoiceSettingsStore {
             elevenLabsKey = p.getString("elevenlabs_key", "").orEmpty(),
             elevenLabsVoiceId = p.getString("elevenlabs_voice_id", "").orEmpty(),
             elevenLabsModel = p.getString("elevenlabs_model", "").orEmpty().ifBlank { defaults.elevenLabsModel },
+            sttProvider = runCatching { SttProvider.valueOf(p.getString("stt_provider", "").orEmpty()) }.getOrDefault(defaults.sttProvider),
             sttModel = p.getString("stt_model", "").orEmpty().ifBlank { defaults.sttModel },
+            elevenLabsSttModel = p.getString("elevenlabs_stt_model", "").orEmpty().ifBlank { defaults.elevenLabsSttModel },
             conversationMode = p.getBoolean("conversation_mode", defaults.conversationMode),
             silenceTimeoutSec = p.getInt("silence_timeout_sec", defaults.silenceTimeoutSec),
             realtimeEnabled = p.getBoolean("realtime_enabled", defaults.realtimeEnabled),
@@ -83,7 +85,9 @@ object VoiceSettingsStore {
             .putString("elevenlabs_key", s.elevenLabsKey.trim())
             .putString("elevenlabs_voice_id", s.elevenLabsVoiceId.trim())
             .putString("elevenlabs_model", s.elevenLabsModel.trim())
+            .putString("stt_provider", s.sttProvider.name)
             .putString("stt_model", s.sttModel.trim())
+            .putString("elevenlabs_stt_model", s.elevenLabsSttModel.trim())
             .putBoolean("conversation_mode", s.conversationMode)
             .putInt("silence_timeout_sec", s.silenceTimeoutSec)
             .putBoolean("realtime_enabled", s.realtimeEnabled)

@@ -30,8 +30,12 @@ class RealtimeEventsTest {
         assertEquals("audio/pcm", session.getJSONObject("audio").getJSONObject("input").getJSONObject("format").getString("type"))
         assertEquals(24_000, session.getJSONObject("audio").getJSONObject("output").getJSONObject("format").getInt("rate"))
         assertEquals("marin", session.getJSONObject("audio").getJSONObject("output").getString("voice"))
-        assertEquals("server_vad", session.getJSONObject("audio").getJSONObject("input").getJSONObject("turn_detection").getString("type"))
+        val vad = session.getJSONObject("audio").getJSONObject("input").getJSONObject("turn_detection")
+        assertEquals("server_vad", vad.getString("type"))
+        assertEquals(500, vad.getInt("silence_duration_ms"))
+        assertTrue(vad.getBoolean("create_response"))
         assertTrue(session.getString("instructions").contains("Sierra"))
+        assertEquals("openai/gpt-realtime-2.1-mini", RealtimeConfig.DEFAULT_MODEL)
 
         val beta = JSONObject(RealtimeEvents.sessionUpdate(config.copy(legacyEvents = true))).getJSONObject("session")
         assertEquals("pcm16", beta.getString("input_audio_format"))

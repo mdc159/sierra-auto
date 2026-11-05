@@ -2,6 +2,7 @@ package com.mdc159.sierra.voice.convo
 
 import android.content.Context
 import com.mdc159.sierra.agent.AgentConfig
+import com.mdc159.sierra.voice.stt.ElevenLabsTranscriber
 import com.mdc159.sierra.voice.stt.GatewayTranscriber
 import com.mdc159.sierra.voice.stt.Transcriber
 import com.mdc159.sierra.voice.tts.AndroidAudioFocus
@@ -38,11 +39,15 @@ object VoiceStack {
     }
 
     /**
-     * Transcription on the gateway with the model from voice settings. Uses the dedicated
-     * transcription URL and key from the agent settings when they are set, otherwise the
-     * agent URL and key. Returns null when there is no URL at all (phone recognizer case).
+     * The transcriber the settings ask for. ElevenLabs when chosen and a key is present;
+     * otherwise the gateway with the model from voice settings, using the dedicated
+     * transcription URL and key from the agent settings when they are set, else the agent
+     * URL and key. Returns null when there is no URL at all (phone recognizer case).
      */
     fun transcriber(settings: VoiceSettings, agent: AgentConfig): Transcriber? {
+        if (settings.sttProvider == SttProvider.ELEVENLABS && settings.sttProviderIsUsable()) {
+            return ElevenLabsTranscriber(settings.elevenLabsKey, settings.elevenLabsSttModel)
+        }
         val url = agent.sttUrl.ifBlank { agent.baseUrl }
         if (url.isBlank()) return null
         val model = settings.sttModel.ifBlank { agent.sttModel }

@@ -1,5 +1,7 @@
 package com.mdc159.sierra.voice.convo
 
+import com.mdc159.sierra.voice.realtime.RealtimeConfig
+import com.mdc159.sierra.voice.stt.ElevenLabsTranscriber
 import com.mdc159.sierra.voice.stt.GatewayTranscriber
 import com.mdc159.sierra.voice.tts.ElevenLabsTts
 import com.mdc159.sierra.voice.tts.GatewayTts
@@ -16,6 +18,15 @@ enum class VoiceProvider(val label: String) {
     ELEVENLABS("ElevenLabs"),
 }
 
+/** Who turns the driver's speech into text. */
+enum class SttProvider(val label: String) {
+    /** The gateway's `/v1/audio/transcriptions` with [VoiceSettings.sttModel]. */
+    GATEWAY("Gateway (OpenAI-compatible)"),
+
+    /** ElevenLabs `scribe_v2`: measured fastest (issue #39). Needs the ElevenLabs key. */
+    ELEVENLABS("ElevenLabs scribe"),
+}
+
 /**
  * Voice settings chosen on the phone. Stored encrypted by VoiceSettingsStore, the same way
  * ConfigStore keeps the agent key. The gateway URL and key come from the agent settings.
@@ -27,22 +38,30 @@ data class VoiceSettings(
     val elevenLabsKey: String = "",
     val elevenLabsVoiceId: String = "",
     val elevenLabsModel: String = ElevenLabsTts.DEFAULT_MODEL,
+    val sttProvider: SttProvider = SttProvider.GATEWAY,
     /** Transcription model on the gateway. Blank keeps whatever the agent settings say. */
     val sttModel: String = GatewayTranscriber.DEFAULT_MODEL,
+    val elevenLabsSttModel: String = ElevenLabsTranscriber.DEFAULT_MODEL,
     /** Keep listening after each reply (no tap between turns). */
     val conversationMode: Boolean = true,
     /** Seconds of listening without speech before the conversation ends itself. */
     val silenceTimeoutSec: Int = 8,
     /** Experimental: speech-to-speech over the OpenAI Realtime protocol via the gateway. Off by default. */
     val realtimeEnabled: Boolean = false,
-    val realtimeModel: String = "openai/gpt-realtime-2.1",
-    val realtimeVoice: String = "marin",
+    val realtimeModel: String = RealtimeConfig.DEFAULT_MODEL,
+    val realtimeVoice: String = RealtimeConfig.DEFAULT_VOICE,
 ) {
     /** Whether the chosen provider has what it needs; otherwise the Android voice is used. */
     fun providerIsUsable(gatewayConfigured: Boolean): Boolean = when (provider) {
         VoiceProvider.ANDROID -> true
         VoiceProvider.GATEWAY -> gatewayConfigured && gatewayTtsModel.isNotBlank()
         VoiceProvider.ELEVENLABS -> elevenLabsKey.isNotBlank() && elevenLabsVoiceId.isNotBlank()
+    }
+
+    /** Whether the chosen transcription provider has what it needs; otherwise the gateway is used. */
+    fun sttProviderIsUsable(): Boolean = when (sttProvider) {
+        SttProvider.GATEWAY -> true
+        SttProvider.ELEVENLABS -> elevenLabsKey.isNotBlank()
     }
 
     fun conversationConfig(): ConversationConfig = ConversationConfig(

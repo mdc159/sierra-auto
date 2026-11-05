@@ -16,10 +16,13 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import com.mdc159.sierra.agent.ConfigStore
+import com.mdc159.sierra.voice.convo.SttProvider
 import com.mdc159.sierra.voice.convo.VoiceProvider
 import com.mdc159.sierra.voice.convo.VoiceSettings
 import com.mdc159.sierra.voice.convo.VoiceSettingsStore
 import com.mdc159.sierra.voice.convo.VoiceStack
+import com.mdc159.sierra.voice.realtime.RealtimeConfig
+import com.mdc159.sierra.voice.stt.ElevenLabsTranscriber
 import com.mdc159.sierra.voice.stt.GatewayTranscriber
 import com.mdc159.sierra.voice.tts.GatewayTts
 import com.mdc159.sierra.voice.tts.SpeakResult
@@ -32,8 +35,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * Phone-side voice settings: which voice reads replies, which model transcribes, whether
- * Talk keeps listening between turns, and the experimental realtime switch. Opened from a
+ * Phone-side voice settings: which voice reads replies, who transcribes, whether Talk
+ * keeps listening between turns, and the experimental realtime switch. Opened from a
  * button on the main settings screen. Keys are stored encrypted by VoiceSettingsStore.
  */
 class VoiceSettingsActivity : Activity() {
@@ -46,11 +49,15 @@ class VoiceSettingsActivity : Activity() {
     private lateinit var elevenKey: EditText
     private lateinit var elevenVoice: EditText
     private lateinit var elevenModel: EditText
+    private lateinit var sttProvider: Spinner
+    private lateinit var sttGatewaySection: LinearLayout
+    private lateinit var sttElevenSection: LinearLayout
     private lateinit var sttModel: Spinner
+    private lateinit var elevenSttModel: EditText
     private lateinit var conversationMode: Switch
     private lateinit var silenceTimeout: EditText
     private lateinit var realtime: Switch
-    private lateinit var realtimeModel: EditText
+    private lateinit var realtimeModel: Spinner
     private lateinit var realtimeVoice: EditText
     private lateinit var testButton: Button
     private lateinit var testResult: TextView
@@ -101,12 +108,22 @@ class VoiceSettingsActivity : Activity() {
             setPadding(0, pad / 2, 0, pad / 2)
             parent.addView(this)
         }
+        fun onSelect(spinner: Spinner, action: () -> Unit) {
+            spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = action()
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+        }
 
         form.addView(TextView(this).apply {
             text = "Voice"
             textSize = 24f
         })
-        note("How Sierra listens and speaks on the truck. The gateway voice and transcription use the agent URL and key from the main screen.")
+        note("How Sierra listens and speaks on the truck. Gateway voice and transcription use the agent URL and key from the main screen.")
+
+        heading("ElevenLabs (optional)")
+        note("Fastest voice and transcription measured so far. Leave blank to use the gateway only.")
+        elevenKey = field("ElevenLabs API key", "xi-…", secret = true)
 
         heading("Voice")
         provider = spinner("Provider", VoiceProvider.values().map { it.label })
@@ -114,13 +131,9 @@ class VoiceSettingsActivity : Activity() {
         gatewayModel = field("Speech model", GatewayTts.DEFAULT_MODEL, gatewaySection)
         gatewayVoice = spinner("Voice", GatewayTts.VOICES, gatewaySection)
         elevenSection = section()
-        elevenKey = field("ElevenLabs API key", "xi-…", elevenSection, secret = true)
-        elevenVoice = field("ElevenLabs voice ID", "e.g. 21m00Tcm4TlvDq8ikWAM", elevenSection)
-        elevenModel = field("ElevenLabs model", "eleven_flash_v2_5", elevenSection)
-        provider.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = showProviderFields()
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-        }
+        elevenVoice = field("ElevenLabs voice ID", "from the Voices page", elevenSection)
+        elevenModel = field("ElevenLabs model", "eleven_flash_v2_5 (fastest), eleven_v4_turbo", elevenSection)
+        onSelect(provider) { showProviderFields() }
         testButton = Button(this).apply {
             text = "Test voice"
             setOnClickListener { testVoice() }
@@ -130,16 +143,21 @@ class VoiceSettingsActivity : Activity() {
         form.addView(testResult)
 
         heading("Listening")
-        sttModel = spinner("Transcription model (on the gateway)", GatewayTranscriber.KNOWN_MODELS)
+        sttProvider = spinner("Transcription", SttProvider.values().map { it.label })
+        sttGatewaySection = section()
+        sttModel = spinner("Gateway transcription model", GatewayTranscriber.KNOWN_MODELS, sttGatewaySection)
+        sttElevenSection = section()
+        elevenSttModel = field("ElevenLabs transcription model", ElevenLabsTranscriber.DEFAULT_MODEL, sttElevenSection)
+        onSelect(sttProvider) { showProviderFields() }
         conversationMode = switch("Conversation mode: keep listening after each reply")
         silenceTimeout = field("End the conversation after this many seconds of silence", "8", number = true)
         note("Say \"stop\", \"that's all\" or \"never mind\" to end a conversation. Tap the mic while Sierra is talking to interrupt.")
 
         heading("Experimental")
         realtime = switch("Realtime speech-to-speech through the gateway (off by default)")
-        realtimeModel = field("Realtime model", "openai/gpt-realtime-2.1")
-        realtimeVoice = field("Realtime voice", "marin")
-        note("Unverified on the gateway. See docs/VOICE.md. Leave off unless you are testing it.")
+        realtimeModel = spinner("Realtime model", RealtimeConfig.KNOWN_MODELS)
+        realtimeVoice = field("Realtime voice", RealtimeConfig.DEFAULT_VOICE)
+        note("The route works from a PC (issue #39); nothing has run from the phone. Tool calls do not work on this path yet. See docs/VOICE.md.")
 
         form.addView(Button(this).apply {
             text = "Save"
@@ -161,6 +179,9 @@ class VoiceSettingsActivity : Activity() {
         val p = VoiceProvider.values()[provider.selectedItemPosition]
         gatewaySection.visibility = if (p == VoiceProvider.GATEWAY) View.VISIBLE else View.GONE
         elevenSection.visibility = if (p == VoiceProvider.ELEVENLABS) View.VISIBLE else View.GONE
+        val s = SttProvider.values()[sttProvider.selectedItemPosition]
+        sttGatewaySection.visibility = if (s == SttProvider.GATEWAY) View.VISIBLE else View.GONE
+        sttElevenSection.visibility = if (s == SttProvider.ELEVENLABS) View.VISIBLE else View.GONE
     }
 
     private fun load() {
@@ -171,29 +192,36 @@ class VoiceSettingsActivity : Activity() {
         elevenKey.setText(s.elevenLabsKey)
         elevenVoice.setText(s.elevenLabsVoiceId)
         elevenModel.setText(s.elevenLabsModel)
+        sttProvider.setSelection(s.sttProvider.ordinal)
         sttModel.setSelection(GatewayTranscriber.KNOWN_MODELS.indexOf(s.sttModel).coerceAtLeast(0))
+        elevenSttModel.setText(s.elevenLabsSttModel)
         conversationMode.isChecked = s.conversationMode
         silenceTimeout.setText(s.silenceTimeoutSec.toString())
         realtime.isChecked = s.realtimeEnabled
-        realtimeModel.setText(s.realtimeModel)
+        realtimeModel.setSelection(RealtimeConfig.KNOWN_MODELS.indexOf(s.realtimeModel).coerceAtLeast(0))
         realtimeVoice.setText(s.realtimeVoice)
         showProviderFields()
     }
 
-    private fun current(): VoiceSettings = VoiceSettings(
-        provider = VoiceProvider.values()[provider.selectedItemPosition],
-        gatewayTtsModel = gatewayModel.text.toString().trim().ifBlank { GatewayTts.DEFAULT_MODEL },
-        gatewayVoice = GatewayTts.VOICES[gatewayVoice.selectedItemPosition.coerceIn(0, GatewayTts.VOICES.size - 1)],
-        elevenLabsKey = elevenKey.text.toString().trim(),
-        elevenLabsVoiceId = elevenVoice.text.toString().trim(),
-        elevenLabsModel = elevenModel.text.toString().trim().ifBlank { VoiceSettings().elevenLabsModel },
-        sttModel = GatewayTranscriber.KNOWN_MODELS[sttModel.selectedItemPosition.coerceIn(0, GatewayTranscriber.KNOWN_MODELS.size - 1)],
-        conversationMode = conversationMode.isChecked,
-        silenceTimeoutSec = silenceTimeout.text.toString().trim().toIntOrNull()?.coerceIn(2, 60) ?: 8,
-        realtimeEnabled = realtime.isChecked,
-        realtimeModel = realtimeModel.text.toString().trim().ifBlank { VoiceSettings().realtimeModel },
-        realtimeVoice = realtimeVoice.text.toString().trim().ifBlank { VoiceSettings().realtimeVoice },
-    )
+    private fun current(): VoiceSettings {
+        val defaults = VoiceSettings()
+        return VoiceSettings(
+            provider = VoiceProvider.values()[provider.selectedItemPosition],
+            gatewayTtsModel = gatewayModel.text.toString().trim().ifBlank { GatewayTts.DEFAULT_MODEL },
+            gatewayVoice = GatewayTts.VOICES[gatewayVoice.selectedItemPosition.coerceIn(0, GatewayTts.VOICES.size - 1)],
+            elevenLabsKey = elevenKey.text.toString().trim(),
+            elevenLabsVoiceId = elevenVoice.text.toString().trim(),
+            elevenLabsModel = elevenModel.text.toString().trim().ifBlank { defaults.elevenLabsModel },
+            sttProvider = SttProvider.values()[sttProvider.selectedItemPosition],
+            sttModel = GatewayTranscriber.KNOWN_MODELS[sttModel.selectedItemPosition.coerceIn(0, GatewayTranscriber.KNOWN_MODELS.size - 1)],
+            elevenLabsSttModel = elevenSttModel.text.toString().trim().ifBlank { defaults.elevenLabsSttModel },
+            conversationMode = conversationMode.isChecked,
+            silenceTimeoutSec = silenceTimeout.text.toString().trim().toIntOrNull()?.coerceIn(2, 60) ?: defaults.silenceTimeoutSec,
+            realtimeEnabled = realtime.isChecked,
+            realtimeModel = RealtimeConfig.KNOWN_MODELS[realtimeModel.selectedItemPosition.coerceIn(0, RealtimeConfig.KNOWN_MODELS.size - 1)],
+            realtimeVoice = realtimeVoice.text.toString().trim().ifBlank { defaults.realtimeVoice },
+        )
+    }
 
     private fun save() {
         val ok = VoiceSettingsStore.save(this, current())
@@ -218,14 +246,16 @@ class VoiceSettingsActivity : Activity() {
         val voice = VoiceStack.speechOutput(this, settings, agent).also { testVoice = it }
         testButton.isEnabled = false
         testResult.text = "Speaking with ${voice.name}…"
+        val started = System.currentTimeMillis()
         testJob = scope.launch {
             val result = try {
                 voice.speak(VoiceSettings.SAMPLE_TEXT)
             } catch (e: Exception) {
                 SpeakResult.Failed(e.message ?: "Voice failed.")
             }
+            val seconds = (System.currentTimeMillis() - started) / 1000.0
             testResult.text = when (result) {
-                SpeakResult.Completed -> "OK: ${voice.name}"
+                SpeakResult.Completed -> "OK: ${voice.name} (%.1f s including playback)".format(seconds)
                 SpeakResult.Interrupted -> "Stopped."
                 is SpeakResult.Failed -> "Failed: ${result.message}"
             }
