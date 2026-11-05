@@ -76,6 +76,12 @@
             android:name=".voice.duplex.DuplexSettingsActivity"
             android:exported="false"
             android:label="Full-duplex voice" />
+        <!-- Voice settings (lane G): provider, voice, transcription model, conversation mode. -->
+        <activity
+            android:name=".VoiceSettingsActivity"
+            android:exported="false"
+            android:label="Sierra voice"
+            android:parentActivityName=".MainActivity" />
 
         <!-- OBD-II adapter choice and test, opened from MainActivity. -->
         <activity

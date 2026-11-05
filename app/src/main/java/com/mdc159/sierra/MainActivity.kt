@@ -118,6 +118,12 @@ class MainActivity : ComponentActivity() {
             setOnClickListener { startActivity(Intent(this@MainActivity, DuplexSettingsActivity::class.java)) }
         })
 
+        heading("Voice")
+        form.addView(Button(this).apply {
+            text = "Voice settings"
+            setOnClickListener { startActivity(Intent(this@MainActivity, VoiceSettingsActivity::class.java)) }
+        })
+
         heading("Truck data (OBD-II)")
         form.addView(Button(this).apply {
             text = "Truck data settings"
