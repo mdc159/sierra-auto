@@ -1,6 +1,8 @@
 package com.mdc159.sierra.car
 
 import android.Manifest
+import android.os.Handler
+import android.os.Looper
 import androidx.car.app.CarContext
 import androidx.car.app.Screen
 import androidx.car.app.constraints.ConstraintManager
@@ -21,23 +23,40 @@ import com.mdc159.sierra.agent.AgentException
 import com.mdc159.sierra.agent.ConfigStore
 import com.mdc159.sierra.agent.Conversation
 import com.mdc159.sierra.agent.History
+import com.mdc159.sierra.agent.ToolListener
+import com.mdc159.sierra.agent.tools.FileIdeaTool
+import com.mdc159.sierra.agent.tools.FindPlacesTool
+import com.mdc159.sierra.agent.tools.LatLng
+import com.mdc159.sierra.agent.tools.LocationProvider
+import com.mdc159.sierra.agent.tools.NavigateToTool
+import com.mdc159.sierra.agent.tools.Navigator
+import com.mdc159.sierra.agent.tools.Tool
 import com.mdc159.sierra.net.Http
+import com.mdc159.sierra.places.PhoneLocation
 import com.mdc159.sierra.voice.CarMic
 import com.mdc159.sierra.voice.PhoneRecognizer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 
 /**
  * One voice exchange: listen → think → reply. Each new question replaces this screen
  * with a fresh one, so the template step count never exceeds Home + 3.
+ *
+ * While the agent runs a tool, a [ToolStatusScreen] is pushed on top ("Finding fuel
+ * nearby…") and removed when the tool ends. Pushing costs one template step and popping
+ * refunds it (constraints doc §4), so the stack peaks at Home + 3 + 1 = 4 of the 5
+ * allowed, no matter how many tools run, and the Thinking message underneath never
+ * changes text (a Message text change would be a non-refundable step).
  */
 class TalkScreen(
     carContext: CarContext,
     private val session: SierraSession,
+    private val tools: List<Tool> = TalkTools.forCar(carContext),
 ) : Screen(carContext) {
 
     private sealed interface State {
@@ -52,15 +71,44 @@ class TalkScreen(
     private var state: State = State.Thinking
     private var job: Job? = null
     private var mic: CarMic? = null
+    private var statusScreen: Screen? = null
+
+    /** Called on the agent's worker thread; hops to the main thread before touching screens. */
+    private val toolListener = object : ToolListener {
+        override fun onToolStart(status: String) {
+            lifecycleScope.launch { showToolStatus(status) }
+        }
+
+        override fun onToolEnd() {
+            lifecycleScope.launch { hideToolStatus() }
+        }
+    }
 
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onDestroy(owner: LifecycleOwner) {
                 mic?.requestStop()
                 job?.cancel()
+                statusScreen = null
             }
         })
         start(initial = true)
+    }
+
+    private fun showToolStatus(status: String) {
+        hideToolStatus()
+        // Only stack the status on top of this screen while it is the one showing.
+        if (screenManager.top !== this) return
+        val screen = ToolStatusScreen(carContext, status)
+        statusScreen = screen
+        screenManager.push(screen)
+    }
+
+    /** Removes the status screen wherever it is in the stack; a no-op if it is already gone. */
+    private fun hideToolStatus() {
+        val screen = statusScreen ?: return
+        statusScreen = null
+        runCatching { screenManager.remove(screen) }
     }
 
     private fun setState(newState: State, initial: Boolean = false) {
@@ -96,8 +144,9 @@ class TalkScreen(
                 if (heard.isBlank()) throw AgentException("Didn't catch that.")
 
                 val reply = runInterruptible(Dispatchers.IO) {
-                    client.chat(session.conversation.messagesFor(heard))
+                    client.chat(session.conversation.messagesFor(heard), tools, toolListener)
                 }
+                hideToolStatus()
                 session.conversation.record(heard, reply)
                 withContext(Dispatchers.IO) { runCatching { History.add(carContext, heard, reply) } }
                 setState(State.Replied(heard, reply))
@@ -105,8 +154,10 @@ class TalkScreen(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: AgentException) {
+                hideToolStatus()
                 setState(State.Failed(e.message ?: "Something went wrong."))
             } catch (e: Exception) {
+                hideToolStatus()
                 setState(State.Failed(Http.describe(e)))
             }
         }
@@ -200,6 +251,46 @@ class TalkScreen(
 
     private fun micIcon(): CarIcon =
         CarIcon.Builder(IconCompat.createWithResource(carContext, R.drawable.ic_mic)).build()
+}
+
+/**
+ * A one-line "doing it" message shown on top of TalkScreen while a tool runs. It has no
+ * header action, so the driver cannot pop it out from under TalkScreen's bookkeeping.
+ */
+class ToolStatusScreen(carContext: CarContext, private val status: String) : Screen(carContext) {
+    override fun onGetTemplate(): Template = template(status)
+
+    companion object {
+        fun template(status: String): Template =
+            MessageTemplate.Builder(Conversation.truncateForScreen(status, 80))
+                .setTitle("Sierra")
+                .setLoading(true)
+                .build()
+    }
+}
+
+/** Wires the agent's tools to this car session: phone location, the Maps hand-off, the idea token. */
+object TalkTools {
+    fun forCar(carContext: CarContext): List<Tool> = listOf(
+        FindPlacesTool(
+            LocationProvider {
+                runBlocking { PhoneLocation.current(carContext) }?.let { LatLng(it.latitude, it.longitude) }
+            },
+        ),
+        NavigateToTool(
+            Navigator { name, lat, lng ->
+                // startCarApp talks to the host; keep it on the main thread like the Places screen does.
+                Handler(Looper.getMainLooper()).post {
+                    if (lat != null && lng != null) {
+                        NavHandoff.toPlace(carContext, lat, lng, name)
+                    } else {
+                        NavHandoff.search(carContext, name)
+                    }
+                }
+            },
+        ),
+        FileIdeaTool(token = { ConfigStore.loadIdeaToken(carContext) }),
+    )
 }
 
 /** Splits a reply into short rows for a PaneTemplate. */
