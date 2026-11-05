@@ -38,11 +38,10 @@ Until step 3 is done, `claude.yml` logs **"Idea loop skipped"** as a warning and
 
 Only accounts with **write access** to the repo can trigger the agent; the action enforces this. Leave `allowed_non_write_users` unset, because the repo is public. The workflow also refuses to run on PRs from forks, because the agent runs Gradle from the checked-out branch.
 
-## Later: an "Idea" button in the app
+## From the truck: say it to Talk
 
-This depends on M3 and M4, which don't exist yet: M3 is the Talk screen recording with `CarAudioRecord` and transcribing, and M4 is the phone Settings screen. Once both are in, an Idea action can reuse them:
+The Talk agent has a `file_idea` tool (`agent/tools/FileIdeaTool.kt`). Tap **Talk** and say something like "file an idea: remind me to turn off the heated seats when it warms up". The agent turns that into a title and body, the tool does `POST https://api.github.com/repos/mdc159/sierra-auto/issues` with `labels: ["idea"]` (JSON built with a serializer, never by string interpolation), and the spoken reply confirms the issue number. The `idea` label starts the loop exactly as above.
 
-1. **Idea** on the action strip → record → transcribe. This is voice only, so it is allowed while driving.
-2. Show a `MessageTemplate` with the transcript (2 lines max) and two buttons: **File idea** / **Cancel**. That's a single refresh-friendly step, which keeps the flow well under the 5-template limit.
-3. **File idea** → `POST https://api.github.com/repos/mdc159/sierra-auto/issues` with a JSON body holding `title` (first words), `body` (the transcript) and `labels: ["idea"]`. Build the body with a JSON serializer, never by string interpolation, because transcripts contain quotes. Authenticate with a **fine-grained PAT** limited to this repo with *Issues: read and write*. Store the PAT in the phone Settings screen (like the agent API key), never in the repo.
-4. Speak a short TTS confirmation ("Idea filed"). The issue is created as you, so you have write access, and the `idea` label starts the loop exactly as above. Confirm on the first real run that an issue created with a label fires the `labeled` trigger. GitHub normally sends `opened` followed by `labeled`.
+Setup on the phone: **Sierra → Idea settings**. Paste a **fine-grained PAT** limited to this repo with *Issues: read and write* and tap **Test token** (it only reads the repo). The token is stored encrypted next to the agent key, the same way `ConfigStore` keeps the agent settings, and never in the repo. Without a token the tool answers that it is not set up and the agent says so.
+
+Still to confirm on the first real run: that an issue created with a label fires the `labeled` trigger. GitHub normally sends `opened` followed by `labeled`.

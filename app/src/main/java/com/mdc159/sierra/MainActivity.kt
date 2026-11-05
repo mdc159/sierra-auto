@@ -1,6 +1,7 @@
 package com.mdc159.sierra
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
@@ -23,7 +24,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.mdc159.sierra.agent.ConfigStore
-import android.content.Intent
 import com.mdc159.sierra.update.UpdateActivity
 
 /**
@@ -111,6 +111,12 @@ class MainActivity : ComponentActivity() {
         form.addView(Button(this).apply {
             text = "Grant permissions"
             setOnClickListener { requestMissing() }
+        })
+
+        heading("Idea loop")
+        form.addView(Button(this).apply {
+            text = "Idea settings (GitHub token)"
+            setOnClickListener { startActivity(Intent(this@MainActivity, IdeaSettingsActivity::class.java)) }
         })
 
         heading("Updates")
