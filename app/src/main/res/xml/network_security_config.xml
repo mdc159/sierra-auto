@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Plain http is allowed only for the owner's Tailscale gateway (*.ts.net, for example
-  http://studio54.tailfedd3b.ts.net:4000/v1) and for local development addresses:
-  localhost, 127.0.0.1 and the emulator's host alias 10.0.2.2. Every other host must
-  use https; OkHttp consults this policy before opening a cleartext connection.
+  Plain http is allowed only for the owner's Tailscale network (*.ts.net) and for local
+  development addresses: localhost, 127.0.0.1 and the emulator's host alias 10.0.2.2.
+  Every other host must use https; OkHttp consults this policy before opening a
+  cleartext connection.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">

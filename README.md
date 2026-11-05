@@ -17,7 +17,7 @@ See [`docs/PLAN.md`](docs/PLAN.md).
 
    Settings are stored encrypted on the phone. No key ever goes in this repo.
 
-   Plain `http://` is allowed only for `*.ts.net` (a Tailscale gateway such as `http://studio54.tailfedd3b.ts.net:4000/v1`), `localhost`, `127.0.0.1` and the emulator alias `10.0.2.2`. Every other endpoint must be `https://`.
+   Plain `http://` is allowed only for `*.ts.net` (a Tailscale network), `localhost`, `127.0.0.1` and the emulator alias `10.0.2.2`. Every other endpoint must be `https://`.
 4. Optional, for the idea loop: tap **Idea settings** and paste a fine-grained GitHub token (repository access: only `sierra-auto`; permission: Issues, read and write). **Test token** checks it without creating anything.
 5. Plug into the truck and open **Sierra** in Android Auto.
 
