@@ -48,7 +48,15 @@ object PhoneLocation {
         val fresh = withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine { cont ->
                 val signal = CancellationSignal()
-                cont.invokeOnCancellation { signal.cancel() }
+                val legacyListener = android.location.LocationListener { loc ->
+                    if (cont.isActive) cont.resume(loc)
+                }
+                // One handler (a continuation allows only one): cancel the modern request
+                // and unregister the Android 10 listener.
+                cont.invokeOnCancellation {
+                    signal.cancel()
+                    runCatching { lm.removeUpdates(legacyListener) }
+                }
                 runCatching {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         lm.getCurrentLocation(provider, signal, context.mainExecutor) { loc ->
@@ -56,9 +64,7 @@ object PhoneLocation {
                         }
                     } else {
                         @Suppress("DEPRECATION")
-                        lm.requestSingleUpdate(provider, { loc ->
-                            if (cont.isActive) cont.resume(loc)
-                        }, context.mainLooper)
+                        lm.requestSingleUpdate(provider, legacyListener, context.mainLooper)
                     }
                 }.onFailure { if (cont.isActive) cont.resume(null) }
             }

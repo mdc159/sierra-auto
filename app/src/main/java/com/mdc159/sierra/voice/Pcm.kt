@@ -2,7 +2,7 @@ package com.mdc159.sierra.voice
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.math.max
+
 import kotlin.math.sqrt
 
 /** 16-bit little-endian mono PCM helpers. */
@@ -45,20 +45,20 @@ object Pcm {
 }
 
 /**
- * Decides when the driver has finished speaking. It learns the cabin's noise floor
- * from the first chunks, treats anything well above it as speech, and ends after
- * [silenceMs] of quiet following speech, after [noSpeechMs] with no speech at all,
- * or at [maxMs].
+ * Decides when the driver has finished speaking. The cabin's noise floor is the
+ * quietest chunk seen so far, so speech at the very start can't inflate it; anything
+ * well above the floor counts as speech. Ends after [silenceMs] of quiet following
+ * speech, after [noSpeechMs] with no speech at all, or at [maxMs].
  */
 class SpeechEndpointer(
     private val silenceMs: Long = 1_400,
     private val noSpeechMs: Long = 7_000,
     private val maxMs: Long = 15_000,
     private val minSpeechRms: Double = 500.0,
+    private val maxSpeechThreshold: Double = 1_500.0,
 ) {
     private var elapsedMs = 0L
-    private var noiseFloor = -1.0
-    private var calibrationChunks = 0
+    private var noiseFloor = Double.MAX_VALUE
     private var lastSpeechMs = -1L
 
     val heardSpeech: Boolean get() = lastSpeechMs >= 0
@@ -66,11 +66,9 @@ class SpeechEndpointer(
     /** Feeds one chunk; returns true when recording should stop. */
     fun offer(rms: Double, chunkMs: Long): Boolean {
         elapsedMs += chunkMs
-        if (calibrationChunks < 5) {
-            noiseFloor = if (noiseFloor < 0) rms else (noiseFloor * calibrationChunks + rms) / (calibrationChunks + 1)
-            calibrationChunks++
-        }
-        val threshold = max(minSpeechRms, noiseFloor * 2.5)
+        noiseFloor = minOf(noiseFloor, rms)
+        // Capped so speech in the very first chunk (before any quiet) still counts.
+        val threshold = (noiseFloor * 2.5).coerceIn(minSpeechRms, maxSpeechThreshold)
         if (rms >= threshold) lastSpeechMs = elapsedMs
         return when {
             elapsedMs >= maxMs -> true

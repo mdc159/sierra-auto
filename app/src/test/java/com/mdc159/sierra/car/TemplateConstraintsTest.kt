@@ -15,9 +15,11 @@ class TemplateConstraintsTest {
 
     @Test
     fun homeTemplateBuilds() {
-        val t = HomeScreen.template({}, {}, CarIcon.APP_ICON, CarIcon.BACK) as PaneTemplate
-        assertEquals(2, t.actionStrip!!.actions.size)
-        assertEquals(2, t.pane.actions.size)
+        for (configured in listOf(true, false)) {
+            val t = HomeScreen.template(configured, {}, {}, {}, CarIcon.APP_ICON, CarIcon.BACK) as PaneTemplate
+            assertEquals(2, t.actionStrip!!.actions.size)
+            assertEquals(2, t.pane.actions.size)
+        }
     }
 
     /** Proves these tests can see constraint violations: this is the M1 home strip. */
@@ -40,7 +42,11 @@ class TemplateConstraintsTest {
 
     @Test
     fun placeLoadingTemplateBuilds() {
-        val t = PlaceListScreen.baseBuilder("Fuel") {}.setLoading(true).build()
-        assertNotNull(t)
+        for (hostRefresh in listOf(false, true)) {
+            val t = PlaceListScreen.baseBuilder("Fuel", onRefresh = {}, hostRefresh = hostRefresh)
+                .setLoading(true)
+                .build()
+            assertNotNull(t)
+        }
     }
 }

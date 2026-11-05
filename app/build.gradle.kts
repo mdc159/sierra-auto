@@ -60,6 +60,8 @@ android {
 
 dependencies {
     implementation("androidx.car.app:app:1.7.0")
+    // Android Auto implementation of CarAudioRecord (loaded reflectively by CarAudioRecord.create).
+    implementation("androidx.car.app:app-projected:1.7.0")
     implementation("androidx.activity:activity:1.13.0")
     implementation("androidx.core:core:1.16.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")

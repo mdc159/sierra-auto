@@ -60,7 +60,9 @@ class Speaker(context: Context) : TextToSpeech.OnInitListener {
             pending = text
             return
         }
-        audio.requestAudioFocus(focus)
+        // If focus is denied (say, a phone call), stay quiet; the reply is on screen and
+        // Repeat can speak it later.
+        if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "sierra-${ids.incrementAndGet()}")
     }
 

@@ -25,7 +25,7 @@ class NominatimClientTest {
     @After
     fun tearDown() = server.shutdown()
 
-    private fun nominatim() = NominatimClient(client, server.url("/search").toString())
+    private fun nominatim() = NominatimClient(client, server.url("/search").toString(), requestSpacingMs = 0)
 
     @Test
     fun queriesEveryTermAndSortsByDistance() {

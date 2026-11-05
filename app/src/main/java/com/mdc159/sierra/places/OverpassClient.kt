@@ -4,6 +4,7 @@ import com.mdc159.sierra.net.Http
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
 import java.util.Locale
@@ -30,6 +31,8 @@ class OverpassClient(
                 return parse(body, category, lat, lng).take(limit)
             } catch (e: IOException) {
                 lastError = e
+            } catch (e: JSONException) {
+                lastError = IOException("Places server sent a bad response.", e)
             }
         }
         throw IOException(Http.describe(lastError ?: IOException("no endpoint")), lastError)
@@ -56,7 +59,7 @@ class OverpassClient(
         fun buildQuery(category: PlaceCategory, lat: Double, lng: Double, radiusMeters: Int): String {
             val around = String.format(Locale.US, "(around:%d,%.6f,%.6f)", radiusMeters, lat, lng)
             val clauses = category.overpassFilters.joinToString("") { "nwr$it$around;" }
-            return "[out:json][timeout:8];($clauses);out center 60;"
+            return "[out:json][timeout:8];($clauses);out center 200;"
         }
 
         fun parse(json: String, category: PlaceCategory, lat: Double, lng: Double): List<NearbyPlace> {
