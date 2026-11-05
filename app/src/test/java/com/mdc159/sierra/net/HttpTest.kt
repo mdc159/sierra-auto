@@ -45,13 +45,12 @@ class HttpTest {
         assertEquals("Network error.", Http.describe(IOException()))
         assertEquals("Network error.", Http.describe(IOException("   ")))
         assertEquals("boom", Http.describe(IllegalStateException("boom")))
-        val long = Http.describe(IOException("x".repeat(500)))
-        assertEquals(120, long.length)
+        val long = Http.describe(IOException("x".repeat(100) + "y".repeat(400)))
+        assertEquals("x".repeat(100) + "y".repeat(20), long)
     }
 
     @Test
     fun userAgentIdentifiesTheAppWithoutSecrets() {
-        assertTrue(Http.USER_AGENT.startsWith("SierraAuto/"))
-        assertTrue(Http.USER_AGENT.contains("github.com/mdc159/sierra-auto"))
+        assertEquals("SierraAuto/0.1 (personal Android Auto app; github.com/mdc159/sierra-auto)", Http.USER_AGENT)
     }
 }
