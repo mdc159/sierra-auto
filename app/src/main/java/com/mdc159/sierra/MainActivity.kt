@@ -19,6 +19,7 @@ import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.agent.AgentClient
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.net.Http
+import com.mdc159.sierra.studio54.Studio54Activity
 import com.mdc159.sierra.voice.Pcm
 import com.mdc159.sierra.voice.duplex.DuplexSettingsActivity
 import kotlinx.coroutines.Dispatchers
@@ -105,6 +106,11 @@ class MainActivity : ComponentActivity() {
         form.addView(testButton)
         testResult = TextView(this)
         form.addView(testResult)
+
+        form.addView(Button(this).apply {
+            text = "Studio 54 sign-in"
+            setOnClickListener { startActivity(Intent(this@MainActivity, Studio54Activity::class.java)) }
+        })
 
         heading("Full-duplex voice")
         form.addView(Button(this).apply {

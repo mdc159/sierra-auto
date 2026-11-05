@@ -1,0 +1,718 @@
+{
+  "recorded_at": "2026-11-04T18:17:41-08:00",
+  "truth": "Find the nearest gas station with diesel on my route.",
+  "rows": [
+    {
+      "model": "openai/gpt-realtime-2.1",
+      "mode": "manual",
+      "input_rate": 24000,
+      "clip": "short_clean",
+      "events": [
+        [
+          null,
+          "session.updated"
+        ],
+        [
+          246,
+          "input_audio_buffer.committed"
+        ],
+        [
+          246,
+          "conversation.item.added"
+        ],
+        [
+          247,
+          "conversation.item.done"
+        ],
+        [
+          252,
+          "response.created"
+        ],
+        [
+          418,
+          "response.output_item.added"
+        ],
+        [
+          432,
+          "response.content_part.added"
+        ],
+        [
+          432,
+          "response.output_audio_transcript.delta"
+        ],
+        [
+          718,
+          "response.output_audio.delta"
+        ],
+        [
+          3096,
+          "response.output_audio.done"
+        ],
+        [
+          3096,
+          "response.output_audio_transcript.done"
+        ],
+        [
+          3097,
+          "response.content_part.done"
+        ],
+        [
+          3099,
+          "response.output_item.done"
+        ],
+        [
+          3105,
+          "response.done"
+        ]
+      ],
+      "first_event": "session.created",
+      "first_audio_ms": 718,
+      "status": "completed",
+      "audio_bytes": 506400,
+      "reply_transcript": "Let me check your route for a nearby diesel stop.I can’t directly check your route from here, so ask your navigation app for diesel stations along your route and pick the closest one.",
+      "event_counts": {
+        "session.updated": 1,
+        "input_audio_buffer.committed": 1,
+        "conversation.item.added": 3,
+        "conversation.item.done": 3,
+        "response.created": 1,
+        "response.output_item.added": 2,
+        "response.content_part.added": 2,
+        "response.output_audio_transcript.delta": 38,
+        "response.output_audio.delta": 27,
+        "response.output_audio.done": 2,
+        "response.output_audio_transcript.done": 2,
+        "response.content_part.done": 2,
+        "response.output_item.done": 2,
+        "response.done": 1
+      },
+      "total_ms": 3105
+    },
+    {
+      "model": "openai/gpt-realtime-2.1",
+      "mode": "vad",
+      "input_rate": 24000,
+      "clip": "short_clean",
+      "events": [
+        [
+          null,
+          "session.updated"
+        ],
+        [
+          null,
+          "input_audio_buffer.speech_started"
+        ],
+        [
+          473,
+          "input_audio_buffer.speech_stopped"
+        ],
+        [
+          473,
+          "input_audio_buffer.committed"
+        ],
+        [
+          477,
+          "conversation.item.added"
+        ],
+        [
+          479,
+          "conversation.item.done"
+        ],
+        [
+          482,
+          "response.created"
+        ],
+        [
+          808,
+          "response.output_item.added"
+        ],
+        [
+          837,
+          "response.content_part.added"
+        ],
+        [
+          837,
+          "response.output_audio_transcript.delta"
+        ],
+        [
+          1310,
+          "response.output_audio.delta"
+        ],
+        [
+          4194,
+          "response.output_audio.done"
+        ],
+        [
+          4195,
+          "response.output_audio_transcript.done"
+        ],
+        [
+          4196,
+          "response.content_part.done"
+        ],
+        [
+          4196,
+          "response.output_item.done"
+        ],
+        [
+          4204,
+          "response.done"
+        ]
+      ],
+      "first_event": "session.created",
+      "first_audio_ms": 1310,
+      "status": "completed",
+      "audio_bytes": 583200,
+      "reply_transcript": "Okay, I’ll look along your route for a diesel stop and keep it quick.I can’t see your live route or nearby stations, so please check your navigation app’s fuel search for the nearest diesel stop along the way.",
+      "event_counts": {
+        "session.updated": 1,
+        "input_audio_buffer.speech_started": 1,
+        "input_audio_buffer.speech_stopped": 1,
+        "input_audio_buffer.committed": 1,
+        "conversation.item.added": 3,
+        "conversation.item.done": 3,
+        "response.created": 1,
+        "response.output_item.added": 2,
+        "response.content_part.added": 2,
+        "response.output_audio_transcript.delta": 46,
+        "response.output_audio.delta": 31,
+        "response.output_audio.done": 2,
+        "response.output_audio_transcript.done": 2,
+        "response.content_part.done": 2,
+        "response.output_item.done": 2,
+        "response.done": 1
+      },
+      "total_ms": 4204
+    },
+    {
+      "model": "openai/gpt-realtime-2.1-mini",
+      "mode": "manual",
+      "input_rate": 24000,
+      "clip": "short_clean",
+      "events": [
+        [
+          null,
+          "session.updated"
+        ],
+        [
+          258,
+          "input_audio_buffer.committed"
+        ],
+        [
+          258,
+          "conversation.item.added"
+        ],
+        [
+          260,
+          "conversation.item.done"
+        ],
+        [
+          262,
+          "response.created"
+        ],
+        [
+          561,
+          "response.output_item.added"
+        ],
+        [
+          568,
+          "response.content_part.added"
+        ],
+        [
+          569,
+          "response.output_audio_transcript.delta"
+        ],
+        [
+          1088,
+          "response.output_audio.delta"
+        ],
+        [
+          1484,
+          "response.output_audio.done"
+        ],
+        [
+          1484,
+          "response.output_audio_transcript.done"
+        ],
+        [
+          1485,
+          "response.content_part.done"
+        ],
+        [
+          1486,
+          "response.output_item.done"
+        ],
+        [
+          1490,
+          "response.done"
+        ]
+      ],
+      "first_event": "session.created",
+      "first_audio_ms": 1088,
+      "status": "completed",
+      "audio_bytes": 288000,
+      "reply_transcript": "I can’t see your route or location, but if you share your destination or starting point, I can help you figure out what to look for.",
+      "event_counts": {
+        "session.updated": 1,
+        "input_audio_buffer.committed": 1,
+        "conversation.item.added": 2,
+        "conversation.item.done": 2,
+        "response.created": 1,
+        "response.output_item.added": 1,
+        "response.content_part.added": 1,
+        "response.output_audio_transcript.delta": 30,
+        "response.output_audio.delta": 15,
+        "response.output_audio.done": 1,
+        "response.output_audio_transcript.done": 1,
+        "response.content_part.done": 1,
+        "response.output_item.done": 1,
+        "response.done": 1
+      },
+      "total_ms": 1490
+    },
+    {
+      "model": "openai/gpt-realtime-2.1-mini",
+      "mode": "vad",
+      "input_rate": 24000,
+      "clip": "short_clean",
+      "events": [
+        [
+          null,
+          "session.updated"
+        ],
+        [
+          null,
+          "input_audio_buffer.speech_started"
+        ],
+        [
+          485,
+          "input_audio_buffer.speech_stopped"
+        ],
+        [
+          485,
+          "input_audio_buffer.committed"
+        ],
+        [
+          485,
+          "conversation.item.added"
+        ],
+        [
+          486,
+          "conversation.item.done"
+        ],
+        [
+          489,
+          "response.created"
+        ],
+        [
+          1002,
+          "response.output_item.added"
+        ],
+        [
+          1007,
+          "response.content_part.added"
+        ],
+        [
+          1007,
+          "response.output_audio_transcript.delta"
+        ],
+        [
+          1144,
+          "response.output_audio.delta"
+        ],
+        [
+          2116,
+          "response.output_audio.done"
+        ],
+        [
+          2116,
+          "response.output_audio_transcript.done"
+        ],
+        [
+          2117,
+          "response.content_part.done"
+        ],
+        [
+          2118,
+          "response.output_item.done"
+        ],
+        [
+          2121,
+          "response.done"
+        ]
+      ],
+      "first_event": "session.created",
+      "first_audio_ms": 1144,
+      "status": "completed",
+      "audio_bytes": 410400,
+      "reply_transcript": "I can’t see your current route, so please share your start and destination, or enable navigation, and I’ll help you find the nearest diesel stop on the way.",
+      "event_counts": {
+        "session.updated": 1,
+        "input_audio_buffer.speech_started": 1,
+        "input_audio_buffer.speech_stopped": 1,
+        "input_audio_buffer.committed": 1,
+        "conversation.item.added": 2,
+        "conversation.item.done": 2,
+        "response.created": 1,
+        "response.output_item.added": 1,
+        "response.content_part.added": 1,
+        "response.output_audio_transcript.delta": 34,
+        "response.output_audio.delta": 22,
+        "response.output_audio.done": 1,
+        "response.output_audio_transcript.done": 1,
+        "response.content_part.done": 1,
+        "response.output_item.done": 1,
+        "response.done": 1
+      },
+      "total_ms": 2121
+    },
+    {
+      "model": "gemini/gemini-3.8-live",
+      "mode": "manual",
+      "input_rate": 16000,
+      "clip": "short_clean",
+      "events": [
+        [
+          926,
+          "conversation.item.input_audio_transcription.completed"
+        ],
+        [
+          1598,
+          "response.created"
+        ],
+        [
+          1598,
+          "response.output_item.added"
+        ],
+        [
+          1598,
+          "conversation.item.added"
+        ],
+        [
+          1598,
+          "response.content_part.added"
+        ],
+        [
+          1598,
+          "response.output_audio_transcript.delta"
+        ],
+        [
+          1598,
+          "response.output_audio.delta"
+        ],
+        [
+          3286,
+          "response.output_audio.done"
+        ],
+        [
+          3286,
+          "response.content_part.done"
+        ],
+        [
+          3286,
+          "response.output_item.done"
+        ],
+        [
+          14726,
+          "response.done"
+        ]
+      ],
+      "first_event": "session.created",
+      "first_audio_ms": 1598,
+      "status": "completed",
+      "audio_bytes": 629280,
+      "reply_transcript": "I don't have access to your current location or navigation route, so I can't find specific gas stations for you. I recommend using a navigation app like Google Maps or Waze, which can filter for stations with diesel.",
+      "input_transcript": "Find the nearest gas station with diesel on my route.",
+      "event_counts": {
+        "conversation.item.input_audio_transcription.completed": 1,
+        "response.created": 1,
+        "response.output_item.added": 1,
+        "conversation.item.added": 1,
+        "response.content_part.added": 1,
+        "response.output_audio_transcript.delta": 12,
+        "response.output_audio.delta": 38,
+        "response.output_audio.done": 1,
+        "response.content_part.done": 1,
+        "response.output_item.done": 1,
+        "response.done": 1
+      },
+      "total_ms": 14726
+    },
+    {
+      "model": "gemini/gemini-3.8-live",
+      "mode": "vad",
+      "input_rate": 16000,
+      "clip": "short_clean",
+      "events": [
+        [
+          1868,
+          "conversation.item.input_audio_transcription.completed"
+        ],
+        [
+          1869,
+          "response.created"
+        ],
+        [
+          1869,
+          "response.output_item.added"
+        ],
+        [
+          1869,
+          "conversation.item.added"
+        ],
+        [
+          1869,
+          "response.content_part.added"
+        ],
+        [
+          1869,
+          "response.output_audio_transcript.delta"
+        ],
+        [
+          1870,
+          "response.output_audio.delta"
+        ],
+        [
+          2352,
+          "response.output_audio.done"
+        ],
+        [
+          2352,
+          "response.content_part.done"
+        ],
+        [
+          2352,
+          "response.output_item.done"
+        ],
+        [
+          9596,
+          "response.done"
+        ]
+      ],
+      "first_event": "session.created",
+      "first_audio_ms": 1870,
+      "status": "completed",
+      "audio_bytes": 370560,
+      "reply_transcript": "I don't have access to your real-time location or navigation data. Could you tell me your current location or the destination you're heading to?",
+      "input_transcript": "Find the nearest gas station with diesel on my route.",
+      "event_counts": {
+        "conversation.item.input_audio_transcription.completed": 1,
+        "response.created": 1,
+        "response.output_item.added": 1,
+        "conversation.item.added": 1,
+        "response.content_part.added": 1,
+        "response.output_audio_transcript.delta": 8,
+        "response.output_audio.delta": 23,
+        "response.output_audio.done": 1,
+        "response.content_part.done": 1,
+        "response.output_item.done": 1,
+        "response.done": 1
+      },
+      "total_ms": 9596
+    },
+    {
+      "model": "xai/grok-voice-3.0",
+      "mode": "manual",
+      "input_rate": 24000,
+      "clip": "short_clean",
+      "events": [
+        [
+          null,
+          "conversation.created"
+        ],
+        [
+          null,
+          "session.updated"
+        ],
+        [
+          null,
+          "input_audio_buffer.speech_started"
+        ],
+        [
+          267,
+          "input_audio_buffer.speech_stopped"
+        ],
+        [
+          267,
+          "input_audio_buffer.committed"
+        ],
+        [
+          402,
+          "conversation.item.added"
+        ],
+        [
+          402,
+          "conversation.item.input_audio_transcription.completed"
+        ],
+        [
+          407,
+          "response.created"
+        ],
+        [
+          645,
+          "response.output_item.added"
+        ],
+        [
+          645,
+          "response.content_part.added"
+        ],
+        [
+          951,
+          "response.output_audio.delta"
+        ],
+        [
+          951,
+          "response.output_audio_transcript.delta"
+        ],
+        [
+          1673,
+          "response.output_audio_transcript.done"
+        ],
+        [
+          1673,
+          "response.content_part.done"
+        ],
+        [
+          1673,
+          "response.output_audio.done"
+        ],
+        [
+          1673,
+          "response.output_item.done"
+        ],
+        [
+          1673,
+          "response.done"
+        ]
+      ],
+      "first_event": "session.created",
+      "first_audio_ms": 951,
+      "status": "completed",
+      "audio_bytes": 337440,
+      "reply_transcript": "I can't pull up live maps or your route, but checking your truck's GPS or a fuel app will show the nearest diesel station ahead.",
+      "input_transcript": "Find the nearest gas station with diesel on my route.",
+      "event_counts": {
+        "conversation.created": 1,
+        "session.updated": 1,
+        "input_audio_buffer.speech_started": 1,
+        "input_audio_buffer.speech_stopped": 1,
+        "input_audio_buffer.committed": 1,
+        "conversation.item.added": 2,
+        "conversation.item.input_audio_transcription.completed": 1,
+        "response.created": 1,
+        "response.output_item.added": 1,
+        "response.content_part.added": 1,
+        "response.output_audio.delta": 10,
+        "response.output_audio_transcript.delta": 3,
+        "response.output_audio_transcript.done": 1,
+        "response.content_part.done": 1,
+        "response.output_audio.done": 1,
+        "response.output_item.done": 1,
+        "response.done": 1
+      },
+      "total_ms": 1673
+    },
+    {
+      "model": "xai/grok-voice-3.0",
+      "mode": "vad",
+      "input_rate": 24000,
+      "clip": "short_clean",
+      "events": [
+        [
+          null,
+          "conversation.created"
+        ],
+        [
+          null,
+          "session.updated"
+        ],
+        [
+          null,
+          "input_audio_buffer.speech_started"
+        ],
+        [
+          646,
+          "input_audio_buffer.speech_stopped"
+        ],
+        [
+          753,
+          "response.created"
+        ],
+        [
+          1147,
+          "input_audio_buffer.committed"
+        ],
+        [
+          1147,
+          "conversation.item.added"
+        ],
+        [
+          1147,
+          "conversation.item.input_audio_transcription.completed"
+        ],
+        [
+          1147,
+          "response.output_item.added"
+        ],
+        [
+          1147,
+          "response.content_part.added"
+        ],
+        [
+          1522,
+          "response.output_audio.delta"
+        ],
+        [
+          1522,
+          "response.output_audio_transcript.delta"
+        ],
+        [
+          2052,
+          "response.output_audio_transcript.done"
+        ],
+        [
+          2052,
+          "response.content_part.done"
+        ],
+        [
+          2052,
+          "response.output_audio.done"
+        ],
+        [
+          2052,
+          "response.output_item.done"
+        ],
+        [
+          2052,
+          "response.done"
+        ]
+      ],
+      "first_event": "session.created",
+      "first_audio_ms": 1522,
+      "status": "completed",
+      "audio_bytes": 276000,
+      "reply_transcript": "I can't pull up live maps, but your truck's navigation screen should show the closest diesel station along your route.",
+      "input_transcript": "Find the nearest gas station with diesel on my route.",
+      "event_counts": {
+        "conversation.created": 1,
+        "session.updated": 1,
+        "input_audio_buffer.speech_started": 1,
+        "input_audio_buffer.speech_stopped": 1,
+        "response.created": 1,
+        "input_audio_buffer.committed": 1,
+        "conversation.item.added": 2,
+        "conversation.item.input_audio_transcription.completed": 1,
+        "response.output_item.added": 1,
+        "response.content_part.added": 1,
+        "response.output_audio.delta": 9,
+        "response.output_audio_transcript.delta": 3,
+        "response.output_audio_transcript.done": 1,
+        "response.content_part.done": 1,
+        "response.output_audio.done": 1,
+        "response.output_item.done": 1,
+        "response.done": 1
+      },
+      "total_ms": 2052
+    }
+  ]
+}

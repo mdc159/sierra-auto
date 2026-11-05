@@ -1,0 +1,186 @@
+{
+  "recorded_at": "2026-11-04T18:19:46-08:00",
+  "gateway_rtt_ms": [
+    258,
+    89,
+    91,
+    95,
+    86
+  ],
+  "combos": [
+    {
+      "name": "all gateway",
+      "stt": [
+        "gateway",
+        "groq/whisper-large-v3-turbo"
+      ],
+      "chat": "xai/grok-4.20-non-reasoning",
+      "tts": [
+        "gateway",
+        "openai/gpt-4o-mini-tts"
+      ]
+    },
+    {
+      "name": "gateway text, ElevenLabs voice",
+      "stt": [
+        "gateway",
+        "groq/whisper-large-v3-turbo"
+      ],
+      "chat": "xai/grok-4.20-non-reasoning",
+      "tts": [
+        "elevenlabs",
+        "eleven_flash_v2_5"
+      ]
+    },
+    {
+      "name": "ElevenLabs ears and voice, gateway chat",
+      "stt": [
+        "elevenlabs",
+        "scribe_v2"
+      ],
+      "chat": "xai/grok-4.20-non-reasoning",
+      "tts": [
+        "elevenlabs",
+        "eleven_flash_v2_5"
+      ]
+    }
+  ],
+  "system": "You are Sierra, a voice assistant in a pickup truck. Replies are spoken aloud. Answer in exactly two short sentences.",
+  "rows": [
+    {
+      "combo": "all gateway",
+      "clip": "short_clean",
+      "stt_ms": 1463,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 3945,
+      "first_sentence_at_ms": 3946,
+      "sentence": "There's a diesel station five miles ahead on your route at the next exit.",
+      "first_audio_at_ms": 5246,
+      "stages_ms": {
+        "stt": 1463,
+        "chat_to_first_sentence": 2483,
+        "tts_to_first_byte": 1300
+      }
+    },
+    {
+      "combo": "gateway text, ElevenLabs voice",
+      "clip": "short_clean",
+      "stt_ms": 986,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 1461,
+      "first_sentence_at_ms": 1538,
+      "sentence": "There's a diesel station two miles ahead on your route.",
+      "first_audio_at_ms": 1811,
+      "stages_ms": {
+        "stt": 986,
+        "chat_to_first_sentence": 552,
+        "tts_to_first_byte": 273
+      }
+    },
+    {
+      "combo": "ElevenLabs ears and voice, gateway chat",
+      "clip": "short_clean",
+      "stt_ms": 538,
+      "heard": "Find the nearest gas station with diesel on my route",
+      "first_token_at_ms": 1196,
+      "first_sentence_at_ms": 1197,
+      "sentence": "I'll check the map for diesel stations ahead.",
+      "first_audio_at_ms": 1376,
+      "stages_ms": {
+        "stt": 538,
+        "chat_to_first_sentence": 659,
+        "tts_to_first_byte": 179
+      }
+    },
+    {
+      "combo": "all gateway",
+      "clip": "short_clean",
+      "stt_ms": 1262,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 1737,
+      "first_sentence_at_ms": 1867,
+      "sentence": "I can't check real-time locations right now.",
+      "first_audio_at_ms": 3049,
+      "stages_ms": {
+        "stt": 1262,
+        "chat_to_first_sentence": 605,
+        "tts_to_first_byte": 1182
+      }
+    },
+    {
+      "combo": "gateway text, ElevenLabs voice",
+      "clip": "short_clean",
+      "stt_ms": 1423,
+      "heard": "Find the nearest gas station with diesel on my route.",
+      "first_token_at_ms": 7612,
+      "first_sentence_at_ms": 7613,
+      "sentence": "I'm checking your route now for the closest diesel station.",
+      "first_audio_at_ms": 7876,
+      "stages_ms": {
+        "stt": 1423,
+        "chat_to_first_sentence": 6190,
+        "tts_to_first_byte": 263
+      }
+    },
+    {
+      "combo": "ElevenLabs ears and voice, gateway chat",
+      "clip": "short_clean",
+      "stt_ms": 425,
+      "heard": "Find the nearest gas station with diesel on my route",
+      "first_token_at_ms": 959,
+      "first_sentence_at_ms": 1117,
+      "sentence": "I found a diesel station 2 miles ahead on your route.",
+      "first_audio_at_ms": 1318,
+      "stages_ms": {
+        "stt": 425,
+        "chat_to_first_sentence": 692,
+        "tts_to_first_byte": 201
+      }
+    },
+    {
+      "combo": "all gateway",
+      "clip": "long_clean",
+      "stt_ms": 2344,
+      "heard": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now? And is there a rest area with truck parking in the next 30 miles? Also remind me to check the trailer brakes.",
+      "first_token_at_ms": 5507,
+      "first_sentence_at_ms": 5508,
+      "sentence": "Transmission temp is steady at 165 degrees.",
+      "first_audio_at_ms": 7002,
+      "stages_ms": {
+        "stt": 2344,
+        "chat_to_first_sentence": 3164,
+        "tts_to_first_byte": 1494
+      }
+    },
+    {
+      "combo": "gateway text, ElevenLabs voice",
+      "clip": "long_clean",
+      "stt_ms": 1867,
+      "heard": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now? And is there a rest area with truck parking in the next 30 miles? Also remind me to check the trailer brakes.",
+      "first_token_at_ms": 10111,
+      "first_sentence_at_ms": 10115,
+      "sentence": "Transmission temp is 178 degrees right now.",
+      "first_audio_at_ms": 10456,
+      "stages_ms": {
+        "stt": 1867,
+        "chat_to_first_sentence": 8248,
+        "tts_to_first_byte": 341
+      }
+    },
+    {
+      "combo": "ElevenLabs ears and voice, gateway chat",
+      "clip": "long_clean",
+      "stt_ms": 793,
+      "heard": "I'm towing the camper up Highway 97 toward Bend tonight. What is the transmission temperature right now? And is there a rest area with truck parking in the next 30 miles? Also remind me to check the trailer brakes",
+      "first_token_at_ms": 3379,
+      "first_sentence_at_ms": 3381,
+      "sentence": "Transmission temp is 178 degrees right now.",
+      "first_audio_at_ms": 3562,
+      "stages_ms": {
+        "stt": 793,
+        "chat_to_first_sentence": 2588,
+        "tts_to_first_byte": 181
+      }
+    }
+  ]
+}
