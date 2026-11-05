@@ -1,0 +1,140 @@
+# Manual upload of a signed release to the Google Play internal testing track.
+#
+# Why: Android Auto only lists Car App Library apps whose install record points at
+# Google Play. A build that the phone installs from Play keeps that record on every
+# update, with no PC involved. See docs/UPDATES.md for the one-time Play Console setup.
+#
+# Needs these repository secrets. When any of them is missing the job logs a warning,
+# writes the reason to the run summary and ends successfully without uploading.
+#   PLAY_SERVICE_ACCOUNT_JSON   the service account key (JSON text) invited in Play Console
+#   SIGNING_KEYSTORE_BASE64, SIGNING_STORE_PASSWORD, SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD
+#                               the same release key build.yml uses (it is the Play upload key)
+#
+# Signing key, read before the first run: the first upload enrols the app in Play App
+# Signing. At that enrolment choose "Use an existing key" and upload the release key from
+# SIGNING_KEYSTORE_BASE64 with Google's PEPK tool (docs/UPDATES.md, section 4, step 3).
+# Otherwise Play re-signs with its own key, and a Play install and a GitHub Release
+# install can never update each other (INSTALL_FAILED_UPDATE_INCOMPATIBLE).
+#
+# versionCode: 100000 + this workflow's run number. GitHub Releases from build.yml use the
+# plain build run number, so a Play build always outranks a GitHub build and the in-app
+# updater never offers a downgrade. Play requires a strictly increasing versionCode.
+
+name: play
+
+on:
+  workflow_dispatch:
+    inputs:
+      status:
+        description: "Play release status: completed goes live for internal testers at once, draft waits in the console"
+        type: choice
+        default: completed
+        options: [completed, draft]
+      release_name:
+        description: "Optional release name shown in Play Console (defaults to the versionCode)"
+        type: string
+        default: ""
+
+concurrency:
+  group: play
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check secrets
+        id: secrets
+        env:
+          HAS_PLAY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+          HAS_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE_BASE64 != '' }}
+          HAS_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD != '' }}
+          HAS_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS != '' }}
+          HAS_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD != '' }}
+        run: |
+          missing=""
+          [ "$HAS_PLAY" = "true" ] || missing="$missing PLAY_SERVICE_ACCOUNT_JSON"
+          [ "$HAS_KEYSTORE" = "true" ] || missing="$missing SIGNING_KEYSTORE_BASE64"
+          [ "$HAS_STORE_PASSWORD" = "true" ] || missing="$missing SIGNING_STORE_PASSWORD"
+          [ "$HAS_KEY_ALIAS" = "true" ] || missing="$missing SIGNING_KEY_ALIAS"
+          [ "$HAS_KEY_PASSWORD" = "true" ] || missing="$missing SIGNING_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            msg="Play upload skipped: missing repository secret(s):$missing. See docs/UPDATES.md, section \"One-time Play Console setup\"."
+            echo "::warning title=Play upload skipped::$msg"
+            {
+              echo "### Play upload skipped"
+              echo "$msg"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.secrets.outputs.ready == 'true'
+
+      - uses: actions/setup-java@v5
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        if: steps.secrets.outputs.ready == 'true'
+
+      - name: Decode release keystore
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          echo "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "PLAY_VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+
+      - name: Build signed release bundle
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon bundleRelease -PversionCode="$PLAY_VERSION_CODE"
+          cp app/build/outputs/bundle/release/app-release.aab sierra-auto.aab
+          # Play needs an App Bundle for every track of an app created after August 2021.
+          # Prove the bundle carries the release certificate, not the debug one.
+          keytool -printcert -jarfile sierra-auto.aab | tee signer.txt
+          if grep -q "CN=Android Debug" signer.txt; then
+            echo "::error::Release bundle is debug-signed."
+            exit 1
+          fi
+          echo "versionCode $PLAY_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload to Play internal testing
+        if: steps.secrets.outputs.ready == 'true'
+        # v1.1.5, pinned by commit because this step receives the Play service-account key.
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.mdc159.sierra
+          releaseFiles: sierra-auto.aab
+          track: internal
+          status: ${{ inputs.status }}
+          releaseName: ${{ inputs.release_name != '' && inputs.release_name || format('Sierra Play build {0}', env.PLAY_VERSION_CODE) }}
+
+      - name: Summary
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          {
+            echo "### Uploaded to Play internal testing"
+            echo "versionCode $PLAY_VERSION_CODE, status ${{ inputs.status }}."
+            echo "Testers get it from the internal testing opt-in link, or from the Play Store update list once it has processed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
