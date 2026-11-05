@@ -106,6 +106,17 @@ class AgentClientEdgeCasesTest {
     }
 
     @Test
+    fun connectionRefusedIsReadable() {
+        val dead = MockWebServer().apply { start() }
+        val url = dead.url("/v1").toString()
+        dead.shutdown()
+        val e = assertThrows(AgentException::class.java) {
+            AgentClient(AgentConfig(baseUrl = url, model = "m"), http).chat(listOf(ChatMessage("user", "hi")))
+        }
+        assertEquals("Couldn't reach the server.", e.message)
+    }
+
+    @Test
     fun malformedTranscriptionBodiesAreReadable() {
         for (body in listOf("<html>", "", "[]", "null")) {
             server.enqueue(MockResponse().setBody(body))

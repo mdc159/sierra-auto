@@ -5,6 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 import java.io.InterruptedIOException
+import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.net.ssl.SSLHandshakeException
@@ -31,6 +32,12 @@ class HttpTest {
     fun dnsAndTlsFailuresAreExplained() {
         assertEquals("No connection, or the server name is wrong.", Http.describe(UnknownHostException("api.example")))
         assertEquals("Secure connection failed.", Http.describe(SSLHandshakeException("bad cert")))
+    }
+
+    @Test
+    fun refusedConnectionIsNotShownAsARawSocketAddress() {
+        val e = ConnectException("Failed to connect to localhost/127.0.0.1:44555")
+        assertEquals("Couldn't reach the server.", Http.describe(e))
     }
 
     @Test
