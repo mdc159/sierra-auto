@@ -17,8 +17,10 @@ import kotlin.math.sqrt
  *   known the threshold is `max(minSpeechRms, floor × ratio)` with no cap, so a loud cabin
  *   (highway speed, fan on high) cannot read as endless speech.
  * @property calibrationMs if nothing quieter than [maxThresholdRms] has been heard by then,
- *   the quietest chunk so far becomes the floor. Speech "confirmed" before that point is
- *   dropped unless it stood out above the new threshold.
+ *   the quietest chunk so far becomes the floor, so a cabin that is steadily louder than
+ *   the cap ends an utterance after [silenceMs] instead of running to [maxMs].
+ * @property initialNoiseFloor the floor measured on the previous turn (NaN for none). With
+ *   it, a loud cabin is known from the first chunk and only a voice above it counts.
  * @property floorRiseMs time constant for the noise floor to creep up when the cabin gets
  *   louder while nobody is speaking.
  */
@@ -31,6 +33,7 @@ data class EndpointConfig(
     val speechToNoiseRatio: Double = 2.5,
     val maxThresholdRms: Double = 1_500.0,
     val calibrationMs: Long = 600,
+    val initialNoiseFloor: Double = Double.NaN,
     val floorRiseMs: Long = 3_000,
 )
 
@@ -61,8 +64,8 @@ class EndOfSpeechDetector(
     var elapsedMs: Long = 0
         private set
 
-    /** Current estimate of the cabin noise floor (RMS). */
-    var noiseFloor: Double = Double.MAX_VALUE
+    /** Current estimate of the cabin noise floor (RMS); MAX_VALUE until something quiet is heard. */
+    var noiseFloor: Double = if (config.initialNoiseFloor.isNaN()) Double.MAX_VALUE else config.initialNoiseFloor
         private set
 
     /** Time at which real speech was first confirmed, or -1. */
@@ -72,7 +75,6 @@ class EndOfSpeechDetector(
     private var lastLoudMs: Long = -1
     private var loudRunStartMs: Long = -1
     private var quietestRms: Double = Double.MAX_VALUE
-    private var loudestLoudRms: Double = 0.0
 
     val heardSpeech: Boolean get() = speechStartMs >= 0
 
@@ -104,35 +106,17 @@ class EndOfSpeechDetector(
         if (loud) {
             if (loudRunStartMs < 0) loudRunStartMs = before
             lastLoudMs = elapsedMs
-            loudestLoudRms = maxOf(loudestLoudRms, rms)
             if (!heardSpeech && elapsedMs - loudRunStartMs >= config.minSpeechMs) speechStartMs = loudRunStartMs
         } else {
             loudRunStartMs = -1
             adaptFloor(rms, chunkMs)
         }
-        if (noiseFloor == Double.MAX_VALUE && elapsedMs >= config.calibrationMs) calibrateFromLoudStart()
+        if (noiseFloor == Double.MAX_VALUE && elapsedMs >= config.calibrationMs) noiseFloor = quietestRms
         return when {
             elapsedMs >= config.maxMs -> Verdict.MAX_LENGTH
             heardSpeech -> if (elapsedMs - lastLoudMs >= config.silenceMs) Verdict.END_OF_SPEECH else Verdict.CONTINUE
             elapsedMs >= config.noSpeechMs -> Verdict.NO_SPEECH
             else -> Verdict.CONTINUE
-        }
-    }
-
-    /**
-     * Nothing below [EndpointConfig.maxThresholdRms] has been heard yet: either the driver has
-     * been talking since the first chunk, or the cabin itself is that loud. Take the quietest
-     * chunk so far as the floor. If what looked like speech never rose above the threshold
-     * that floor implies, it was noise: forget it and wait for a real rise.
-     */
-    private fun calibrateFromLoudStart() {
-        noiseFloor = quietestRms
-        if (heardSpeech && loudestLoudRms < threshold) {
-            speechStartMs = -1
-            lastLoudMs = -1
-            loudRunStartMs = -1
-            loudestLoudRms = 0.0
-            isLoud = false
         }
     }
 

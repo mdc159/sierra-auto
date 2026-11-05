@@ -223,7 +223,8 @@ class TalkScreen(
         val controllerConfig = base.copy(
             continuous = false, // the screen chains turns itself, so each turn starts with a fresh step budget
             speakErrors = false, // errors are shown with Try again, as before
-            endpoint = if (followUp) base.endpoint.copy(noSpeechMs = base.silenceTimeoutMs) else base.endpoint,
+            endpoint = (if (followUp) base.endpoint.copy(noSpeechMs = base.silenceTimeoutMs) else base.endpoint)
+                .copy(initialNoiseFloor = TalkVoice.noiseFloor), // the cabin as the last turn heard it
         )
         val c = ConversationController(
             mic = CarMicSource(carContext),
@@ -235,7 +236,13 @@ class TalkScreen(
             onState = { render(it, voice.conversationMode) }, // called on the main thread
         )
         controller = c
-        job = lifecycleScope.launch { c.run() }
+        job = lifecycleScope.launch {
+            try {
+                c.run()
+            } finally {
+                TalkVoice.noiseFloor = c.lastNoiseFloor
+            }
+        }
     }
 
     private fun render(s: ConversationState, conversationMode: Boolean) {
@@ -383,6 +390,10 @@ object TalkVoice {
 
     private var entry: Entry? = null
 
+    /** Cabin noise floor from the last turn, so a loud cabin is known before the driver speaks. NaN until measured. */
+    @Volatile
+    var noiseFloor: Double = Double.NaN
+
     /** Main thread only. */
     fun speechFor(session: SierraSession, carContext: CarContext, settings: VoiceSettings, agent: AgentConfig): SpeechOutput {
         entry?.let { if (it.session === session && it.settings == settings && it.agent == agent) return it.output }
@@ -395,6 +406,7 @@ object TalkVoice {
                 if (current.session === session) {
                     current.output.close()
                     entry = null
+                    noiseFloor = Double.NaN
                 }
             }
         })

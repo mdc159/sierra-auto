@@ -84,21 +84,50 @@ class EndOfSpeechDetectorTest {
 
     @Test
     fun aLoudCabinIsNotEndlessSpeech() {
-        // Highway with the fan on high: steady 1 800 RMS, above the uncalibrated threshold.
+        // Highway with the fan on high: steady 1 800 RMS, above the uncalibrated threshold. With
+        // no floor known yet the first chunks do read as speech, but once the calibration window
+        // has passed the floor is 1 800, the threshold 4 500, and the "utterance" ends after
+        // silenceMs of cabin noise instead of running to maxMs.
         val d = EndOfSpeechDetector(config.copy(calibrationMs = 600, maxMs = 20_000, noSpeechMs = 5_000))
-        assertEquals(Verdict.CONTINUE, d.feedMs(1_000, 1_800))
-        assertFalse("steady noise must not count as speech", d.heardSpeech)
+        var v = Verdict.CONTINUE
+        var ms = 0
+        while (v == Verdict.CONTINUE && ms < 20_000) {
+            v = d.feedMs(20, 1_800)
+            ms += 20
+        }
+        assertEquals(Verdict.END_OF_SPEECH, v)
+        assertEquals(600 + 600, ms) // calibration, then silenceMs
         assertEquals(1_800.0, d.noiseFloor, 0.01)
-        assertEquals(4_500.0, d.threshold, 0.01) // 1800 × 2.5, no cap once calibrated
-        assertEquals(Verdict.CONTINUE, d.feedMs(1_000, 6_000)) // the driver talks over the noise
-        assertTrue(d.heardSpeech)
-        assertEquals(1_000, d.speechStartMs)
-        assertEquals(Verdict.END_OF_SPEECH, d.feedMs(600, 1_800)) // ends after silenceMs of cabin noise, not at maxMs
-        assertEquals(2_600, d.elapsedMs)
+        assertEquals(4_500.0, d.threshold, 0.01) // 1800 × 2.5, no cap once a floor exists
 
-        val quiet = EndOfSpeechDetector(config.copy(calibrationMs = 600, noSpeechMs = 2_000))
+        // The next turn is seeded with that floor: steady noise is silence, a voice above it is speech.
+        val seeded = EndOfSpeechDetector(config.copy(initialNoiseFloor = 1_800.0, noSpeechMs = 5_000))
+        assertEquals(Verdict.CONTINUE, seeded.feedMs(1_000, 1_800))
+        assertFalse(seeded.heardSpeech)
+        assertEquals(Verdict.CONTINUE, seeded.feedMs(1_000, 6_000)) // the driver talks over the noise
+        assertTrue(seeded.heardSpeech)
+        assertEquals(1_000, seeded.speechStartMs)
+        assertEquals(Verdict.END_OF_SPEECH, seeded.feedMs(600, 1_800))
+        assertEquals(2_600, seeded.elapsedMs)
+
+        val quiet = EndOfSpeechDetector(config.copy(initialNoiseFloor = 1_800.0, noSpeechMs = 2_000))
         assertEquals(Verdict.NO_SPEECH, quiet.feedMs(2_000, 1_800)) // nobody ever spoke
         assertFalse(quiet.heardSpeech)
+
+        // A seeded floor drops at once when the cabin turns out to be quieter.
+        val parked = EndOfSpeechDetector(config.copy(initialNoiseFloor = 1_800.0))
+        parked.feedMs(100, 100)
+        assertEquals(100.0, parked.noiseFloor, 0.01)
+        assertEquals(500.0, parked.threshold, 0.01)
+    }
+
+    @Test
+    fun steadyLoudSpeechFromTheFirstChunkIsStillSpeech() {
+        // Lane E's screen tests feed a steady 4 000 RMS tone: it must count as speech and end on silence.
+        val d = EndOfSpeechDetector(config)
+        assertEquals(Verdict.CONTINUE, d.feedMs(800, 4_000))
+        assertTrue(d.heardSpeech)
+        assertEquals(Verdict.END_OF_SPEECH, d.feedMs(600, 0))
     }
 
     @Test

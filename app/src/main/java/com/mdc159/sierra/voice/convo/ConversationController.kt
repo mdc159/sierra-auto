@@ -114,6 +114,14 @@ class ConversationController(
     @Volatile
     private var recorder: UtteranceRecorder? = null
 
+    /**
+     * The cabin noise floor measured on the last utterance (NaN until one was recorded).
+     * Later turns, and the caller's next conversation, seed their detector with it.
+     */
+    @Volatile
+    var lastNoiseFloor: Double = config.endpoint.initialNoiseFloor
+        private set
+
     private fun set(s: ConversationState) {
         _state.value = s
         onState(s)
@@ -152,12 +160,14 @@ class ConversationController(
                 if (turn > config.maxTurns) return end(EndReason.TURN_COMPLETE, null, lastHeard, lastReply)
                 set(ConversationState.Listening(turn, lastReply))
 
-                val endpoint = if (turn == 1) config.endpoint else config.endpoint.copy(noSpeechMs = config.silenceTimeoutMs)
+                val endpoint = (if (turn == 1) config.endpoint else config.endpoint.copy(noSpeechMs = config.silenceTimeoutMs))
+                    .copy(initialNoiseFloor = lastNoiseFloor)
                 val rec = UtteranceRecorder(mic, focus, endpoint).also { recorder = it }
                 val outcome = try {
                     runInterruptible(ioDispatcher) { rec.record() }
                 } finally {
                     recorder = null
+                    rec.lastDetector?.noiseFloor?.takeIf { it != Double.MAX_VALUE }?.let { lastNoiseFloor = it }
                 }
                 if (stopRequested.get()) return end(EndReason.USER_STOPPED, null, lastHeard, lastReply)
 

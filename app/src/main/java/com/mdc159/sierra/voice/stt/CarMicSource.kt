@@ -1,7 +1,10 @@
 package com.mdc159.sierra.voice.stt
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.car.app.CarContext
 import androidx.car.app.media.CarAudioRecord
+import androidx.core.content.ContextCompat
 import com.mdc159.sierra.agent.AgentException
 
 /**
@@ -17,8 +20,15 @@ class CarMicSource(private val carContext: CarContext) : MicSource {
     override val sampleRate: Int get() = CarAudioRecord.AUDIO_CONTENT_SAMPLING_RATE
 
     override fun start() {
+        // The screen asks for RECORD_AUDIO before it gets here; this check is what lint's
+        // MissingPermission wants to see next to the call, and it guards a revoked grant.
+        if (ContextCompat.checkSelfPermission(carContext, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            throw AgentException("Allow the microphone on your phone.")
+        }
         val r = try {
             CarAudioRecord.create(carContext)
+        } catch (e: SecurityException) {
+            throw AgentException("Allow the microphone on your phone.", e)
         } catch (e: Exception) {
             throw AgentException("Car microphone unavailable.", e)
         }
