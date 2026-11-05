@@ -1,7 +1,10 @@
 package com.mdc159.sierra.voice.stt
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.car.app.CarContext
 import androidx.car.app.media.CarAudioRecord
+import androidx.core.content.ContextCompat
 import com.mdc159.sierra.agent.AgentException
 
 /**
@@ -17,6 +20,12 @@ class CarMicSource(private val carContext: CarContext) : MicSource {
     override val sampleRate: Int get() = CarAudioRecord.AUDIO_CONTENT_SAMPLING_RATE
 
     override fun start() {
+        // CarAudioRecord requires RECORD_AUDIO; callers check first, but never rely on it.
+        if (ContextCompat.checkSelfPermission(carContext, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            throw AgentException("Allow the microphone on your phone.")
+        }
         val r = try {
             CarAudioRecord.create(carContext)
         } catch (e: Exception) {
