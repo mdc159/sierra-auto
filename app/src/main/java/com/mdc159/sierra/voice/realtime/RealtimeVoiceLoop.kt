@@ -66,14 +66,17 @@ class RealtimeVoiceLoop(
                 finish(e.message ?: "Car microphone unavailable.")
             }
             val buf = ByteArray(1_600) // 50 ms at 16 kHz
+            var heardBytes = false
             try {
                 while (!stopped.get()) {
                     val n = mic.read(buf, 0, buf.size)
                     if (n < 0) {
-                        finish("Microphone closed.")
+                        // -1 before any audio means the host refused the microphone, not a dismissal.
+                        finish(if (heardBytes) "Microphone closed." else "Car microphone unavailable. Try again.")
                         break
                     }
                     if (n == 0) continue
+                    heardBytes = true
                     ch.sendMicAudio(buf, n)
                 }
             } finally {

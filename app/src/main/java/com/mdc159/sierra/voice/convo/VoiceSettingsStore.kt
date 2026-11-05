@@ -9,6 +9,11 @@ import androidx.security.crypto.MasterKey
  * Voice settings, encrypted at rest with a key held in the Android Keystore: the same
  * scheme ConfigStore uses for the agent key, in a separate file so the two lanes never
  * write the same preferences.
+ *
+ * Unlike ConfigStore, a failure to open the store never deletes it (it holds the ElevenLabs
+ * key, and a keystore error right after boot can be transient). The store is retried once;
+ * if it still cannot be opened, [load] returns defaults and [save] reports failure, and the
+ * next call tries again.
  */
 object VoiceSettingsStore {
     private const val FILE = "sierra_voice_config"
@@ -17,7 +22,7 @@ object VoiceSettingsStore {
     private var prefs: SharedPreferences? = null
 
     @Suppress("DEPRECATION")
-    private fun prefs(context: Context): SharedPreferences {
+    private fun prefs(context: Context): SharedPreferences? {
         prefs?.let { return it }
         synchronized(this) {
             prefs?.let { return it }
@@ -25,9 +30,12 @@ object VoiceSettingsStore {
             val created = try {
                 open(app)
             } catch (e: Exception) {
-                // Unreadable store (for example after a keystore reset): start fresh rather than crash.
-                app.deleteSharedPreferences(FILE)
-                open(app)
+                try {
+                    open(app)
+                } catch (again: Exception) {
+                    android.util.Log.w("VoiceSettingsStore", "Cannot open encrypted voice settings; using defaults", again)
+                    return null
+                }
             }
             prefs = created
             return created
@@ -47,8 +55,8 @@ object VoiceSettingsStore {
     }
 
     fun load(context: Context): VoiceSettings {
-        val p = prefs(context)
         val defaults = VoiceSettings()
+        val p = prefs(context) ?: return defaults
         return VoiceSettings(
             provider = runCatching { VoiceProvider.valueOf(p.getString("provider", "").orEmpty()) }.getOrDefault(defaults.provider),
             gatewayTtsModel = p.getString("gateway_tts_model", "").orEmpty().ifBlank { defaults.gatewayTtsModel },
@@ -65,8 +73,10 @@ object VoiceSettingsStore {
         )
     }
 
-    fun save(context: Context, s: VoiceSettings) {
-        prefs(context).edit()
+    /** Returns false when the encrypted store could not be opened; nothing is written then. */
+    fun save(context: Context, s: VoiceSettings): Boolean {
+        val p = prefs(context) ?: return false
+        p.edit()
             .putString("provider", s.provider.name)
             .putString("gateway_tts_model", s.gatewayTtsModel.trim())
             .putString("gateway_voice", s.gatewayVoice.trim())
@@ -80,5 +90,6 @@ object VoiceSettingsStore {
             .putString("realtime_model", s.realtimeModel.trim())
             .putString("realtime_voice", s.realtimeVoice.trim())
             .apply()
+        return true
     }
 }

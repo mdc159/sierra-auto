@@ -81,7 +81,13 @@ class UtteranceRecorder(
             } finally {
                 mic.stop()
             }
-            if (hostEnded) return Outcome.HostEnded
+            if (hostEnded) {
+                // CarAudioRecord (1.7.0) answers a refused openMicrophone (Assistant up, call in
+                // progress, DHU `mic reject on`) with an immediate -1, before any audio flows. A real
+                // dismissal always comes after the indicator was up and some bytes were read.
+                if (out.size() == 0 && !finishRequested) return Outcome.Failed("Car microphone unavailable. Try again.")
+                return Outcome.HostEnded
+            }
             if (!detector.heardSpeech || verdict == EndOfSpeechDetector.Verdict.NO_SPEECH) {
                 if (focusLost) return Outcome.FocusDenied
                 return Outcome.NoSpeech(finishedByUser = finishRequested)

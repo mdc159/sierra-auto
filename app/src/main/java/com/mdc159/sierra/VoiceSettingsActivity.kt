@@ -196,8 +196,8 @@ class VoiceSettingsActivity : Activity() {
     )
 
     private fun save() {
-        VoiceSettingsStore.save(this, current())
-        Toast.makeText(this, "Saved.", Toast.LENGTH_SHORT).show()
+        val ok = VoiceSettingsStore.save(this, current())
+        Toast.makeText(this, if (ok) "Saved." else "Couldn't open the encrypted settings store. Try again.", Toast.LENGTH_LONG).show()
     }
 
     /** Saves, then speaks a sample with the chosen voice so the owner hears it before driving. */

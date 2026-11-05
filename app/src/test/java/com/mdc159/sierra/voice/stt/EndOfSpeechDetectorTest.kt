@@ -58,13 +58,47 @@ class EndOfSpeechDetectorTest {
         assertEquals(Verdict.NO_SPEECH, d.feedMs(2_600, 100))
     }
 
+    /** Four "syllables": 200 ms loud, 40 ms dip, like real speech, not a steady tone. */
+    private fun EndOfSpeechDetector.speakMs(ms: Int, loud: Int = 3_000, dip: Int = 800): Verdict {
+        var v = Verdict.CONTINUE
+        var left = ms
+        while (left > 0) {
+            v = feedMs(minOf(200, left), loud)
+            left -= 200
+            if (left > 0) {
+                v = feedMs(minOf(40, left), dip)
+                left -= 40
+            }
+        }
+        return v
+    }
+
     @Test
     fun speechInTheVeryFirstChunkStillCounts() {
         val d = EndOfSpeechDetector(config)
-        assertEquals(Verdict.CONTINUE, d.feedMs(800, 3_000))
+        assertEquals(Verdict.CONTINUE, d.speakMs(800))
         assertTrue(d.heardSpeech)
         assertEquals(0, d.speechStartMs)
         assertEquals(Verdict.END_OF_SPEECH, d.feedMs(600, 100))
+    }
+
+    @Test
+    fun aLoudCabinIsNotEndlessSpeech() {
+        // Highway with the fan on high: steady 1 800 RMS, above the uncalibrated threshold.
+        val d = EndOfSpeechDetector(config.copy(calibrationMs = 600, maxMs = 20_000, noSpeechMs = 5_000))
+        assertEquals(Verdict.CONTINUE, d.feedMs(1_000, 1_800))
+        assertFalse("steady noise must not count as speech", d.heardSpeech)
+        assertEquals(1_800.0, d.noiseFloor, 0.01)
+        assertEquals(4_500.0, d.threshold, 0.01) // 1800 × 2.5, no cap once calibrated
+        assertEquals(Verdict.CONTINUE, d.feedMs(1_000, 6_000)) // the driver talks over the noise
+        assertTrue(d.heardSpeech)
+        assertEquals(1_000, d.speechStartMs)
+        assertEquals(Verdict.END_OF_SPEECH, d.feedMs(600, 1_800)) // ends after silenceMs of cabin noise, not at maxMs
+        assertEquals(2_600, d.elapsedMs)
+
+        val quiet = EndOfSpeechDetector(config.copy(calibrationMs = 600, noSpeechMs = 2_000))
+        assertEquals(Verdict.NO_SPEECH, quiet.feedMs(2_000, 1_800)) // nobody ever spoke
+        assertFalse(quiet.heardSpeech)
     }
 
     @Test
@@ -81,7 +115,7 @@ class EndOfSpeechDetectorTest {
     @Test
     fun hardCapEndsALongUtterance() {
         val d = EndOfSpeechDetector(config.copy(maxMs = 2_000))
-        assertEquals(Verdict.MAX_LENGTH, d.feedMs(2_000, 3_000))
+        assertEquals(Verdict.MAX_LENGTH, d.speakMs(2_000))
         assertTrue(d.heardSpeech)
     }
 
@@ -95,8 +129,8 @@ class EndOfSpeechDetectorTest {
         assertTrue(d.noiseFloor > 100.0)
         assertTrue(d.noiseFloor < 400.0)
         val loud = EndOfSpeechDetector(config.copy(floorRiseMs = 0))
-        loud.feedMs(100, 1_000) // ≥ 1500? no, 1000 < 1500 so it is "quiet" and sets the floor
-        assertEquals(1_500.0, loud.threshold, 0.01) // 1000 * 2.5 clamped to the cap
+        loud.feedMs(100, 1_000) // 1000 < 1500, so it is "quiet" and becomes the floor
+        assertEquals(2_500.0, loud.threshold, 0.01) // 1000 × 2.5; the cap applies only before a floor exists
     }
 
     @Test

@@ -118,6 +118,15 @@ class RealtimeVoiceLoopTest {
         channel.listener.onReady()
         assertEquals("Microphone closed.", result.get(5, TimeUnit.SECONDS))
         assertEquals(1, channel.closes)
+
+        // -1 before any audio: the host refused the microphone.
+        val refused = FakeMic().apply { endSession() }
+        val other = FakeChannel()
+        val l2 = RealtimeVoiceLoop(refused, { FakePcmPlayer() }, focus, { l -> other.listener = l; other.connected.countDown(); other })
+        val r2 = pool.submit<String> { l2.run() }
+        assertTrue(other.connected.await(5, TimeUnit.SECONDS))
+        other.listener.onReady()
+        assertEquals("Car microphone unavailable. Try again.", r2.get(5, TimeUnit.SECONDS))
     }
 
     @Test

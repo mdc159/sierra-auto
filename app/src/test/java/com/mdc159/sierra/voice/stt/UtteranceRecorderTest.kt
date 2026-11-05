@@ -50,6 +50,15 @@ class UtteranceRecorderTest {
     }
 
     @Test
+    fun minusOneBeforeAnyAudioMeansTheHostRefusedTheMic() {
+        // CarAudioRecord answers a refused openMicrophone with an immediate -1 (Assistant up,
+        // call in progress, DHU `mic reject on`). That is a failure to retry, not a dismissal.
+        mic.endSession()
+        assertEquals(UtteranceRecorder.Outcome.Failed("Car microphone unavailable. Try again."), recorder().record())
+        assertEquals(1, focus.abandons)
+    }
+
+    @Test
     fun finishNowEndsEarlyWithWhatWasHeard() {
         val r = recorder()
         mic.feedMs(200, 100)
