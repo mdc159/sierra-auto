@@ -5,6 +5,7 @@ import com.mdc159.sierra.agent.AgentClient
 import com.mdc159.sierra.agent.ChatMessage
 import com.mdc159.sierra.agent.ConfigStore
 import com.mdc159.sierra.agent.Conversation
+import com.mdc159.sierra.studio54.Studio54
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
@@ -43,7 +44,8 @@ class ConfiguredAgentBridge(context: Context) : AgentBridge {
     private val app = context.applicationContext
 
     override fun ask(question: String): String {
-        val config = ConfigStore.load(app)
+        // Same settings Talk uses: signed in to Studio 54, the gateway address and key come from the vault.
+        val config = Studio54.agentConfig(app, ConfigStore.load(app))
         if (!config.isConfigured) throw IllegalStateException("The owner's agent is not set up on the phone.")
         return AgentClient(config).chat(
             listOf(ChatMessage("system", Conversation.SYSTEM_PROMPT), ChatMessage("user", question)),
