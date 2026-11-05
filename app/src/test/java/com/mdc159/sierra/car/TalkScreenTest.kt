@@ -266,10 +266,33 @@ class TalkScreenTest {
 
     @Test
     fun everyTemplateHasABackActionAndATitle() {
+        // Not configured.
         CarTestHost.installConfig(carContext, null)
-        val screen = TalkScreen(carContext, session, tools = emptyList())
-        CarTestHost.show(screen)
-        check(screen.onGetTemplate())
+        val notConfigured = TalkScreen(carContext, session, tools = emptyList())
+        CarTestHost.show(notConfigured)
+        check(notConfigured.onGetTemplate())
+
+        // Needs mic, then listening, then thinking and the reply pane, then a failure.
+        CarTestHost.installConfig(carContext, config(carMic = true))
+        carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(800, 2_500)))
+        val flow = TalkScreen(carContext, session, tools = emptyList())
+        CarTestHost.show(flow)
+        check(flow.onGetTemplate()) // needs mic
+        CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
+        CarTestHost.click((flow.onGetTemplate() as MessageTemplate).actions.single()) // Allow
+        carContext.lastPermissionRequestInfo!!.listener.onRequestPermissionsResult(listOf(Manifest.permission.RECORD_AUDIO), emptyList())
+        check(flow.onGetTemplate()) // listening
+        CarTestHost.await(what = "reply") {
+            val t = flow.onGetTemplate()
+            check(t)
+            t is PaneTemplate
+        }
+
+        chatStatus = 503
+        carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(800, 2_500)))
+        val failing = TalkScreen(carContext, session, tools = emptyList())
+        CarTestHost.show(failing)
+        check(awaitFailure(failing))
     }
 
     /**
