@@ -46,7 +46,14 @@ class ConversationScreen(carContext: CarContext) : Screen(carContext) {
     }
 
     private fun begin() {
-        val config = DuplexConfigStore.load(carContext)
+        // Built inside the Talk screen's click listener: a store that cannot be opened (#11, #28)
+        // must end in a message here, not in an exception the host treats as an app crash.
+        val config = try {
+            DuplexConfigStore.load(carContext)
+        } catch (e: Exception) {
+            failure = "Full-duplex settings are unavailable. Open Sierra on the phone."
+            return
+        }
         when {
             !config.isConfigured -> failure = "Set up full-duplex voice in Sierra on the phone."
             !CarMic.isSupported(carContext) -> failure = "This car does not offer its microphone to apps."
