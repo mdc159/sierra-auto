@@ -15,7 +15,7 @@ class HomeScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         val places = Action.Builder()
             .setTitle("Places")
-            .setOnClickListener { screenManager.push(PlaceholderScreen(carContext, "Places")) }
+            .setOnClickListener { screenManager.push(PlaceCategoriesScreen(carContext)) }
             .build()
         val talk = Action.Builder()
             .setTitle("Talk")
