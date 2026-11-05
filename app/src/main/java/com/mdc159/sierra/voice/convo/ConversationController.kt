@@ -239,7 +239,7 @@ class ConversationController(
 
     private fun describe(e: Exception): String = when (e) {
         is AgentException -> e.message ?: "Something went wrong."
-        else -> e.message?.takeIf { it.isNotBlank() }?.let { Http.describe(e) } ?: Http.describe(e)
+        else -> Http.describe(e)
     }
 
     companion object {
