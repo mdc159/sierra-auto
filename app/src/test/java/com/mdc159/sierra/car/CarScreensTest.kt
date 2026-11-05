@@ -182,7 +182,9 @@ class CarScreensTest {
     fun placeListStartsLoadingThenShowsPlacesWithDistanceAndMarkers() {
         CarTestHost.grant(Manifest.permission.ACCESS_FINE_LOCATION)
         simulateLocation(38.5, -121.5)
-        val source = FakeSource(listOf(place("Shell", 800.0, "12 Main St, Davis"), place("Chevron", 2400.0, null)))
+        // The search is held open so the loading template can be read deterministically.
+        val gate = CountDownLatch(1)
+        val source = FakeSource(listOf(place("Shell", 800.0, "12 Main St, Davis"), place("Chevron", 2400.0, null)), gate)
         val screen = PlaceListScreen(carContext, PlaceCategory.FUEL, NearbyPlaces(listOf(source)))
         CarTestHost.show(screen)
 
@@ -192,6 +194,7 @@ class CarScreensTest {
         assertNotNull("API 5+ host uses the host refresh control", loading.onContentRefreshDelegate)
         assertNull(loading.actionStrip)
 
+        gate.countDown()
         CarTestHost.await(what = "places to load") { loadedRows(screen) == 2 }
         val loaded = screen.onGetTemplate().asMap()
         assertFalse(loaded.isLoading)
