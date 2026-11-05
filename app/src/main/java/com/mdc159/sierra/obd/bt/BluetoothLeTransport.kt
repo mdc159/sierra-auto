@@ -12,6 +12,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.mdc159.sierra.obd.ObdTransport
+import java.io.Closeable
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -199,7 +200,8 @@ class BluetoothLeTransport private constructor(private val link: Link) : ObdTran
         /**
          * Connects, discovers services, picks a layout and enables notifications, or
          * throws [AdapterUnavailableException] with a car-screen message. Blocking: call
-         * off the main thread. Needs `BLUETOOTH_CONNECT` on API 31+; callers check
+         * off the main thread. [pending] lets the caller abort the wait by closing the
+         * GATT. Needs `BLUETOOTH_CONNECT` on API 31+; callers check
          * [BluetoothPermissions.hasConnect] first.
          */
         @SuppressLint("MissingPermission")
@@ -208,16 +210,27 @@ class BluetoothLeTransport private constructor(private val link: Link) : ObdTran
             device: BluetoothDevice,
             label: String,
             timeoutMillis: Long = 20_000,
+            pending: PendingConnect = PendingConnect(),
         ): BluetoothLeTransport {
             val link = Link(label)
+            pending.register(Closeable { link.close() })
             val gatt = try {
                 device.connectGatt(context, false, link, BluetoothDevice.TRANSPORT_LE)
             } catch (e: SecurityException) {
                 throw AdapterUnavailableException("Allow Bluetooth for Sierra on the phone.", e)
             } ?: throw AdapterUnavailableException("Couldn't start a Bluetooth LE connection to $label.")
             link.gatt = gatt
+            if (link.closed) {
+                // Cancelled between register() and connectGatt(); release what we just opened.
+                link.close()
+                throw AdapterUnavailableException("Connection cancelled.")
+            }
             val ready = link.ready.await(timeoutMillis, TimeUnit.MILLISECONDS)
             val failure = link.failure
+            if (link.closed || pending.isCancelled) {
+                link.close()
+                throw AdapterUnavailableException("Connection cancelled.")
+            }
             if (!ready || failure != null) {
                 link.close()
                 throw AdapterUnavailableException(

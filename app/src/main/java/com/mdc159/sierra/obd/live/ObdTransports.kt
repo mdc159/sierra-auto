@@ -7,18 +7,20 @@ import com.mdc159.sierra.obd.bt.AdapterUnavailableException
 import com.mdc159.sierra.obd.bt.BluetoothClassicTransport
 import com.mdc159.sierra.obd.bt.BluetoothLeTransport
 import com.mdc159.sierra.obd.bt.BluetoothPermissions
+import com.mdc159.sierra.obd.bt.PendingConnect
 
 /**
  * Turns the phone-side choice in [ObdSettings] into an open [ObdTransport].
  *
- * Blocking for real adapters: call off the main thread. Every way it can fail throws
- * [AdapterUnavailableException] with a message that tells the driver what to do on the
- * phone, because none of it can be fixed from the car screen.
+ * Blocking for real adapters: call off the main thread; [pending] lets another
+ * thread abort the wait. Every way it can fail throws [AdapterUnavailableException]
+ * with a message that tells the driver what to do on the phone, because none of it
+ * can be fixed from the car screen.
  */
 object ObdTransports {
 
     @SuppressLint("MissingPermission") // Permission is checked explicitly below.
-    fun open(context: Context, settings: ObdSettings): ObdTransport {
+    fun open(context: Context, settings: ObdSettings, pending: PendingConnect = PendingConnect()): ObdTransport {
         if (settings.isDemo) return DemoTransport()
 
         val adapter = BluetoothPermissions.adapter(context)
@@ -41,9 +43,13 @@ object ObdTransports {
                 if (paired != null && paired.none { it.address.equals(device.address, ignoreCase = true) }) {
                     throw AdapterUnavailableException("${settings.label} isn't paired. Pair it in the phone's Bluetooth settings.")
                 }
-                BluetoothClassicTransport.connect(device, settings.label) { runCatching { adapter.cancelDiscovery() } }
+                BluetoothClassicTransport.connect(
+                    device, settings.label,
+                    beforeConnect = { runCatching { adapter.cancelDiscovery() } },
+                    pending = pending,
+                )
             }
-            AdapterKind.BLE -> BluetoothLeTransport.connect(context, device, settings.label)
+            AdapterKind.BLE -> BluetoothLeTransport.connect(context, device, settings.label, pending = pending)
             AdapterKind.DEMO -> DemoTransport()
         }
     }

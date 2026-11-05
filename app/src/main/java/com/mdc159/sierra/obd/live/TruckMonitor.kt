@@ -13,6 +13,7 @@ import com.mdc159.sierra.obd.ObdPids
 import com.mdc159.sierra.obd.ObdTimeoutException
 import com.mdc159.sierra.obd.ObdTransport
 import com.mdc159.sierra.obd.bt.AdapterUnavailableException
+import com.mdc159.sierra.obd.bt.PendingConnect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.Closeable
@@ -46,12 +47,17 @@ sealed interface CodesState {
  * supports, then polls the Truck screen's PIDs in a loop. Codes are read on request
  * from the same thread so there is never more than one command in flight.
  *
+ * [openTransport] receives a [PendingConnect]; a factory that blocks (a Bluetooth
+ * connect) registers its socket there so [close] can abort it. Otherwise a screen
+ * that is backed out of during "Connecting" would leave a worker connecting for up
+ * to the connect timeout, and a second Truck screen would race it for the dongle.
+ *
  * A link that drops after it worked is reconnected up to [maxReconnects] times. An
  * adapter that cannot be reached at all ([AdapterUnavailableException]) fails at once:
  * the fix is on the phone, not in retrying.
  */
 class TruckMonitor(
-    private val openTransport: () -> ObdTransport,
+    private val openTransport: (PendingConnect) -> ObdTransport,
     private val pollIntervalMillis: Long = 250,
     private val reconnectDelayMillis: Long = 3_000,
     private val maxReconnects: Int = 3,
@@ -69,6 +75,7 @@ class TruckMonitor(
     private val codesWanted = AtomicBoolean(false)
     private val transportLock = Any()
     private var transport: ObdTransport? = null
+    private var pendingConnect: PendingConnect? = null
     private var worker: Thread? = null
 
     /** How many times [openTransport] was called, for tests and logs. */
@@ -97,12 +104,19 @@ class TruckMonitor(
         codesWanted.set(true)
     }
 
-    /** Stops polling and closes the adapter link. Safe to call twice. */
+    /**
+     * Stops polling, aborts a connect still in flight and closes the adapter link.
+     * Safe to call twice, from any thread.
+     */
     override fun close() {
         stopped.set(true)
         worker?.interrupt()
+        synchronized(transportLock) { pendingConnect }?.cancel()
         closeTransport()
     }
+
+    /** True once the worker thread has exited (or never started). */
+    val isFinished: Boolean get() = worker?.isAlive != true
 
     private fun closeTransport() {
         val t = synchronized(transportLock) { transport.also { transport = null } }
@@ -116,9 +130,19 @@ class TruckMonitor(
             _state.value = TruckState.Connecting(reconnects)
             try {
                 connectAttempts++
-                val t = openTransport()
+                val pending = PendingConnect()
                 synchronized(transportLock) {
-                    if (stopped.get()) {
+                    if (stopped.get()) return
+                    pendingConnect = pending
+                }
+                val t = try {
+                    openTransport(pending)
+                } finally {
+                    pending.clear()
+                    synchronized(transportLock) { pendingConnect = null }
+                }
+                synchronized(transportLock) {
+                    if (stopped.get() || pending.isCancelled) {
                         runCatching { t.close() }
                         return
                     }

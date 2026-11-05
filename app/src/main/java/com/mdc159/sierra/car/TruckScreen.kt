@@ -37,7 +37,7 @@ class TruckScreen(
     carContext: CarContext,
     private val settings: ObdSettings = ObdSettingsStore.load(carContext),
     private val monitorFactory: () -> TruckMonitor = {
-        TruckMonitor({ ObdTransports.open(carContext, settings) })
+        TruckMonitor({ pending -> ObdTransports.open(carContext, settings, pending) })
     },
 ) : Screen(carContext) {
 

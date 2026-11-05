@@ -64,7 +64,14 @@ class TruckCodesScreen(
                     val room = budget - rows.size
                     val stored = state.stored
                     if (stored.isEmpty()) {
-                        rows += Row.Builder().setTitle("No stored codes").build()
+                        // Mode 03 answers NO DATA when the ECM is asleep (key in accessory), which
+                        // the client reports as an empty list. PID 01 still says how many codes
+                        // the ECM holds, so don't claim "none" when it says otherwise.
+                        rows += if ((status?.dtcCount ?: 0) > 0) {
+                            Row.Builder().setTitle("Couldn't read the codes").addText("Turn the key on and refresh.").build()
+                        } else {
+                            Row.Builder().setTitle("No stored codes").build()
+                        }
                     } else {
                         val shown = if (stored.size <= room) stored.size else (room - 1).coerceAtLeast(0)
                         stored.take(shown).forEach { code ->

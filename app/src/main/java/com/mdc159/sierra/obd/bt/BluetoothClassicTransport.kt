@@ -75,6 +75,9 @@ class BluetoothClassicTransport private constructor(
          * watchdog closes the socket at [timeoutMillis] so a dongle that is paired but
          * unplugged does not hang the caller for the stack's own (long) timeout.
          *
+         * [pending] lets the caller abort the attempt from another thread:
+         * `BluetoothSocket.close()` makes a blocked `connect()` throw.
+         *
          * Needs `BLUETOOTH_CONNECT` on API 31+; callers check [BluetoothPermissions.hasConnect]
          * first, which is why the lint check is suppressed here.
          */
@@ -84,6 +87,7 @@ class BluetoothClassicTransport private constructor(
             label: String,
             timeoutMillis: Long = 15_000,
             beforeConnect: () -> Unit = {},
+            pending: PendingConnect = PendingConnect(),
         ): BluetoothClassicTransport {
             val socket = try {
                 device.createRfcommSocketToServiceRecord(SPP_UUID)
@@ -92,6 +96,7 @@ class BluetoothClassicTransport private constructor(
             } catch (e: SecurityException) {
                 throw AdapterUnavailableException("Allow Bluetooth for Sierra on the phone.", e)
             }
+            pending.register(socket)
             beforeConnect()
             val lock = Any()
             var done = false
@@ -116,6 +121,7 @@ class BluetoothClassicTransport private constructor(
             } catch (e: IOException) {
                 val wasTimeout = synchronized(lock) { done = true; timedOut }
                 runCatching { socket.close() }
+                if (pending.isCancelled) throw AdapterUnavailableException("Connection cancelled.", e)
                 if (wasTimeout) {
                     throw AdapterUnavailableException(
                         "$label didn't answer in ${timeoutMillis / 1000} s. Is it plugged in and the key on?", e,

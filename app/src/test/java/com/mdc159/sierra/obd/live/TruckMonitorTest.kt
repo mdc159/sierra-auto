@@ -7,10 +7,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.Closeable
 import java.io.IOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class TruckMonitorTest {
 
@@ -114,6 +118,56 @@ class TruckMonitorTest {
         } finally {
             monitor.close()
         }
+    }
+
+    @Test
+    fun closeAbortsAConnectStillInFlight() {
+        // Models BluetoothSocket.connect(): blocks until the socket is closed from outside.
+        val blockedInConnect = CountDownLatch(1)
+        val socketClosed = CountDownLatch(1)
+        val monitor = TruckMonitor({ pending ->
+            pending.register(Closeable { socketClosed.countDown() })
+            blockedInConnect.countDown()
+            if (!socketClosed.await(5, TimeUnit.SECONDS)) throw AdapterUnavailableException("never cancelled")
+            throw AdapterUnavailableException("Couldn't connect.") // what a closed socket produces
+        })
+        monitor.start()
+        assertTrue(blockedInConnect.await(5, TimeUnit.SECONDS))
+        monitor.close()
+        assertTrue("close() must abort the pending connect", socketClosed.await(2, TimeUnit.SECONDS))
+        val deadline = System.currentTimeMillis() + 5_000
+        while (!monitor.isFinished && System.currentTimeMillis() < deadline) Thread.sleep(5)
+        assertTrue("worker should exit after close()", monitor.isFinished)
+        assertFalse(monitor.state.value is TruckState.Live)
+    }
+
+    @Test
+    fun aTransportReturnedAfterCloseIsClosedNotUsed() {
+        val demo = DemoTransport()
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val monitor = TruckMonitor({
+            entered.countDown()
+            // Like BluetoothSocket.connect(): a thread interrupt does not break out of it.
+            val deadline = System.currentTimeMillis() + 5_000
+            while (release.count > 0 && System.currentTimeMillis() < deadline) {
+                try {
+                    release.await(50, TimeUnit.MILLISECONDS)
+                } catch (e: InterruptedException) {
+                    // keep waiting
+                }
+            }
+            demo
+        })
+        monitor.start()
+        assertTrue(entered.await(5, TimeUnit.SECONDS))
+        monitor.close() // while the connect is in flight; the fake ignores the cancel
+        release.countDown()
+        val deadline = System.currentTimeMillis() + 5_000
+        while (!monitor.isFinished && System.currentTimeMillis() < deadline) Thread.sleep(5)
+        assertTrue(monitor.isFinished)
+        assertEquals(-1, demo.read(ByteArray(4), 0))
+        assertTrue(demo.sent.isEmpty())
     }
 
     @Test

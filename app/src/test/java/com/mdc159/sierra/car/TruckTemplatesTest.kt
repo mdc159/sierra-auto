@@ -92,6 +92,24 @@ class TruckTemplatesTest {
     }
 
     @Test
+    fun emptyCodeListWithCodesReportedIsNotCalledEmpty() {
+        // ECM asleep: Mode 03 says NO DATA (empty list) while PID 01 still counts two codes.
+        val t = TruckCodesScreen.template(
+            CodesState.Loaded(emptyList(), MonitorStatus(milOn = true, dtcCount = 2)), 6,
+        ) {} as ListTemplate
+        val titles = t.singleList!!.items.map { (it as Row).title.toString() }
+        assertEquals(listOf("Check engine light is on", "Couldn't read the codes", "Read-only"), titles)
+        // No codes and PID 01 agrees: plain "No stored codes".
+        val clean = TruckCodesScreen.template(
+            CodesState.Loaded(emptyList(), MonitorStatus(milOn = false, dtcCount = 0)), 6,
+        ) {} as ListTemplate
+        assertEquals(
+            listOf("Check engine light is off", "No stored codes", "Read-only"),
+            clean.singleList!!.items.map { (it as Row).title.toString() },
+        )
+    }
+
+    @Test
     fun homeGridNeverExceedsTheHostLimit() {
         val entries = HomeScreen.entries(
             configured = false, demoTruck = false, {}, {}, {}, {},
