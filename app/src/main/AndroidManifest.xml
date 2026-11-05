@@ -50,5 +50,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Studio 54 sign-in. Exported so the PC can push the sign-in over USB with
+             `adb shell am start`; the Activity always asks before saving an import. -->
+        <activity
+            android:name=".studio54.Studio54Activity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mdc159.sierra.action.IMPORT_STUDIO54" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
