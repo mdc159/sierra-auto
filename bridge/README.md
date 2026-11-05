@@ -20,6 +20,7 @@ Standard library only; `pytest` is the sole dev dependency. Python 3.11 or newer
 - **Binds to localhost by default.** Set `[server] host` to the machine's Tailscale IP, or keep loopback and publish with `tailscale serve` (below). Never expose it on a public interface.
 - **Per-request timeout** (`timeout_seconds`, default 120, per model override). A timed-out CLI is killed, a timed-out Pi turn is aborted, and the phone gets HTTP 504.
 - **No request text ever reaches a shell.** Commands and arguments come only from the config file (`shell=False`). The question travels on stdin (command adapter) or inside a JSON record (Pi). The conversation id goes in an environment variable.
+- **The agent behind `pi` or `command` is not so constrained.** It receives the driver's words and runs with whatever autonomy its own flags grant (the example passes `--no-approve` to Pi; `claude -p` runs its tools), as the bridge's user, in `cwd`. Keep that user and directory disposable: a dedicated service account, a checkout you can throw away, no production credentials in its environment.
 - **Replies are trimmed for speech** (`speech_max_chars`, default 600) at a sentence boundary, with markdown, code blocks and URLs stripped. The **full reply is kept** in `log_file` as JSONL, with the user text, model, conversation id and timing.
 - **Upstream keys come from the environment** (`api_key_env = "NAME"`), never from the config file.
 - Request bodies over `max_body_bytes` (1 MB) are rejected.
