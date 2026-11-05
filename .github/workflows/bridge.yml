@@ -1,0 +1,62 @@
+# Tests for bridge/ (the Python agent bridge). Separate from build.yml so an
+# app change never waits on Python and a bridge change never runs Gradle.
+name: bridge
+
+on:
+  pull_request:
+    paths:
+      - "bridge/**"
+      - ".github/workflows/bridge.yml"
+  push:
+    branches: [main]
+    paths:
+      - "bridge/**"
+      - ".github/workflows/bridge.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: bridge-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: bridge
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "bridge/uv.lock"
+
+      - name: Install (locked, project-local .venv)
+        run: uv sync --locked
+
+      - name: Check the example config loads
+        env:
+          SIERRA_BRIDGE_TOKEN: ci-only-token-not-a-secret
+        run: uv run sierra-bridge --config bridge.example.toml --port 0 --check
+
+      - name: Refuse to start without a token
+        run: |
+          if uv run sierra-bridge --config bridge.example.toml --port 0 --check; then
+            echo "::error::bridge started without SIERRA_BRIDGE_TOKEN"
+            exit 1
+          fi
+
+      - name: Run tests
+        run: uv run pytest -q --junitxml=test-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bridge-test-results
+          path: bridge/test-results.xml
