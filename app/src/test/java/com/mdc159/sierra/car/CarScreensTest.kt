@@ -353,6 +353,26 @@ class CarScreensTest {
     }
 
     @Test
+    fun historySurvivesVeryLongAndMarkdownOnlyText() {
+        History.add(carContext, "Q".repeat(5_000), "A".repeat(5_000) + " end.")
+        History.add(carContext, "**", "_`#_")
+        History.add(carContext, "", "answer only")
+        val screen = HistoryScreen(carContext, session)
+        CarTestHost.show(screen)
+        val list = screen.onGetTemplate().asList()
+        assertEquals(3, list.rows.size)
+        assertTrue(list.rows.all { it.titleText.isNotBlank() && it.titleText.length <= 60 })
+
+        History.list(carContext).forEach { e ->
+            val detail = HistoryDetailScreen(carContext, session, e)
+            CarTestHost.show(detail)
+            val pane = detail.onGetTemplate().asPane()
+            assertTrue(pane.pane.rows.size in 1..CarLimits.listLimit(carContext, androidx.car.app.constraints.ConstraintManager.CONTENT_LIMIT_TYPE_PANE))
+            assertEquals("Hear it", pane.pane.actions.single().title.toString())
+        }
+    }
+
+    @Test
     fun historyDetailSplitsTheAnswerIntoPaneRows() {
         val exchange = Exchange(0L, "Where is fuel?", "Exit in two miles. The station is on the right. It is open all night.")
         val screen = HistoryDetailScreen(carContext, session, exchange)
