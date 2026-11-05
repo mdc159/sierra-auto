@@ -97,7 +97,7 @@ class TalkScreenTest {
     @Test
     fun notConfiguredExplainsThePhoneSetup() {
         CarTestHost.installConfig(carContext, null)
-        val screen = TalkScreen(carContext, session)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
         CarTestHost.show(screen)
         val t = screen.onGetTemplate() as MessageTemplate
         assertEquals("Set up your agent on the phone", t.title.toString())
@@ -109,7 +109,7 @@ class TalkScreenTest {
     @Test
     fun phoneRecognizerUnavailableFailsWithTryAgain() {
         CarTestHost.installConfig(carContext, config(carMic = false))
-        val screen = TalkScreen(carContext, session)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
         CarTestHost.show(screen)
         val t = awaitFailure(screen)
         assertEquals("No speech recognizer on this phone. Set a transcription URL.", t.message.toString())
@@ -122,7 +122,7 @@ class TalkScreenTest {
     fun carMicFlowNeedsMicThenListensThinksAndReplies() {
         CarTestHost.installConfig(carContext, config(carMic = true))
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(speechMs = 800, silenceMs = 2_500)))
-        val screen = TalkScreen(carContext, session)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
         CarTestHost.show(screen)
 
         // RECORD_AUDIO is not granted: the screen asks for it on the phone.
@@ -195,7 +195,7 @@ class TalkScreenTest {
         CarTestHost.installConfig(carContext, config(carMic = true))
         CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(800, 2_500)))
-        val screen = TalkScreen(carContext, session)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
         CarTestHost.show(screen)
         CarTestHost.await(what = "reply") { screen.onGetTemplate() is PaneTemplate }
 
@@ -211,7 +211,7 @@ class TalkScreenTest {
         CarTestHost.installConfig(carContext, config(carMic = true))
         CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(800, 2_500)))
-        val screen = TalkScreen(carContext, session)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
         CarTestHost.show(screen)
         val t = awaitFailure(screen)
         assertEquals("Agent error 503: model is overloaded", t.message.toString())
@@ -224,7 +224,7 @@ class TalkScreenTest {
         CarTestHost.installConfig(carContext, config(carMic = true))
         CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(800, 2_500)))
-        val screen = TalkScreen(carContext, session)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
         CarTestHost.show(screen)
         assertEquals("Didn't catch that.", awaitFailure(screen).message.toString())
         assertTrue(History.list(carContext).isEmpty())
@@ -235,7 +235,7 @@ class TalkScreenTest {
         CarTestHost.installConfig(carContext, config(carMic = true))
         CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(0, 7_500)))
-        val screen = TalkScreen(carContext, session)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
         CarTestHost.show(screen)
         assertEquals("Didn't hear anything.", awaitFailure(screen).message.toString())
         assertEquals(0, server.requestCount)
@@ -249,7 +249,7 @@ class TalkScreenTest {
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(0, 100)))
         val home = HomeScreen(carContext, session)
         CarTestHost.show(home)
-        val screen = TalkScreen(carContext, session)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
         CarTestHost.show(screen)
         val manager = carContext.getCarService(TestScreenManager::class.java)
         CarTestHost.await(what = "pop") { manager.screensRemoved.contains(screen) }
@@ -265,7 +265,7 @@ class TalkScreenTest {
     @Test
     fun everyTemplateHasABackActionAndATitle() {
         CarTestHost.installConfig(carContext, null)
-        val screen = TalkScreen(carContext, session)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
         CarTestHost.show(screen)
         check(screen.onGetTemplate())
     }
