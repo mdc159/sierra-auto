@@ -1,0 +1,32 @@
+# systemd unit for the Sierra bridge. Install:
+#   sudo cp deploy/sierra-bridge.service /etc/systemd/system/
+#   sudo install -d -o sierra -g sierra /etc/sierra-bridge /var/lib/sierra-bridge /var/log/sierra-bridge
+#   sudo cp bridge.example.toml /etc/sierra-bridge/bridge.toml   # then edit
+#   sudo cp deploy/sierra-bridge.env.example /etc/sierra-bridge/env  # then edit, chmod 600
+#   sudo systemctl daemon-reload && sudo systemctl enable --now sierra-bridge
+[Unit]
+Description=Sierra bridge (OpenAI-compatible front for CLI, Pi and Hermes agents)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sierra
+Group=sierra
+WorkingDirectory=/opt/sierra-auto/bridge
+EnvironmentFile=/etc/sierra-bridge/env
+ExecStart=/opt/sierra-auto/bridge/.venv/bin/sierra-bridge --config /etc/sierra-bridge/bridge.toml
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# Hardening. Loosen ReadWritePaths if an adapter's cwd or session_dir lives elsewhere.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/var/lib/sierra-bridge /var/log/sierra-bridge
+
+[Install]
+WantedBy=multi-user.target

@@ -186,9 +186,23 @@ class ConversationControllerTest {
         utterance()
         val c = controller(FakeTranscriber("", ""))
         withTimeout(10_000) { c.run() }
-        assertEquals(EndReason.SILENCE, (c.state.value as ConversationState.Ended).reason)
+        val ended = c.state.value as ConversationState.Ended
+        assertEquals(EndReason.ERROR, ended.reason)
+        assertEquals("Didn't catch that.", ended.message)
         assertTrue(agent.asked.isEmpty())
         assertEquals(2, mic.started)
+    }
+
+    @Test
+    fun emptyTranscriptInOneTurnModeFailsAtOnce() = runBlocking {
+        utterance()
+        val c = controller(FakeTranscriber(""), ConversationConfig(continuous = false, endpoint = endpoint, speakErrors = false))
+        withTimeout(10_000) { c.run() }
+        val ended = c.state.value as ConversationState.Ended
+        assertEquals(EndReason.ERROR, ended.reason)
+        assertEquals("Didn't catch that.", ended.message)
+        assertEquals(1, mic.started)
+        assertTrue(speech.spoken.isEmpty())
     }
 
     @Test

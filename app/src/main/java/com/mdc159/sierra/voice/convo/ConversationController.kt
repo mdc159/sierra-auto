@@ -181,9 +181,10 @@ class ConversationController(
                 }
                 if (stopRequested.get()) return end(EndReason.USER_STOPPED, null, lastHeard, lastReply)
                 if (heard.isBlank()) {
-                    // Noise that passed the energy gate but was not words. Listen once more.
-                    if (++emptyTranscripts >= 2) return end(EndReason.SILENCE, null, lastHeard, lastReply)
-                    continue
+                    // Noise that passed the energy gate but was not words. In a running
+                    // conversation listen once more; otherwise say so and stop.
+                    if (config.continuous && ++emptyTranscripts < 2) continue
+                    return end(EndReason.ERROR, "Didn't catch that.", lastHeard, lastReply)
                 }
                 emptyTranscripts = 0
 
