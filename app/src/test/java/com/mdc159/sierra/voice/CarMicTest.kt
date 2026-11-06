@@ -8,6 +8,7 @@ import androidx.car.app.versioning.CarAppApiLevels
 import com.mdc159.sierra.agent.AgentException
 import com.mdc159.sierra.car.CarTestHost
 import com.mdc159.sierra.car.TalkScreenTest
+import com.mdc159.sierra.voice.stt.MicLevels
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -70,6 +71,13 @@ class CarMicTest {
     @Test
     fun silenceOnlyThrowsAReadableError() {
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(TalkScreenTest.speechThenSilence(0, 7_500)))
+        val e = assertThrows(AgentException::class.java) { CarMic(carContext).recordWav() }
+        assertEquals(MicLevels.SILENT_MESSAGE, e.message)
+    }
+
+    @Test
+    fun aLiveButQuietMicIsDidntHearAnything() {
+        carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(TalkScreenTest.steady(7_500, 100)))
         val e = assertThrows(AgentException::class.java) { CarMic(carContext).recordWav() }
         assertEquals("Didn't hear anything.", e.message)
     }

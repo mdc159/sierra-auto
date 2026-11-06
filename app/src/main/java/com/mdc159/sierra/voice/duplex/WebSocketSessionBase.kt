@@ -84,14 +84,18 @@ abstract class WebSocketSessionBase(
 
     @Throws(DuplexException::class)
     private fun connect() {
+        if (closed.get()) throw DuplexException("Conversation stopped.")
         val latch = CountDownLatch(1)
         handshake = latch
         handshakeFailure = null
         val request = buildRequest()
+        if (closed.get()) throw DuplexException("Conversation stopped.")
         val gen = ++generation
         val ws = client.newWebSocket(request, SocketListener(gen))
+        if (closed.get()) { ws.cancel(); throw DuplexException("Conversation stopped.") }
         if (generation == gen && socket == null) socket = ws
         val inTime = latch.await(timing.handshakeTimeoutMs, TimeUnit.MILLISECONDS)
+        if (closed.get()) { ws.cancel(); throw DuplexException("Conversation stopped.") }
         handshakeFailure?.let {
             ws.cancel()
             throw DuplexException(it)
@@ -133,6 +137,7 @@ abstract class WebSocketSessionBase(
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
+        handshake?.countDown()
         socket?.close(1000, "User ended conversation")
         toolExecutor.shutdownNow()
         end("Ended")
@@ -189,13 +194,13 @@ abstract class WebSocketSessionBase(
         private val current: Boolean get() = gen == generation
 
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            if (!current) return
+            if (!current || closed.get()) { webSocket.cancel(); return }
             socket = webSocket
             onSocketOpen(webSocket)
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
-            if (!current) return
+            if (!current || closed.get()) return
             val json = try {
                 JSONObject(text)
             } catch (e: Exception) {

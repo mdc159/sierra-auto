@@ -1,5 +1,10 @@
 # Agent backends for Sierra
 
+For the verified Victoria connection, one-tap phone setup and cable-free microphone
+tests, see [Microphone diagnostics and Hermes on Victoria](MICROPHONE-DIAGNOSTICS.md).
+The phone's existing Studio54 project now supplies `SIERRA_BRIDGE_URL` and
+`SIERRA_BRIDGE_TOKEN`; the deployment script reconciles them without manual key entry.
+
 Sierra's Talk screen sends each question to one OpenAI-compatible chat endpoint, configured on the phone as **Base URL**, **API key** and **Model**. Anything that speaks `POST /v1/chat/completions` can be the agent. This page lists what the owner can plug in today and how to set each up. Written 2026-11-05 for lane H; the bridge lives in `bridge/`.
 
 How the app calls the endpoint (`app/src/main/java/com/mdc159/sierra/agent/AgentClient.kt`): a plain, non-streaming POST with `model` and `messages`, where `messages` is Sierra's driving-assistant system prompt plus the last six turns plus the new question. The reply is `choices[0].message.content`, cut to 300 characters for the screen and 800 for speech. Errors show `error.message` from the body. The base URL may be `https://host`, `https://host/v1` or the full `/chat/completions` URL.
@@ -78,6 +83,23 @@ A plain forward to another OpenAI-compatible URL, so the bridge can also front t
 - It does not run text from a request as a shell command, ever. Commands are fixed in the config.
 - It does not keep history for the command and openai adapters beyond what the request carries.
 - It does not expose anything without the token, except `/health`.
+
+## Built: a profile switch on the phone (2026-11-06)
+
+The phone settings have a **Who answers** switch with two choices:
+
+- **A model**: the main settings, which means the gateway when signed in to Studio 54.
+- **My agent, through the Sierra bridge**: a bridge URL, a token and an agent name, `hermes` by default.
+
+What the switch controls:
+
+- Only chat follows it: Talk and full-duplex `ask_agent`, through `AgentConfig.chatBaseUrl`, `chatKey` and `chatModel`.
+- Transcription and gateway speech stay on the main settings. Full-duplex voice has its own settings screen and is not touched; only its `ask_agent` tool follows the switch.
+- The app reads the bridge pair from the vault as `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN` when both are in the phone's project. The phone profile was provisioned and verified on 2026-11-06 by `bridge/deploy/publish_phone_profile.py`; tap **Connect to Hermes on Victoria** to refresh and select it. Other enrolled devices need their own profile provisioned or a typed bridge configuration.
+- A bridge profile without a token does not count as set up; the bridge always checks one.
+- Bridge turns get 120 s per round and 140 s per exchange, against 30 s and 60 s on the gateway. Transcription keeps the normal client's limits.
+
+The voice-switched profiles below are still a proposal.
 
 ## Proposal for a later lane: named agent profiles switched by voice
 

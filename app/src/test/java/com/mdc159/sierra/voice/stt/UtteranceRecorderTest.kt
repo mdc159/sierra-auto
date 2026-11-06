@@ -12,6 +12,87 @@ import java.util.concurrent.TimeUnit
 
 class UtteranceRecorderTest {
 
+    @Test fun doneDoesNotWaitForNativeStopButRecordingWaitsForCleanup() {
+        val reading = java.util.concurrent.CountDownLatch(1)
+        val stopping = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val mic = object : MicSource {
+            override val sampleRate = 16000
+            override fun start() {}
+            override fun read(buf: ByteArray, offset: Int, length: Int): Int {
+                reading.countDown()
+                check(release.await(3, TimeUnit.SECONDS))
+                return -1
+            }
+            override fun stop() { stopping.countDown(); check(release.await(3, TimeUnit.SECONDS)) }
+        }
+        val recorder = UtteranceRecorder(mic, FakeAudioFocus())
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val record = pool.submit<UtteranceRecorder.Outcome> { recorder.record() }
+            assertTrue(reading.await(2, TimeUnit.SECONDS))
+            pool.submit { recorder.finishNow() }.get(1, TimeUnit.SECONDS)
+            assertTrue(stopping.await(1, TimeUnit.SECONDS))
+            assertFalse(record.isDone)
+            release.countDown()
+            assertEquals(UtteranceRecorder.Outcome.NoSpeech(true), record.get(2, TimeUnit.SECONDS))
+        } finally { release.countDown(); pool.shutdownNow() }
+    }
+
+    @Test fun doneDoesNotWaitForABlockedMicrophoneOpen() {
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+        val mic = object : MicSource {
+            override val sampleRate = 16000
+            override fun start() { entered.countDown(); check(release.await(3, TimeUnit.SECONDS)) }
+            override fun read(buf: ByteArray, offset: Int, length: Int) = -1
+            override fun stop() { closed.set(true) }
+        }
+        val recorder = UtteranceRecorder(mic, FakeAudioFocus())
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val record = pool.submit<UtteranceRecorder.Outcome> { recorder.record() }
+            assertTrue(entered.await(2, TimeUnit.SECONDS))
+            pool.submit { recorder.finishNow() }.get(1, TimeUnit.SECONDS)
+            release.countDown()
+            assertEquals(UtteranceRecorder.Outcome.NoSpeech(true), record.get(2, TimeUnit.SECONDS))
+            assertTrue(closed.get())
+        } finally { release.countDown(); recorder.finishNow(); pool.shutdownNow() }
+    }
+
+    @Test fun doneUnblocksNativeReadWithoutAnotherAudioPacket() {
+        val blocked = java.util.concurrent.CountDownLatch(1)
+        val stopped = java.util.concurrent.CountDownLatch(1)
+        val nativeMic = object : MicSource {
+            override val sampleRate = 16000
+            var sent = false
+            override fun start() {}
+            override fun read(buf: ByteArray, offset: Int, length: Int): Int {
+                if (!sent) {
+                    sent = true
+                    for (i in offset until offset + length step 2) { buf[i] = 0; buf[i + 1] = 16 }
+                    return length
+                }
+                blocked.countDown()
+                check(stopped.await(2, TimeUnit.SECONDS))
+                return -1
+            }
+            override fun stop() { stopped.countDown() }
+        }
+        val focus = FakeAudioFocus()
+        val recorder = UtteranceRecorder(nativeMic, focus, EndpointConfig(), bufferSize = 16000)
+        val pool = Executors.newSingleThreadExecutor()
+        try {
+            val future = pool.submit<UtteranceRecorder.Outcome> { recorder.record() }
+            assertTrue(blocked.await(2, TimeUnit.SECONDS))
+            recorder.finishNow()
+            val outcome = future.get(2, TimeUnit.SECONDS)
+            assertTrue("Done submits captured speech, not a host cancellation", outcome is UtteranceRecorder.Outcome.Speech)
+            assertEquals(1, focus.abandons)
+        } finally { recorder.finishNow(); pool.shutdownNow() }
+    }
+
     private val config = EndpointConfig(silenceMs = 400, noSpeechMs = 2_000, maxMs = 10_000, minSpeechMs = 100)
     private val mic = FakeMic()
     private val focus = FakeAudioFocus()
@@ -110,5 +191,61 @@ class UtteranceRecorderTest {
         mic.failStart = IllegalStateException("Car microphone unavailable.")
         assertEquals(UtteranceRecorder.Outcome.Failed("Car microphone unavailable."), recorder().record())
         assertTrue(focus.abandons == 1)
+    }
+
+    @Test
+    fun zerosFromTheCarAreReportedAsSilenceNotAsNoSpeech() {
+        mic.feedMs(2_500, 0)
+        assertEquals(UtteranceRecorder.Outcome.Silent, recorder().record())
+        assertEquals(1, focus.abandons)
+    }
+
+    @Test
+    fun aQuietVoiceTheGateMissesGoesToTheTranscriberWhenAllowed() {
+        // Speech below the absolute gate (a quiet head-unit mic, or road noise masking it).
+        mic.feedMs(2_500, 300)
+        val lines = mutableListOf<String>()
+        val r = UtteranceRecorder(mic, focus, config.copy(sendUnconfirmed = true), bufferSize = 640, log = { lines += it })
+        val outcome = r.record() as UtteranceRecorder.Outcome.Speech
+        assertFalse(outcome.confirmed)
+        assertEquals(2_000L, outcome.durationMs)
+        assertTrue(lines.single().contains("outcome=unconfirmed-speech"))
+        assertTrue(lines.single().contains("verdict=NO_SPEECH"))
+    }
+
+    @Test
+    fun withoutPermissionAQuietRecordingIsStillNoSpeech() {
+        mic.feedMs(2_500, 300)
+        assertEquals(UtteranceRecorder.Outcome.NoSpeech(finishedByUser = false), recorder().record())
+    }
+
+    @Test
+    fun doneAfterHalfASecondSendsWhatWasRecordedEvenIfTheGateHeardNothing() {
+        val r = recorder()
+        mic.feedMs(600, 300)
+        val pool = Executors.newSingleThreadExecutor()
+        val future = pool.submit<UtteranceRecorder.Outcome> { r.record() }
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
+        while (r.lastDetector?.elapsedMs != 600L && System.nanoTime() < deadline) Thread.sleep(5)
+        assertEquals(600L, r.lastDetector?.elapsedMs)
+        r.finishNow()
+        mic.feed(ByteArray(0))
+        val outcome = future.get(5, TimeUnit.SECONDS) as UtteranceRecorder.Outcome.Speech
+        assertFalse(outcome.confirmed)
+        assertEquals(600L, outcome.durationMs)
+        pool.shutdownNow()
+    }
+
+    @Test
+    fun logsOneLineWithLevelsAndOutcome() {
+        mic.feedMs(200, 100)
+        mic.feedMs(600, 3_000)
+        mic.feedMs(1_000, 100)
+        val lines = mutableListOf<String>()
+        UtteranceRecorder(mic, focus, config, bufferSize = 640, log = { lines += it }).record()
+        val line = lines.single()
+        assertTrue(line, line.startsWith("utterance outcome=speech verdict=END_OF_SPEECH heardSpeech=true"))
+        assertTrue(line, line.contains("peakRms=3000.0"))
+        assertTrue(line, line.contains("threshold="))
     }
 }

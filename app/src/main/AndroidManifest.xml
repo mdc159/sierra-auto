@@ -7,6 +7,9 @@
     <!-- Required to use PlaceListMapTemplate (host-drawn map). -->
     <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- OBD-II adapter over Bluetooth. Android 12+ uses the runtime CONNECT/SCAN pair;
          older versions use the install-time permissions. The scan is never for location. -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
@@ -43,6 +46,11 @@
         android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <service android:name=".voice.diagnostics.PhoneMicService"
+            android:exported="false" android:foregroundServiceType="microphone" />
+        <activity android:name=".voice.diagnostics.MicDiagnosticsActivity"
+            android:exported="false" android:label="Microphone &amp; diagnostics" />
 
         <!-- Declares this app as an Android Auto templated app. -->
         <meta-data

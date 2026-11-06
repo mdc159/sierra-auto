@@ -2,6 +2,10 @@ package com.mdc159.sierra.studio54
 
 import android.content.Context
 import com.mdc159.sierra.agent.AgentConfig
+import com.mdc159.sierra.agent.AgentProfile
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import com.mdc159.sierra.voice.duplex.DuplexConfig
 import com.mdc159.sierra.voice.duplex.DuplexException
 import com.mdc159.sierra.voice.duplex.DuplexProvider
@@ -27,6 +31,8 @@ object Studio54 {
     const val UNAUTHORIZED_DEBOUNCE_MILLIS = 60_000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val refreshVersion = MutableStateFlow(0L)
+    val refreshEvents = refreshVersion.asStateFlow()
 
     @Volatile
     private var source: VaultSecretSource? = null
@@ -58,7 +64,7 @@ object Studio54 {
             if (timer?.isActive == true) return
             timer = scope.launch {
                 while (isActive) {
-                    if (s.isSignedIn) s.refresh()
+                    if (s.isSignedIn) { s.refresh(); refreshVersion.update { it + 1 } }
                     delay(REFRESH_INTERVAL_MILLIS)
                 }
             }
@@ -67,11 +73,13 @@ object Studio54 {
 
     /** Reads the vault now, off the main thread. */
     suspend fun refreshNow(context: Context): RefreshResult =
-        withContext(Dispatchers.IO) { source(context).refresh() }
+        withContext(Dispatchers.IO) { source(context).refresh().also { refreshVersion.update { it + 1 } } }
 
     /**
-     * Phase 2 hook for the Talk screen: the typed agent settings, with the base URL and key
-     * taken from the vault when signed in and known. Also makes sure the refresh timer runs.
+     * The settings Talk, `ask_agent` and Test connection use: the typed agent settings, with
+     * the gateway and bridge addresses and keys taken from the vault when signed in and known.
+     * The chosen profile decides where chat goes ([AgentConfig.chatBaseUrl]). Also makes sure
+     * the refresh timer runs.
      */
     fun agentConfig(context: Context, typed: AgentConfig): AgentConfig = try {
         start(context)
@@ -92,6 +100,13 @@ object Studio54 {
         typed
     }
 
+    /** True when the vault supplies the bridge URL and token, so the typed ones are not used. */
+    fun suppliesBridge(context: Context): Boolean = try {
+        AgentOverlay.isBridgeActive(source(context))
+    } catch (e: Exception) {
+        false
+    }
+
     /** True when the vault supplies the agent base URL and key, so the typed ones are not used. */
     fun suppliesAgent(context: Context): Boolean = try {
         AgentOverlay.isActive(source(context))
@@ -103,9 +118,11 @@ object Studio54 {
      * Phase 2 hook for the Talk and duplex failure paths: a 401 from the gateway while the vault
      * supplies the key means the key may have been rotated, so the vault is read again.
      */
-    fun onAgentError(context: Context, e: Throwable) {
+    fun onAgentError(context: Context, e: Throwable, profile: AgentProfile = AgentProfile.GATEWAY) {
         try {
-            if (AgentOverlay.isUnauthorized(e) && AgentOverlay.isActive(source(context))) onUnauthorized(context)
+            val s = source(context)
+            val supplied = if (profile == AgentProfile.BRIDGE) AgentOverlay.isBridgeActive(s) else AgentOverlay.isActive(s)
+            if (AgentOverlay.isUnauthorized(e) && supplied) onUnauthorized(context)
         } catch (storeFailure: Exception) {
             // Reporting a failure must never add a second one on the car screen.
         }
@@ -133,7 +150,7 @@ object Studio54 {
             if (now - lastUnauthorizedRefresh < UNAUTHORIZED_DEBOUNCE_MILLIS) return false
             lastUnauthorizedRefresh = now
         }
-        scope.launch { s.refresh() }
+        scope.launch { s.refresh(); refreshVersion.update { it + 1 } }
         return true
     }
 }

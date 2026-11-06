@@ -238,7 +238,7 @@ class DuplexSettingsActivity : ComponentActivity() {
         val session = Duplex.session(config, Duplex.defaultTools(this))
         val c = DuplexController(
             session = session,
-            mic = PhoneMic(),
+            mic = com.mdc159.sierra.voice.diagnostics.Microphones.phone(this),
             sink = AudioTrackSink(),
             focus = AndroidFocus(this),
             mode = config.mode,
@@ -253,12 +253,14 @@ class DuplexSettingsActivity : ComponentActivity() {
             try {
                 c.start()
                 runOnUiThread {
+                    if (controller !== c || !c.isRunning) return@runOnUiThread
                     setStatus("Listening. Say something; talk over Sierra to interrupt.")
                     interruptButton.isEnabled = true
                 }
             } catch (e: DuplexException) {
                 Studio54.onDuplexError(this@DuplexSettingsActivity, config.provider, e.message)
                 runOnUiThread {
+                    if (controller !== c) return@runOnUiThread
                     setStatus("Couldn't start: ${e.message}")
                     finished()
                 }

@@ -14,6 +14,7 @@ import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.History
 import com.mdc159.sierra.car.CarTestHost.titleText
 import com.mdc159.sierra.voice.Pcm
+import com.mdc159.sierra.voice.stt.MicLevels
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -43,6 +44,17 @@ import java.util.concurrent.TimeUnit
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class TalkScreenTest {
+
+    @Test fun explicitPhoneMicWithoutTranscriptionNeverFallsBackToCarMic() {
+        CarTestHost.installConfig(carContext, AgentConfig(profile = com.mdc159.sierra.agent.AgentProfile.BRIDGE,
+            bridgeUrl = server.url("/v1").toString(), bridgeKey = "test-key"))
+        CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
+        com.mdc159.sierra.voice.diagnostics.MicSettings.source(carContext, com.mdc159.sierra.voice.diagnostics.MicrophoneSource.PHONE)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
+        CarTestHost.show(screen)
+        assertTrue((screen.onGetTemplate() as MessageTemplate).message.toString().contains("Set up a transcription endpoint"))
+        assertEquals(0, server.requestCount)
+    }
 
     private lateinit var carContext: TestCarContext
     private lateinit var session: SierraSession
@@ -184,7 +196,14 @@ class TalkScreenTest {
         val manager = carContext.getCarService(TestScreenManager::class.java)
         val fresh = manager.screensPushed.last()
         assertTrue(fresh is TalkScreen && fresh !== screen)
-        CarTestHost.await(what = "second reply") { fresh.onGetTemplate() is PaneTemplate }
+        CarTestHost.show(fresh)
+        CarTestHost.await(what = "second reply") {
+            val template = fresh.onGetTemplate()
+            if (template is MessageTemplate && template.message.toString() != "Listening…" && !template.isLoading) {
+                throw AssertionError("Second turn failed: ${template.message}\n${com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics.report(carContext)}")
+            }
+            template is PaneTemplate
+        }
         val second = fresh.onGetTemplate() as PaneTemplate
         assertEquals("You: how far to reno", (second.pane.rows[0] as Row).titleText)
         assertEquals(listOf("how far to reno", "find gas"), History.list(carContext).map { it.question })
@@ -239,8 +258,22 @@ class TalkScreenTest {
         carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(0, 7_500)))
         val screen = TalkScreen(carContext, session, tools = emptyList())
         CarTestHost.show(screen)
-        assertEquals("Didn't hear anything.", awaitFailure(screen).message.toString())
+        // Nothing but zeros: the car (or the phone's microphone access) handed over no sound at all.
+        assertEquals(MicLevels.SILENT_MESSAGE, awaitFailure(screen).message.toString())
         assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun aQuietVoiceUnderTheGateStillReachesTranscriptionOnTheFirstQuestion() {
+        // Road noise or a quiet head-unit mic: the energy gate never fires, the transcriber decides.
+        CarTestHost.installConfig(carContext, config(carMic = true))
+        CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
+        carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(steady(7_500, 300)))
+        val screen = TalkScreen(carContext, session, tools = emptyList())
+        CarTestHost.show(screen)
+        CarTestHost.await(what = "reply") { screen.onGetTemplate() is PaneTemplate }
+        val rows = (screen.onGetTemplate() as PaneTemplate).pane.rows.map { it as Row }
+        assertEquals("You: find gas", rows[0].titleText)
     }
 
     @Test
@@ -341,6 +374,18 @@ class TalkScreenTest {
     }
 
     companion object {
+        /** 16 kHz mono 16-bit PCM: a square wave of amplitude [level] for [ms]. */
+        fun steady(ms: Int, level: Int): ByteArray {
+            val samples = Pcm.SAMPLE_RATE * ms / 1000
+            val out = ByteArray(samples * 2)
+            for (i in 0 until samples) {
+                val v = if ((i / 40) % 2 == 0) level else -level
+                out[i * 2] = (v and 0xFF).toByte()
+                out[i * 2 + 1] = ((v shr 8) and 0xFF).toByte()
+            }
+            return out
+        }
+
         /** 16 kHz mono 16-bit PCM: a loud square wave for [speechMs], then digital silence. */
         fun speechThenSilence(speechMs: Int, silenceMs: Int): ByteArray {
             val speechSamples = Pcm.SAMPLE_RATE * speechMs / 1000

@@ -52,6 +52,10 @@ object ConfigStore {
             sttUrl = p.getString("stt_url", "").orEmpty(),
             sttKey = p.getString("stt_key", "").orEmpty(),
             sttModel = p.getString("stt_model", "").orEmpty().ifBlank { AgentConfig.DEFAULT_STT_MODEL },
+            profile = AgentProfile.entries.firstOrNull { it.name == p.getString("agent_profile", null) } ?: AgentProfile.GATEWAY,
+            bridgeUrl = p.getString("bridge_url", "").orEmpty(),
+            bridgeKey = p.getString("bridge_key", "").orEmpty(),
+            bridgeModel = p.getString("bridge_model", "").orEmpty().ifBlank { AgentConfig.DEFAULT_BRIDGE_MODEL },
         )
     }
 
@@ -63,6 +67,10 @@ object ConfigStore {
             .putString("stt_url", config.sttUrl.trim())
             .putString("stt_key", config.sttKey.trim())
             .putString("stt_model", config.sttModel.trim())
+            .putString("agent_profile", config.profile.name)
+            .putString("bridge_url", config.bridgeUrl.trim())
+            .putString("bridge_key", config.bridgeKey.trim())
+            .putString("bridge_model", config.bridgeModel.trim())
             .apply()
     }
 

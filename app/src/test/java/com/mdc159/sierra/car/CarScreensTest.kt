@@ -79,7 +79,7 @@ class CarScreensTest {
         val unconfigured = HomeScreen(carContext, session)
         CarTestHost.show(unconfigured)
         val t1 = unconfigured.onGetTemplate().asGrid()
-        assertEquals(listOf("Talk", "Places", "Truck", "History"), t1.gridItems.map { it.titleText })
+        assertEquals(listOf("Talk", "Places", "Truck", "History", "Mic test", "Conversation"), t1.gridItems.map { it.titleText })
         assertTrue(t1.gridItems.first().text.toString().contains("Set up"))
         assertTrue(t1.gridItems.size <= CarLimits.listLimit(carContext, ConstraintManager.CONTENT_LIMIT_TYPE_GRID))
         assertNull(t1.actionStrip)

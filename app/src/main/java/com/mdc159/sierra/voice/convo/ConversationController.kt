@@ -3,6 +3,7 @@ package com.mdc159.sierra.voice.convo
 import com.mdc159.sierra.agent.AgentException
 import com.mdc159.sierra.net.Http
 import com.mdc159.sierra.voice.stt.EndpointConfig
+import com.mdc159.sierra.voice.stt.MicLevels
 import com.mdc159.sierra.voice.stt.MicSource
 import com.mdc159.sierra.voice.stt.Transcriber
 import com.mdc159.sierra.voice.stt.UtteranceRecorder
@@ -103,6 +104,8 @@ class ConversationController(
     private val onState: (ConversationState) -> Unit = {},
     private val onExchange: (heard: String, reply: String) -> Unit = { _, _ -> },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /** Diagnostic lines (levels and outcomes, never audio or text); the car screen sends them to logcat. */
+    private val log: (String) -> Unit = {},
 ) {
     private val _state = MutableStateFlow<ConversationState>(ConversationState.Idle)
     val state: StateFlow<ConversationState> get() = _state
@@ -160,9 +163,16 @@ class ConversationController(
                 if (turn > config.maxTurns) return end(EndReason.TURN_COMPLETE, null, lastHeard, lastReply)
                 set(ConversationState.Listening(turn, lastReply))
 
-                val endpoint = (if (turn == 1) config.endpoint else config.endpoint.copy(noSpeechMs = config.silenceTimeoutMs))
-                    .copy(initialNoiseFloor = lastNoiseFloor)
-                val rec = UtteranceRecorder(mic, focus, endpoint).also { recorder = it }
+                val endpoint = (
+                    if (turn == 1) {
+                        config.endpoint
+                    } else {
+                        // A follow-up nobody answers must end the conversation, so never send unconfirmed audio here.
+                        config.endpoint.copy(noSpeechMs = config.silenceTimeoutMs, sendUnconfirmed = false)
+                    }
+                    ).copy(initialNoiseFloor = lastNoiseFloor)
+                val rec = UtteranceRecorder(mic, focus, endpoint, log = { log("turn $turn: $it") }).also { recorder = it }
+                if (stopRequested.get()) rec.finishNow()
                 val outcome = try {
                     runInterruptible(ioDispatcher) { rec.record() }
                 } finally {
@@ -176,6 +186,7 @@ class ConversationController(
                     is UtteranceRecorder.Outcome.FocusDenied ->
                         return end(EndReason.ERROR, "Couldn't get the microphone. Try again.", lastHeard, lastReply)
                     is UtteranceRecorder.Outcome.Failed -> return end(EndReason.ERROR, outcome.message, lastHeard, lastReply)
+                    is UtteranceRecorder.Outcome.Silent -> return end(EndReason.ERROR, MicLevels.SILENT_MESSAGE, lastHeard, lastReply)
                     is UtteranceRecorder.Outcome.NoSpeech ->
                         return end(if (outcome.finishedByUser) EndReason.USER_STOPPED else EndReason.SILENCE, null, lastHeard, lastReply)
                     is UtteranceRecorder.Outcome.Speech -> outcome
@@ -245,6 +256,8 @@ class ConversationController(
     }
 
     private fun end(reason: EndReason, message: String?, lastHeard: String?, lastReply: String?) {
+        // Provider error bodies can echo request text or credentials; never send them to logcat.
+        log("ended reason=$reason")
         set(ConversationState.Ended(reason, message, lastHeard, lastReply))
     }
 

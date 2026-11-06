@@ -9,11 +9,30 @@ import com.mdc159.sierra.voice.duplex.DuplexConfig
  * The owner still chooses the model (and the transcription settings) on the phone.
  */
 object AgentOverlay {
-    /** [typed] with base URL and key from [secrets] when both are known; otherwise [typed] unchanged. */
+    /**
+     * [typed] with the gateway base URL and key from [secrets] when both are known, and the
+     * bridge URL and token when both of those are known; each pair independently. Nothing
+     * known: [typed] unchanged. Profile and model choices stay the owner's.
+     */
     fun apply(secrets: SecretSource, typed: AgentConfig): AgentConfig {
-        val baseUrl = secrets.get(SecretNames.OPENAI_BASE_URL)?.trim()?.takeIf { it.isNotEmpty() } ?: return typed
-        val apiKey = secrets.get(SecretNames.OPENAI_API_KEY)?.trim()?.takeIf { it.isNotEmpty() } ?: return typed
-        return typed.copy(baseUrl = baseUrl, apiKey = apiKey)
+        var merged = typed
+        pair(secrets, SecretNames.OPENAI_BASE_URL, SecretNames.OPENAI_API_KEY)?.let { (url, key) ->
+            merged = merged.copy(baseUrl = url, apiKey = key)
+        }
+        pair(secrets, SecretNames.SIERRA_BRIDGE_URL, SecretNames.SIERRA_BRIDGE_TOKEN)?.let { (url, key) ->
+            merged = merged.copy(bridgeUrl = url, bridgeKey = key)
+        }
+        return merged
+    }
+
+    /** True when [secrets] would take over the bridge URL and token. */
+    fun isBridgeActive(secrets: SecretSource): Boolean =
+        pair(secrets, SecretNames.SIERRA_BRIDGE_URL, SecretNames.SIERRA_BRIDGE_TOKEN) != null
+
+    private fun pair(secrets: SecretSource, urlName: String, keyName: String): Pair<String, String>? {
+        val url = secrets.get(urlName)?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val key = secrets.get(keyName)?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return url to key
     }
 
     /**

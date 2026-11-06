@@ -1,5 +1,6 @@
 package com.mdc159.sierra.voice.duplex
 
+import com.mdc159.sierra.voice.stt.MicLevels
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -27,12 +28,15 @@ class DuplexController(
     /** Speaker rate. The service rate is used when null (no output resampling). */
     private val speakerRate: Int? = null,
     private val jitterPrefillMs: Long = 80,
+    /** Diagnostic lines (mic levels and end reasons, never audio); the car screen sends them to logcat. */
+    private val log: (String) -> Unit = {},
 ) {
     val gate = EchoGate(mode, ratio = guardRatio)
 
     private val running = AtomicBoolean(false)
     private val stopped = AtomicBoolean(false)
     private val endedForwarded = AtomicBoolean(false)
+    private val lifecycleLock = Any()
     private var micThread: Thread? = null
     private var playThread: Thread? = null
 
@@ -50,28 +54,38 @@ class DuplexController(
      */
     @Throws(DuplexException::class)
     fun start() {
-        if (!running.compareAndSet(false, true)) return
-        if (!focus.request(onLoss = { stop("Audio focus lost") })) {
-            running.set(false)
-            throw DuplexException("Couldn't get the audio. Try again.")
+        synchronized(lifecycleLock) {
+            if (stopped.get() || !running.compareAndSet(false, true)) return
+            if (!focus.request(onLoss = { stop("Audio focus lost") })) {
+                stopped.set(true)
+                cleanup()
+                session.close()
+                throw DuplexException("Couldn't get the audio. Try again.")
+            }
         }
         try {
+            if (stopped.get()) return
             session.start(::onSessionEvent)
-            val outRate = speakerRate ?: session.outputSampleRate
-            val buffer = JitterBuffer(outRate, jitterPrefillMs)
-            jitter = buffer
-            outResampler = Resampler(session.outputSampleRate, outRate)
-            sink.start(outRate)
-            mic.start()
-        } catch (e: DuplexException) {
-            cleanup()
-            throw e
+            synchronized(lifecycleLock) {
+                if (stopped.get()) { session.close(); return }
+                val outRate = speakerRate ?: session.outputSampleRate
+                jitter = JitterBuffer(outRate, jitterPrefillMs)
+                outResampler = Resampler(session.outputSampleRate, outRate)
+                sink.start(outRate)
+                mic.start()
+                playThread = Thread(::playLoop, "duplex-play").apply { isDaemon = true; start() }
+                micThread = Thread(::micLoop, "duplex-mic").apply { isDaemon = true; start() }
+            }
         } catch (e: Exception) {
-            cleanup()
+            val alreadyStopped = stopped.getAndSet(true)
+            // The caller renders startup errors. Do not emit a misleading normal Ended first.
+            if (!alreadyStopped) endedForwarded.set(true)
+            synchronized(lifecycleLock) { cleanup() }
+            session.close()
+            if (alreadyStopped) return
+            if (e is DuplexException) throw e
             throw DuplexException(e.message ?: "Couldn't start the conversation.", e)
         }
-        playThread = Thread(::playLoop, "duplex-play").apply { isDaemon = true; start() }
-        micThread = Thread(::micLoop, "duplex-mic").apply { isDaemon = true; start() }
     }
 
     /** The driver tapped to interrupt. Cuts playback and tells the service. */
@@ -87,7 +101,10 @@ class DuplexController(
 
     private fun stop(reason: String) {
         if (!stopped.compareAndSet(false, true)) return
-        cleanup()
+        val logReason = reason.takeIf { it in setOf("Stopped", "Audio focus lost", "Microphone closed", "Speaker failed", "Microphone failed. See diagnostics on the phone.") }
+            ?: "voice service error"
+        log("duplex stopped reason=$logReason")
+        synchronized(lifecycleLock) { cleanup() }
         // Our reason first; the session's own Ended (emitted by close) is then a duplicate.
         if (endedForwarded.compareAndSet(false, true)) listener.onEvent(DuplexEvent.Ended(reason))
         session.close()
@@ -127,8 +144,11 @@ class DuplexController(
                 if (event.cancelled) cutPlayback()
             }
             is DuplexEvent.Ended -> {
-                if (stopped.compareAndSet(false, true)) cleanup()
-                if (endedForwarded.compareAndSet(false, true)) listener.onEvent(event)
+                if (!stopped.compareAndSet(false, true)) return
+                val forward = endedForwarded.compareAndSet(false, true)
+                synchronized(lifecycleLock) { cleanup() }
+                session.close()
+                if (forward) listener.onEvent(event)
                 return
             }
             is DuplexEvent.Error -> if (event.fatal) stop(event.message)
@@ -141,17 +161,26 @@ class DuplexController(
         val micRate = mic.sampleRate
         val frame = ByteArray(Resampler.bytesForMs(frameMs.toLong(), micRate).coerceAtLeast(2))
         val resampler = Resampler(micRate, session.inputSampleRate)
+        // Levels per stretch of LEVEL_LOG_MS, so a silent or very quiet car mic shows in logcat.
+        var levels = MicLevels(micRate)
         while (!stopped.get()) {
             val n = try {
                 mic.read(frame)
             } catch (e: Exception) {
-                -1
+                stop(if (e is DuplexException) e.message ?: "Microphone failed. See diagnostics on the phone." else "Microphone failed. See diagnostics on the phone.")
+                return
             }
             if (n < 0) {
+                log("duplex mic closed by host; last ${levels.summary()}")
                 stop("Microphone closed")
                 return
             }
             if (n == 0) continue
+            levels.offer(frame, n)
+            if (levels.durationMs >= LEVEL_LOG_MS) {
+                log("duplex mic ${levels.summary()}")
+                levels = MicLevels(micRate)
+            }
             val gated = gate.process(frame, n)
             val out = resampler.process(gated, 0, n)
             session.sendAudio(out)
@@ -173,5 +202,9 @@ class DuplexController(
                 return
             }
         }
+    }
+
+    private companion object {
+        const val LEVEL_LOG_MS = 5_000L
     }
 }
