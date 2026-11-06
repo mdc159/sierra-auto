@@ -19,13 +19,15 @@ class PhoneProfileTest(unittest.TestCase):
 
     def test_reconciles_only_profile_in_existing_project(self):
         values = profile.profile_values("https://victoria.ts.net:8443/v1/", "example-test-token")
-        self.assertEqual({"SIERRA_HERMES_BASE_URL", "SIERRA_HERMES_API_KEY"}, set(values))
+        self.assertEqual({"SIERRA_BRIDGE_URL", "SIERRA_BRIDGE_TOKEN"}, set(values))
         class Vault:
             def find_project(self, slug):
                 return "phone-id" if slug == "existing" else None
             def set_secrets(self, project_id, path, secrets):
                 self.written = (project_id, path, secrets)
                 return 2, 0
+            def get_secret(self, project_id, path, key):
+                return None
         vault = Vault()
         with self.assertRaises(ValueError):
             profile.reconcile(vault, "missing", values)

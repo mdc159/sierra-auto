@@ -57,8 +57,8 @@ voice engine or imply that every casual realtime exchange invokes Hermes.
 
 Vault entries in the already enrolled `s54-agent-sierra-a54` project:
 
-- `SIERRA_HERMES_BASE_URL`: `https://victoria.tailfedd3b.ts.net:8443/v1`
-- `SIERRA_HERMES_API_KEY`: the existing Victoria bridge bearer token
+- `SIERRA_BRIDGE_URL`: `https://victoria.tailfedd3b.ts.net:8443/v1`
+- `SIERRA_BRIDGE_TOKEN`: the existing Victoria bridge bearer token
 
 `bridge/deploy/publish_phone_profile.py` owns reconciliation of these two entries.
 Run it on Studio54 with JSON `{"token":"..."}` supplied on stdin from Victoria's

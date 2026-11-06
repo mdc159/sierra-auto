@@ -22,15 +22,15 @@ def profile_values(base_url, token):
         raise ValueError("Use an HTTPS Tailscale bridge base URL, optionally ending /v1")
     if not isinstance(token, str) or not token.strip() or any(c.isspace() for c in token):
         raise ValueError("A nonempty bridge token is required on stdin")
-    return {"SIERRA_HERMES_BASE_URL": base_url.rstrip("/"), "SIERRA_HERMES_API_KEY": token}
+    return {"SIERRA_BRIDGE_URL": base_url.rstrip("/"), "SIERRA_BRIDGE_TOKEN": token}
 
 
 def verify_bridge(values):
-    base = values["SIERRA_HERMES_BASE_URL"]
+    base = values["SIERRA_BRIDGE_URL"]
     if not base.endswith("/v1"):
         base += "/v1"
     request = urllib.request.Request(base + "/models", headers={
-        "Authorization": "Bearer " + values["SIERRA_HERMES_API_KEY"],
+        "Authorization": "Bearer " + values["SIERRA_BRIDGE_TOKEN"],
     })
     with urllib.request.urlopen(request, timeout=15) as response:
         data = json.load(response)
@@ -43,7 +43,20 @@ def reconcile(vault, project_slug, values):
     project_id = vault.find_project(project_slug)
     if not project_id:
         raise ValueError("Phone project must already be enrolled through Studio54")
-    return vault.set_secrets(project_id, "/", values)
+    result = vault.set_secrets(project_id, "/", values)
+    # Remove only the matching aliases created during this setup's pre-release probe.
+    # Do not delete unrelated or subsequently changed vault values.
+    for old, current in (("SIERRA_HERMES_BASE_URL", "SIERRA_BRIDGE_URL"),
+                         ("SIERRA_HERMES_API_KEY", "SIERRA_BRIDGE_TOKEN")):
+        if vault.get_secret(project_id, "/", old) == values[current]:
+            if vault.get_secret(project_id, "/", current) != values[current]:
+                raise ValueError("Profile verification failed before alias cleanup")
+            status, _ = vault.api("DELETE", f"/api/v4/secrets/{old}", {
+                "projectId": project_id, "environment": "prod", "secretPath": "/",
+            })
+            if status not in (200, 404):
+                raise ValueError("Profile saved but alias cleanup failed")
+    return result
 
 
 def main():
