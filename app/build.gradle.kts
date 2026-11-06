@@ -24,6 +24,12 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = "0.1.$appVersionCode"
+        // True only for play.yml builds (-Pplay=true): the app then leaves updates to Play.
+        buildConfigField("boolean", "PLAY_BUILD", (findProperty("play") == "true").toString())
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     signingConfigs {

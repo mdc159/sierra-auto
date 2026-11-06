@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
@@ -19,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.agent.AgentClient
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.net.Http
+import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.studio54.Studio54Activity
 import com.mdc159.sierra.voice.Pcm
 import com.mdc159.sierra.voice.duplex.DuplexSettingsActivity
@@ -43,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var sttModel: EditText
     private lateinit var testButton: Button
     private lateinit var testResult: TextView
+    private lateinit var vaultNote: TextView
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refreshPermissions() }
@@ -84,6 +87,8 @@ class MainActivity : ComponentActivity() {
         heading("Agent (OpenAI-compatible)")
         baseUrl = field("Base URL", "https://example.com/v1")
         apiKey = field("API key", "sk-…", secret = true)
+        vaultNote = TextView(this).apply { text = "Base URL and API key come from the Studio 54 vault." }
+        form.addView(vaultNote)
         model = field("Model", "gpt-4o-mini")
 
         heading("Transcription (optional)")
@@ -159,6 +164,15 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshPermissions()
+        showVaultHints()
+    }
+
+    /** When Studio 54 supplies the base URL and key, say so instead of showing example values. */
+    private fun showVaultHints() {
+        val vault = Studio54.suppliesAgent(this)
+        vaultNote.visibility = if (vault) View.VISIBLE else View.GONE
+        baseUrl.hint = if (vault) "From Studio 54 vault" else "https://example.com/v1"
+        apiKey.hint = if (vault) "From Studio 54 vault" else "sk-…"
     }
 
     private fun loadConfig() {
@@ -183,14 +197,17 @@ class MainActivity : ComponentActivity() {
     private fun save() {
         val config = currentConfig()
         ConfigStore.save(this, config)
-        val note = if (config.isConfigured) "Saved." else "Saved. Base URL and model are required."
+        val ready = Studio54.agentConfig(this, config).isConfigured
+        val note = if (ready) "Saved." else "Saved. Base URL and model are required."
         Toast.makeText(this, note, Toast.LENGTH_SHORT).show()
     }
 
     /** Saves, then sends a tiny chat request (and a silent clip, if transcription is set). */
     private fun testConnection() {
-        val config = currentConfig()
-        ConfigStore.save(this, config)
+        val typed = currentConfig()
+        ConfigStore.save(this, typed)
+        // Test what Talk will use: the vault's base URL and key replace the typed ones when known.
+        val config = Studio54.agentConfig(this, typed)
         if (!config.isConfigured) {
             testResult.text = "Enter a base URL and model first."
             return
@@ -204,6 +221,7 @@ class MainActivity : ComponentActivity() {
                 val reply = withContext(Dispatchers.IO) { client.testConnection() }
                 "Agent OK: \"$reply\""
             } catch (e: Exception) {
+                Studio54.onAgentError(this@MainActivity, e)
                 "Agent failed: ${e.message ?: Http.describe(e)}"
             }
             if (config.hasTranscription) {

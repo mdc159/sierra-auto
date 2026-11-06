@@ -5,12 +5,14 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
+import com.mdc159.sierra.BuildConfig
 import com.mdc159.sierra.net.Http
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -79,6 +81,7 @@ class UpdateActivity : ComponentActivity() {
         record = line()
         verdict = line()
 
+        val sideloadFrom = form.childCount
         heading("Latest release on GitHub")
         latest = line()
         checkButton = button("Check for updates") { check() }
@@ -103,6 +106,15 @@ class UpdateActivity : ComponentActivity() {
         shizukuAllowButton = button("Allow Sierra in Shizuku") { shizuku.requestPermission(SHIZUKU_REQUEST) }
         shizukuInstallButton = button("Install through Shizuku") { installWithShizuku() }
         shizukuInstallButton.isEnabled = false
+        if (BuildConfig.PLAY_BUILD) {
+            // Play policy: a Play-distributed app updates only through Play. A GitHub or Shizuku
+            // install would also replace the Play install record the truck needs.
+            for (i in sideloadFrom until form.childCount) form.getChildAt(i).visibility = View.GONE
+            heading("Updates come from Google Play")
+            form.addView(TextView(this).apply {
+                text = "This copy was built for Play internal testing. New versions arrive through the Play Store."
+            })
+        }
 
         heading("Log")
         log = line()
@@ -116,7 +128,8 @@ class UpdateActivity : ComponentActivity() {
         // A Shizuku install grants the system installer read access to the APK; take it back.
         shizuku.revokeGrant(File(File(cacheDir, "updates"), ReleaseInfo.APK_NAME))
         refreshInstalled()
-        refreshUnknownSources()
+        // Play builds drop REQUEST_INSTALL_PACKAGES; asking about it then throws SecurityException.
+        if (!BuildConfig.PLAY_BUILD) refreshUnknownSources()
         refreshShizuku()
         UpdateStatusReceiver.listener = { status, message -> say(SessionInstaller.describe(status, message)) }
     }

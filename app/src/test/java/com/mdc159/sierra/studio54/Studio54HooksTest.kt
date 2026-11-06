@@ -32,6 +32,12 @@ class Studio54HooksTest {
     }
 
     @Test
+    fun suppliesAgentIsFalseWhenTheStoreCannotOpen() {
+        assumeStoreCannotOpen()
+        assertEquals(false, Studio54.suppliesAgent(context))
+    }
+
+    @Test
     fun startAndTheFailureHookDoNotThrowWhenTheStoreCannotOpen() {
         assumeStoreCannotOpen()
         Studio54.start(context)
