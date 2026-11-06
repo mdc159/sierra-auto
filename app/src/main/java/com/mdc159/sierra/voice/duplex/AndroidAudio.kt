@@ -93,13 +93,13 @@ class PhoneMic(override val sampleRate: Int = 16_000, private val context: Conte
             r.startRecording()
             record = r
             context?.let {
-                VoiceDiagnostics.event(it, "Phone audio route", "requested=built-in actualType=${r.routedDevice?.type ?: -1} silenced=${r.activeRecordingConfiguration?.isClientSilenced ?: false}")
+                VoiceDiagnostics.event(it, "Phone audio route", "requested=${if (builtIn != null) "built-in" else "system default"} actualType=${r.routedDevice?.type ?: "unknown"} silenced=${r.activeRecordingConfiguration?.isClientSilenced ?: "unknown"}")
             }
         } catch (e: Exception) {
             r.release()
             aec?.release(); aec = null
             ns?.release(); ns = null
-            throw e
+            throw DuplexException("Microphone unavailable.", e)
         }
     }
 

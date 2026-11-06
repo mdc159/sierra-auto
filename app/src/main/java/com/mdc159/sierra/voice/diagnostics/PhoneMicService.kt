@@ -16,10 +16,20 @@ import java.util.concurrent.CopyOnWriteArraySet
 
 /** Started only by a tap in the visible phone Activity, never from the car or on boot. */
 class PhoneMicService : Service() {
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val checkNotification = object : Runnable {
+        override fun run() {
+            if (!MicSettings.notificationsAllowed(this@PhoneMicService)) {
+                VoiceDiagnostics.event(this@PhoneMicService, "Phone microphone", "notification permission disabled; stopping access")
+                stopSelf()
+            } else handler.postDelayed(this, 5_000)
+        }
+    }
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == STOP) { stopSelf(); return START_NOT_STICKY }
         try {
+            if (!MicSettings.notificationsAllowed(this)) throw DuplexException("Allow notifications so the phone microphone Stop action stays available.")
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(NotificationChannel(CHANNEL, "Phone microphone", NotificationManager.IMPORTANCE_LOW))
             val open = PendingIntent.getActivity(this, 0, Intent(this, MicDiagnosticsActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -32,6 +42,8 @@ class PhoneMicService : Service() {
             if (Build.VERSION.SDK_INT >= 30) startForeground(2901, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
             else startForeground(2901, notification)
             synchronized(active) { ready = true }
+            handler.removeCallbacks(checkNotification)
+            handler.postDelayed(checkNotification, 5_000)
             VoiceDiagnostics.event(this, "Phone microphone", "background access enabled by phone button")
         } catch (e: Exception) {
             synchronized(active) { ready = false }
@@ -42,9 +54,10 @@ class PhoneMicService : Service() {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(checkNotification)
         // Register and disable are atomic, but stop outside the registry lock: mic.stop unregisters.
         val microphones = synchronized(active) { ready = false; active.toList() }
-        microphones.forEach { runCatching { it.stop() } }
+        microphones.forEach { runCatching { it.stop() }.onFailure { VoiceDiagnostics.failure(this, "Phone microphone stop", it) } }
         VoiceDiagnostics.event(this, "Phone microphone", "background access disabled")
         super.onDestroy()
     }

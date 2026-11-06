@@ -29,9 +29,10 @@ object VoiceDiagnostics {
     }
 
     fun mic(context: Context, source: String, levels: MicLevels) {
-        liveRms = levels.meanRms
         event(context, "Mic $source", levels.summary())
     }
+
+    fun level(rms: Double) { liveRms = rms }
 
     fun opened(context: Context, source: String) {
         recording = true
@@ -61,6 +62,8 @@ object VoiceDiagnostics {
             error is SecurityException -> "microphone permission or background access denied"
             error is java.net.SocketTimeoutException || error.message.orEmpty().contains("timed out", true) -> "timeout"
             error is java.net.UnknownHostException -> "host lookup failed; check network and Tailscale"
+            error.message.orEmpty().contains("microphone", true) -> "microphone unavailable; check input, permission and background access"
+            error.message.orEmpty().contains("connection", true) -> "voice connection failed; check network and Tailscale"
             else -> error.javaClass.simpleName.replace(Regex("[^A-Za-z0-9_]"), "").take(60)
         }
     }

@@ -117,7 +117,11 @@ class MainActivity : ComponentActivity() {
                 testResult.text = "Refreshing Hermes connection from Studio 54…"
                 lifecycleScope.launch {
                     try {
-                        Studio54.refreshNow(this@MainActivity)
+                        val refreshed = Studio54.refreshNow(this@MainActivity)
+                        if (refreshed !is com.mdc159.sierra.studio54.RefreshResult.Fetched) {
+                            testResult.text = "Could not refresh Hermes settings. Check Studio 54 sign-in and Tailscale, then try again."
+                            return@launch
+                        }
                         showVaultHints()
                         testConnection()
                     } catch (e: Exception) {
@@ -292,7 +296,7 @@ class MainActivity : ComponentActivity() {
                 val reply = withContext(Dispatchers.IO) { client.testConnection() }
                 "Agent OK: \"$reply\""
             } catch (e: Exception) {
-                Studio54.onAgentError(this@MainActivity, e)
+                Studio54.onAgentError(this@MainActivity, e, config.profile)
                 "Agent failed: ${e.message ?: Http.describe(e)}"
             }
             if (config.hasTranscription) {

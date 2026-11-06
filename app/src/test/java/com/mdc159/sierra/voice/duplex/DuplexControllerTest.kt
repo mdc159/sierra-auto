@@ -111,6 +111,18 @@ private class FakeFocus(private val grant: Boolean = true) : FocusHandle {
 
 class DuplexControllerTest {
 
+    @Test fun fatalProviderErrorsDoNotEnterTheMicLog() {
+        val logs = CopyOnWriteArrayList<String>()
+        val c = DuplexController(session, mic, sink, focus, DuplexMode.FULL_DUPLEX, listener = events, log = { logs += it })
+        try {
+            c.start()
+            session.listener.onEvent(DuplexEvent.Error("private-request sk-private-token", fatal = true))
+            assertTrue(logs.contains("duplex stopped reason=voice service error"))
+            assertFalse(logs.joinToString().contains("private-request"))
+            assertFalse(logs.joinToString().contains("sk-private"))
+        } finally { c.stop(); mic.end() }
+    }
+
     private val session = FakeSession()
     private val mic = FakeMic()
     private val sink = FakeSink()

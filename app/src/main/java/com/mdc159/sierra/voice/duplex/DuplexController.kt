@@ -79,7 +79,7 @@ class DuplexController(
         } catch (e: Exception) {
             val alreadyStopped = stopped.getAndSet(true)
             // The caller renders startup errors. Do not emit a misleading normal Ended first.
-            endedForwarded.set(true)
+            if (!alreadyStopped) endedForwarded.set(true)
             synchronized(lifecycleLock) { cleanup() }
             session.close()
             if (alreadyStopped) return
@@ -101,7 +101,9 @@ class DuplexController(
 
     private fun stop(reason: String) {
         if (!stopped.compareAndSet(false, true)) return
-        log("duplex stopped reason=$reason")
+        val logReason = reason.takeIf { it in setOf("Stopped", "Audio focus lost", "Microphone closed", "Speaker failed") }
+            ?: "voice service error"
+        log("duplex stopped reason=$logReason")
         synchronized(lifecycleLock) { cleanup() }
         // Our reason first; the session's own Ended (emitted by close) is then a duplicate.
         if (endedForwarded.compareAndSet(false, true)) listener.onEvent(DuplexEvent.Ended(reason))
@@ -142,11 +144,10 @@ class DuplexController(
                 if (event.cancelled) cutPlayback()
             }
             is DuplexEvent.Ended -> {
+                if (!stopped.compareAndSet(false, true)) return
                 val forward = endedForwarded.compareAndSet(false, true)
-                if (stopped.compareAndSet(false, true)) {
-                    synchronized(lifecycleLock) { cleanup() }
-                    session.close()
-                }
+                synchronized(lifecycleLock) { cleanup() }
+                session.close()
                 if (forward) listener.onEvent(event)
                 return
             }
@@ -166,7 +167,8 @@ class DuplexController(
             val n = try {
                 mic.read(frame)
             } catch (e: Exception) {
-                -1
+                stop(if (e is DuplexException) e.message ?: "Microphone failed. See diagnostics on the phone." else "Microphone failed. See diagnostics on the phone.")
+                return
             }
             if (n < 0) {
                 log("duplex mic closed by host; last ${levels.summary()}")

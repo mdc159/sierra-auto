@@ -23,6 +23,18 @@ import java.util.concurrent.TimeUnit
 
 class ConversationControllerTest {
 
+    @Test fun providerErrorBodyIsNeverPassedToTheMicLogger() = runBlocking {
+        utterance()
+        agent.failWith = AgentException("Agent error 401: private-request-text sk-private-token")
+        val logs = mutableListOf<String>()
+        val c = ConversationController(mic, FakeTranscriber("test"), agent, speech, focus,
+            ConversationConfig(endpoint = endpoint, continuous = false, speakErrors = false), log = { logs += it })
+        withTimeout(5_000) { c.run() }
+        assertTrue(logs.any { it == "ended reason=ERROR" })
+        assertFalse(logs.joinToString().contains("private-request"))
+        assertFalse(logs.joinToString().contains("sk-private"))
+    }
+
     private val mic = FakeMic()
     private val focus = FakeAudioFocus()
     private val speech = FakeSpeechOutput()

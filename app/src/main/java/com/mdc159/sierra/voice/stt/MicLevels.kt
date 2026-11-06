@@ -69,6 +69,6 @@ class MicLevels(private val sampleRate: Int = 16_000) {
         const val SILENCE_MAX_SAMPLE = 2
 
         /** Shown when the car hands over only silence. */
-        const val SILENT_MESSAGE = "The car's microphone sent only silence. Check microphone access on the phone."
+        const val SILENT_MESSAGE = "The selected microphone sent only silence. Check microphone access on the phone."
     }
 }

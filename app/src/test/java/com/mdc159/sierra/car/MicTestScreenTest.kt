@@ -15,12 +15,13 @@ import java.io.ByteArrayInputStream
 @Config(sdk = [35])
 class MicTestScreenTest {
     @Test fun realCarHostReportsSignalAndReleasesMic() = checkAudio(2000, "Audio received.")
-    @Test fun realCarHostDistinguishesDigitalSilenceFromMissingAudio() = checkAudio(0, "Microphone sent silence.")
-    private fun checkAudio(amplitude: Int, expected: String) {
+    @Test fun realCarHostReportsDigitalSilence() = checkAudio(0, "Microphone sent silence.")
+    @Test fun emptyHostInputReportsMissingAudio() = checkAudio(0, "No audio arrived.", 0)
+    private fun checkAudio(amplitude: Int, expected: String, sampleCount: Int = 80_000) {
         val car = CarTestHost.carContext()
         CarTestHost.session(car)
         CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
-        val samples = ShortArray(80_000) { if (it % 2 == 0) amplitude.toShort() else (-amplitude).toShort() }
+        val samples = ShortArray(sampleCount) { if (it % 2 == 0) amplitude.toShort() else (-amplitude).toShort() }
         val bytes = ByteArray(samples.size * 2)
         samples.forEachIndexed { i, s -> bytes[i * 2] = s.toByte(); bytes[i * 2 + 1] = (s.toInt() shr 8).toByte() }
         car.fakeHost.setMicrophoneInputData(ByteArrayInputStream(bytes))

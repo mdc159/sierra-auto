@@ -10,7 +10,6 @@ import android.provider.Settings
 import android.widget.*
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.BuildConfig
@@ -39,7 +38,10 @@ class MicDiagnosticsActivity : ComponentActivity() {
     private var testMic: MicSource? = null
     private var pendingEnable = false
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        if (pendingEnable && MicSettings.permitted(this)) enablePhone()
+        if (pendingEnable) {
+            if (MicSettings.permitted(this) && MicSettings.notificationsAllowed(this)) enablePhone()
+            else result.text = "Allow microphone and notifications to enable phone access with a visible Stop action."
+        }
         pendingEnable = false
         refreshStatus()
     }
@@ -105,6 +107,8 @@ class MicDiagnosticsActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        refresh?.cancel()
+        if (PhoneMicService.ready && !MicSettings.notificationsAllowed(this)) stopService(Intent(this, PhoneMicService::class.java))
         refresh = lifecycleScope.launch { while (isActive) { refreshStatus(); delay(500) } }
     }
 
@@ -116,12 +120,16 @@ class MicDiagnosticsActivity : ComponentActivity() {
             "\n${if (VoiceDiagnostics.recording) "Recording now" else "Microphone closed"}"
         meter.progress = if (!VoiceDiagnostics.recording || VoiceDiagnostics.liveRms <= 0) 0 else
             ((20 * log10(VoiceDiagnostics.liveRms / 32768.0) + 90) / 90 * 100).toInt().coerceIn(0, 100)
-        log.text = VoiceDiagnostics.report(this)
+        val report = VoiceDiagnostics.report(this)
+        if (log.text.toString() != report) log.text = report
     }
 
     private fun enablePhone() {
         try {
-            ContextCompat.startForegroundService(this, Intent(this, PhoneMicService::class.java))
+            // This action runs only from the visible Activity. The service promotes itself
+            // immediately; a permission/setup failure can then stop cleanly without an
+            // outstanding startForegroundService promotion deadline.
+            startService(Intent(this, PhoneMicService::class.java))
             source.check(100 + MicrophoneSource.PHONE.ordinal)
         } catch (e: Exception) {
             VoiceDiagnostics.failure(this, "Enable phone microphone", e)

@@ -45,6 +45,17 @@ import java.util.concurrent.TimeUnit
 @Config(sdk = [35])
 class TalkScreenTest {
 
+    @Test fun explicitPhoneMicWithoutTranscriptionNeverFallsBackToCarMic() {
+        CarTestHost.installConfig(carContext, AgentConfig(profile = com.mdc159.sierra.agent.AgentProfile.BRIDGE,
+            bridgeUrl = server.url("/v1").toString(), bridgeKey = "test-key"))
+        CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
+        com.mdc159.sierra.voice.diagnostics.MicSettings.source(carContext, com.mdc159.sierra.voice.diagnostics.MicrophoneSource.PHONE)
+        val screen = TalkScreen(carContext, session, tools = emptyList())
+        CarTestHost.show(screen)
+        assertTrue((screen.onGetTemplate() as MessageTemplate).message.toString().contains("Set up a transcription endpoint"))
+        assertEquals(0, server.requestCount)
+    }
+
     private lateinit var carContext: TestCarContext
     private lateinit var session: SierraSession
     private lateinit var server: MockWebServer

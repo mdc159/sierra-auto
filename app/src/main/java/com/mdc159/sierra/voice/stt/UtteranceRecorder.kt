@@ -2,6 +2,8 @@ package com.mdc159.sierra.voice.stt
 
 import com.mdc159.sierra.voice.tts.AudioFocusGate
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Records one utterance from a [MicSource], ending it with [EndOfSpeechDetector] so the
@@ -46,6 +48,8 @@ class UtteranceRecorder(
     private var focusLost = false
     private val micLock = Any()
     private var micStarted = false
+    private val stopClaimed = AtomicBoolean(false)
+    private val stopCompleted = CompletableFuture<Unit>()
 
     @Volatile
     var lastDetector: EndOfSpeechDetector? = null
@@ -54,7 +58,22 @@ class UtteranceRecorder(
     /** Ends the utterance now with whatever has been captured (the "Done" tap). */
     fun finishNow() {
         finishRequested = true
-        synchronized(micLock) { if (micStarted) runCatching { mic.stop() } }
+        val active = synchronized(micLock) { micStarted }
+        if (active) stopMic(asynchronous = true)
+    }
+
+    // Done/focus-loss callbacks must not wait on a native stop. The recording worker
+    // joins cleanup before returning, so it cannot stop a later Talk capture.
+    private fun stopMic(asynchronous: Boolean) {
+        if (stopClaimed.compareAndSet(false, true)) {
+            val close = Runnable {
+                try { mic.stop() } catch (_: Exception) { }
+                finally { stopCompleted.complete(Unit) }
+            }
+            if (asynchronous) Thread(close, "utterance-stop").apply { isDaemon = true; start() }
+            else close.run()
+        }
+        if (!asynchronous) stopCompleted.join()
     }
 
     /** Blocking; call off the main thread. */
@@ -68,13 +87,12 @@ class UtteranceRecorder(
         if (!granted) return Outcome.FocusDenied
         try {
             try {
-                synchronized(micLock) {
-                    if (finishRequested) return Outcome.NoSpeech(finishedByUser = true)
-                    mic.start()
-                    micStarted = true
-                }
+                if (finishRequested) return Outcome.NoSpeech(finishedByUser = true)
+                mic.start() // Opening the host must not hold a lock needed by the UI's Done/Stop.
+                synchronized(micLock) { micStarted = true }
+                if (finishRequested) finishNow()
             } catch (e: Exception) {
-                runCatching { mic.stop() }
+                stopMic(asynchronous = false)
                 return Outcome.Failed(e.message?.takeIf { it.isNotBlank() } ?: "Car microphone unavailable.")
             }
             val detector = EndOfSpeechDetector(config, mic.sampleRate).also { lastDetector = it }
@@ -97,7 +115,8 @@ class UtteranceRecorder(
                     if (verdict != EndOfSpeechDetector.Verdict.CONTINUE) break
                 }
             } finally {
-                synchronized(micLock) { mic.stop(); micStarted = false }
+                synchronized(micLock) { micStarted = false }
+                stopMic(asynchronous = false)
             }
             val outcome = decide(hostEnded, verdict, detector, levels, out)
             log(

@@ -25,7 +25,7 @@ import kotlin.math.sqrt
  *   louder while nobody is speaking.
  * @property sendUnconfirmed when the gate hears no speech before [noSpeechMs] but the audio is
  *   not digital silence, hand it to the transcriber anyway (used for the first question of a
- *   Talk, where the driver has just asked to speak). Off for follow-up turns, so a quiet cabin
+ *   Talk, where the driver has just asked to speak). Off for ordinary follow-up turns (diagnostic mode can override), so a quiet cabin
  *   still ends a conversation.
  */
 data class EndpointConfig(

@@ -39,6 +39,7 @@ class CarMic(private val carContext: CarContext) {
             throw AgentException("Allow the microphone on your phone.")
         }
         val audio = carContext.getSystemService(AudioManager::class.java)
+        val focusLost = java.util.concurrent.atomic.AtomicBoolean(false)
         val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -48,6 +49,7 @@ class CarMic(private val carContext: CarContext) {
             )
             .setOnAudioFocusChangeListener { change ->
                 if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                    focusLost.set(true)
                     requestStop()
                 }
             }
@@ -87,7 +89,7 @@ class CarMic(private val carContext: CarContext) {
                 "talk recording dismissed=$dismissed heardSpeech=${endpointer.heardSpeech} " +
                     "finishedByUser=$stopRequested ${levels.summary()}",
             )
-            if (dismissed) return null
+            if (dismissed || focusLost.get()) return null
             if (!endpointer.heardSpeech && levels.isDigitalSilence) throw AgentException(MicLevels.SILENT_MESSAGE)
             if (!endpointer.heardSpeech && !stopRequested) throw AgentException("Didn't hear anything.")
             if (out.size() == 0) throw AgentException("Didn't hear anything.")

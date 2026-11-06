@@ -15,7 +15,7 @@ Update Sierra through Google Play internal testing. Keep Tailscale connected.
 - **Microphone & diagnostics** has Automatic, Car and Phone choices. Stop an active
   voice session before switching. Automatic retains the previous selection behavior.
 - To use the phone mic from Android Auto, tap **Enable phone microphone for Android
-  Auto** while this phone screen is visible and grant microphone permission. The
+  Auto** while this phone screen is visible and grant microphone and notification permissions. The
   foreground notification's Stop button disables access. Enable again after a reboot
   or if Android stops Sierra. This is not a wake-word listener.
 - **Test phone mic only** records five seconds into memory and reports levels.
@@ -102,11 +102,13 @@ tests and PR checks pass. The phone microphone service declares the microphone
 foreground type and permissions, starts only from an explicit visible phone action,
 does not restart on boot, and exposes a Stop notification action.
 
-Final combined local check on 2026-11-06: 561 Android tests, 559 passed and two
+Initial combined local check before PR creation on 2026-11-06: 561 Android tests, 559 passed and two
 skipped, zero failures. Debug APK, Play-format release AAB, debug lint and release
 lint all completed successfully. The two profile-publication unit tests also passed.
 The check included the existing agent-profile work from PR #52. Lint has existing
 nonfatal warnings; this is not a claim of warning-free output.
+
+Post-review local validation: 569 Android tests, 567 passed and two skipped, zero failures; all five Gradle tasks above passed again. Three profile-publication tests passed. Additional regressions cover interrupted Talk restarting its microphone, missing transcription with explicit input selection, native open/stop delays, and redacted provider errors. The deployed profile script also passed an idempotent reconciliation (zero credential changes).
 
 References: [Android microphone foreground services](https://developer.android.com/develop/background-work/services/fgs/service-types#microphone),
 [foreground start restrictions](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start),

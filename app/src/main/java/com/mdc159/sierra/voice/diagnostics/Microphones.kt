@@ -38,15 +38,17 @@ object Microphones {
         requireService = requireService,
     )
 
-    fun forTalk(mic: MicSource): com.mdc159.sierra.voice.stt.MicSource = object : com.mdc159.sierra.voice.stt.MicSource {
-        override val sampleRate get() = mic.sampleRate
-        override fun start() = mic.start()
+    fun forTalk(factory: () -> MicSource): com.mdc159.sierra.voice.stt.MicSource = object : com.mdc159.sierra.voice.stt.MicSource {
+        @Volatile private var current: MicSource? = null
+        override val sampleRate get() = current?.sampleRate ?: 16_000
+        override fun start() { factory().also { current = it }.start() }
         override fun read(buf: ByteArray, offset: Int, length: Int): Int {
+            val mic = current ?: return -1
             if (offset == 0 && length == buf.size) return mic.read(buf)
             val tmp = ByteArray(length)
             return mic.read(tmp).also { if (it > 0) System.arraycopy(tmp, 0, buf, offset, it) }
         }
-        override fun stop() = mic.stop()
+        override fun stop() { val mic = current; current = null; mic?.stop() }
     }
 }
 
@@ -106,6 +108,7 @@ internal class ObservedMic(
         if (stalled) throw DuplexException("No audio arrived from the $source microphone. Open Microphone & diagnostics on the phone.")
         if (n > 0) {
             lastData = System.nanoTime()
+            VoiceDiagnostics.level(com.mdc159.sierra.voice.Pcm.rms(dest, n))
             synchronized(lock) {
                 levels.offer(dest, n)
                 if (levels.durationMs >= 1_000) {

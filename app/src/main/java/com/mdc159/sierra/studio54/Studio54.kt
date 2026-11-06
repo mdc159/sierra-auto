@@ -2,6 +2,10 @@ package com.mdc159.sierra.studio54
 
 import android.content.Context
 import com.mdc159.sierra.agent.AgentConfig
+import com.mdc159.sierra.agent.AgentProfile
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import com.mdc159.sierra.voice.duplex.DuplexConfig
 import com.mdc159.sierra.voice.duplex.DuplexException
 import com.mdc159.sierra.voice.duplex.DuplexProvider
@@ -27,6 +31,8 @@ object Studio54 {
     const val UNAUTHORIZED_DEBOUNCE_MILLIS = 60_000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val refreshVersion = MutableStateFlow(0L)
+    val refreshEvents = refreshVersion.asStateFlow()
 
     @Volatile
     private var source: VaultSecretSource? = null
@@ -58,7 +64,7 @@ object Studio54 {
             if (timer?.isActive == true) return
             timer = scope.launch {
                 while (isActive) {
-                    if (s.isSignedIn) s.refresh()
+                    if (s.isSignedIn) { s.refresh(); refreshVersion.update { it + 1 } }
                     delay(REFRESH_INTERVAL_MILLIS)
                 }
             }
@@ -67,7 +73,7 @@ object Studio54 {
 
     /** Reads the vault now, off the main thread. */
     suspend fun refreshNow(context: Context): RefreshResult =
-        withContext(Dispatchers.IO) { source(context).refresh() }
+        withContext(Dispatchers.IO) { source(context).refresh().also { refreshVersion.update { it + 1 } } }
 
     /**
      * The settings Talk, `ask_agent` and Test connection use: the typed agent settings, with
@@ -112,10 +118,11 @@ object Studio54 {
      * Phase 2 hook for the Talk and duplex failure paths: a 401 from the gateway while the vault
      * supplies the key means the key may have been rotated, so the vault is read again.
      */
-    fun onAgentError(context: Context, e: Throwable) {
+    fun onAgentError(context: Context, e: Throwable, profile: AgentProfile = AgentProfile.GATEWAY) {
         try {
             val s = source(context)
-            if (AgentOverlay.isUnauthorized(e) && (AgentOverlay.isActive(s) || AgentOverlay.isBridgeActive(s))) onUnauthorized(context)
+            val supplied = if (profile == AgentProfile.BRIDGE) AgentOverlay.isBridgeActive(s) else AgentOverlay.isActive(s)
+            if (AgentOverlay.isUnauthorized(e) && supplied) onUnauthorized(context)
         } catch (storeFailure: Exception) {
             // Reporting a failure must never add a second one on the car screen.
         }
@@ -143,7 +150,7 @@ object Studio54 {
             if (now - lastUnauthorizedRefresh < UNAUTHORIZED_DEBOUNCE_MILLIS) return false
             lastUnauthorizedRefresh = now
         }
-        scope.launch { s.refresh() }
+        scope.launch { s.refresh(); refreshVersion.update { it + 1 } }
         return true
     }
 }

@@ -12,6 +12,55 @@ import java.util.concurrent.TimeUnit
 
 class UtteranceRecorderTest {
 
+    @Test fun doneDoesNotWaitForNativeStopButRecordingWaitsForCleanup() {
+        val reading = java.util.concurrent.CountDownLatch(1)
+        val stopping = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val mic = object : MicSource {
+            override val sampleRate = 16000
+            override fun start() {}
+            override fun read(buf: ByteArray, offset: Int, length: Int): Int {
+                reading.countDown()
+                check(release.await(3, TimeUnit.SECONDS))
+                return -1
+            }
+            override fun stop() { stopping.countDown(); check(release.await(3, TimeUnit.SECONDS)) }
+        }
+        val recorder = UtteranceRecorder(mic, FakeAudioFocus())
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val record = pool.submit<UtteranceRecorder.Outcome> { recorder.record() }
+            assertTrue(reading.await(2, TimeUnit.SECONDS))
+            pool.submit { recorder.finishNow() }.get(1, TimeUnit.SECONDS)
+            assertTrue(stopping.await(1, TimeUnit.SECONDS))
+            assertFalse(record.isDone)
+            release.countDown()
+            assertEquals(UtteranceRecorder.Outcome.NoSpeech(true), record.get(2, TimeUnit.SECONDS))
+        } finally { release.countDown(); pool.shutdownNow() }
+    }
+
+    @Test fun doneDoesNotWaitForABlockedMicrophoneOpen() {
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+        val mic = object : MicSource {
+            override val sampleRate = 16000
+            override fun start() { entered.countDown(); check(release.await(3, TimeUnit.SECONDS)) }
+            override fun read(buf: ByteArray, offset: Int, length: Int) = -1
+            override fun stop() { closed.set(true) }
+        }
+        val recorder = UtteranceRecorder(mic, FakeAudioFocus())
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val record = pool.submit<UtteranceRecorder.Outcome> { recorder.record() }
+            assertTrue(entered.await(2, TimeUnit.SECONDS))
+            pool.submit { recorder.finishNow() }.get(1, TimeUnit.SECONDS)
+            release.countDown()
+            assertEquals(UtteranceRecorder.Outcome.NoSpeech(true), record.get(2, TimeUnit.SECONDS))
+            assertTrue(closed.get())
+        } finally { release.countDown(); recorder.finishNow(); pool.shutdownNow() }
+    }
+
     @Test fun doneUnblocksNativeReadWithoutAnotherAudioPacket() {
         val blocked = java.util.concurrent.CountDownLatch(1)
         val stopped = java.util.concurrent.CountDownLatch(1)
@@ -176,7 +225,9 @@ class UtteranceRecorderTest {
         mic.feedMs(600, 300)
         val pool = Executors.newSingleThreadExecutor()
         val future = pool.submit<UtteranceRecorder.Outcome> { r.record() }
-        Thread.sleep(150)
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
+        while (r.lastDetector?.elapsedMs != 600L && System.nanoTime() < deadline) Thread.sleep(5)
+        assertEquals(600L, r.lastDetector?.elapsedMs)
         r.finishNow()
         mic.feed(ByteArray(0))
         val outcome = future.get(5, TimeUnit.SECONDS) as UtteranceRecorder.Outcome.Speech
@@ -186,7 +237,7 @@ class UtteranceRecorderTest {
     }
 
     @Test
-    fun logsOneLineWithLevelsAndNoAudio() {
+    fun logsOneLineWithLevelsAndOutcome() {
         mic.feedMs(200, 100)
         mic.feedMs(600, 3_000)
         mic.feedMs(1_000, 100)

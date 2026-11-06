@@ -134,7 +134,6 @@ class ConversationController(
     fun stop() {
         stopRequested.set(true)
         recorder?.finishNow()
-        mic.stop() // Unblock a host pipe read; coroutine interruption alone need not unblock it.
         speech.stop()
     }
 
@@ -173,6 +172,7 @@ class ConversationController(
                     }
                     ).copy(initialNoiseFloor = lastNoiseFloor)
                 val rec = UtteranceRecorder(mic, focus, endpoint, log = { log("turn $turn: $it") }).also { recorder = it }
+                if (stopRequested.get()) rec.finishNow()
                 val outcome = try {
                     runInterruptible(ioDispatcher) { rec.record() }
                 } finally {
@@ -256,7 +256,8 @@ class ConversationController(
     }
 
     private fun end(reason: EndReason, message: String?, lastHeard: String?, lastReply: String?) {
-        log("ended reason=$reason message=${message ?: "none"}")
+        // Provider error bodies can echo request text or credentials; never send them to logcat.
+        log("ended reason=$reason")
         set(ConversationState.Ended(reason, message, lastHeard, lastReply))
     }
 

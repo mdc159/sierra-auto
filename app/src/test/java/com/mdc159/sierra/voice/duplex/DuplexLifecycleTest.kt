@@ -52,12 +52,15 @@ class DuplexLifecycleTest {
         val handshakeReturn = CountDownLatch(1)
         session.onStart = { handshakeEntered.countDown(); check(handshakeReturn.await(2, TimeUnit.SECONDS)) }
         val controller = DuplexController(session, mic, sink, Focus(), DuplexMode.FULL_DUPLEX, listener = {})
-        val startThread = Thread { controller.start() }
+        val failure = java.util.concurrent.atomic.AtomicReference<Throwable?>()
+        val startThread = Thread { try { controller.start() } catch (e: Throwable) { failure.set(e) } }
         startThread.start()
         assertTrue(handshakeEntered.await(2, TimeUnit.SECONDS))
         controller.stop()
         handshakeReturn.countDown()
         startThread.join(2000)
+        assertFalse("Startup must finish after the handshake is released", startThread.isAlive)
+        assertNull(failure.get())
         controller.stop()
         assertEquals("Microphone reopened after stop and a second stop cannot release it", 0, mic.opens.get())
         assertEquals(0, sink.opens.get())

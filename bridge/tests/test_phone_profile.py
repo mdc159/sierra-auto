@@ -9,6 +9,39 @@ spec.loader.exec_module(profile)
 
 
 class PhoneProfileTest(unittest.TestCase):
+    def test_alias_cleanup_is_scoped_and_verified(self):
+        values = profile.profile_values("https://victoria.ts.net/v1", "test-token")
+        class Vault:
+            def __init__(self, old, verify=True, status=200):
+                self.old, self.verify, self.status, self.deleted = old, verify, status, []
+            def find_project(self, slug):
+                return "existing-id"
+            def set_secrets(self, project_id, path, secrets):
+                self.values = secrets
+                return 0, 0
+            def get_secret(self, project_id, path, key):
+                if key == "SIERRA_HERMES_API_KEY":
+                    return self.old
+                return self.values.get(key) if self.verify else None
+            def api(self, method, path, body):
+                self.deleted.append((method, path, body))
+                return self.status, {}
+        for status in (200, 404):
+            vault = Vault("test-token", status=status)
+            profile.reconcile(vault, "phone", values)
+            self.assertEqual([("DELETE", "/api/v4/secrets/SIERRA_HERMES_API_KEY",
+                               {"projectId": "existing-id", "environment": "prod", "secretPath": "/"})], vault.deleted)
+        vault = Vault("subsequently-changed")
+        profile.reconcile(vault, "phone", values)
+        self.assertEqual([], vault.deleted)
+        vault = Vault("test-token", verify=False)
+        with self.assertRaisesRegex(profile.ProfileError, "verification failed"):
+            profile.reconcile(vault, "phone", values)
+        self.assertEqual([], vault.deleted)
+        vault = Vault("test-token", status=500)
+        with self.assertRaisesRegex(profile.ProfileError, "saved but alias cleanup failed"):
+            profile.reconcile(vault, "phone", values)
+
     def test_requires_private_https_base_and_token(self):
         for url in ("http://victoria.ts.net", "https://public.example/v1", "https://user:secret@victoria.ts.net",
                     "https://victoria.ts.net/v1?key=secret", "https://victoria.ts.net/chat/completions"):

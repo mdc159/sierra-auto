@@ -22,6 +22,9 @@ object MicSettings {
     fun manual(context: Context) = prefs(context).getBoolean("manual", false)
     fun manual(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean("manual", enabled).apply() }
     fun permitted(context: Context) = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    fun notificationsAllowed(context: Context): Boolean =
+        (Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) &&
+            context.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled()
     fun health(context: Context): String {
         val muted = runCatching { context.getSystemService(AudioManager::class.java).isMicrophoneMute }.getOrDefault(false)
         return "Permission: ${if (permitted(context)) "granted" else "NOT granted"}; system mic mute: $muted. " +

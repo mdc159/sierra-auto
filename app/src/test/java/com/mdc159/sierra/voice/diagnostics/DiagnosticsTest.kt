@@ -7,6 +7,7 @@ import android.widget.RadioGroup
 import android.view.View
 import android.view.ViewGroup
 import com.mdc159.sierra.voice.duplex.MicSource
+import com.mdc159.sierra.voice.duplex.DuplexException
 import com.mdc159.sierra.car.MicTestScreen
 import androidx.car.app.model.MessageTemplate
 import org.junit.Assert.*
@@ -55,14 +56,14 @@ class DiagnosticsTest {
         val second = ObservedMic(context, "phone", secondDevice)
         try {
             first.start()
-            assertThrows(Exception::class.java) { second.start() }
+            assertTrue(assertThrows(DuplexException::class.java) { second.start() }.message!!.contains("busy"))
             assertEquals(0, secondDevice.starts)
             first.stop()
             second.start()
             assertEquals(1, secondDevice.starts)
         } finally { first.stop(); second.stop() }
         val failed = ObservedMic(context, "car", FakeMic(fail = true))
-        assertThrows(Exception::class.java) { failed.start() }
+        assertThrows(IllegalStateException::class.java) { failed.start() }
         val retry = ObservedMic(context, "car", FakeMic())
         try { retry.start() } finally { retry.stop() }
     }
@@ -70,10 +71,10 @@ class DiagnosticsTest {
         val device = FakeMic()
         val mic = ObservedMic(context, "car", device)
         mic.stop()
-        assertThrows(Exception::class.java) { mic.start() }
+        assertThrows(DuplexException::class.java) { mic.start() }
         assertEquals(0, device.starts)
         val phone = Microphones.phone(context, requireService = true)
-        assertThrows(Exception::class.java) { phone.start() }
+        assertThrows(DuplexException::class.java) { phone.start() }
     }
     @Test fun activityHasSourceSelectorTestsAndShareWithoutComputerSetup() {
         val activity = Robolectric.buildActivity(MicDiagnosticsActivity::class.java).setup()
@@ -105,14 +106,16 @@ class DiagnosticsTest {
         val mic = ObservedMic(context, "car", device, stallTimeoutMs = 50)
         try {
             mic.start()
-            assertThrows(Exception::class.java) { mic.read(ByteArray(512)) }
+            assertThrows(DuplexException::class.java) { mic.read(ByteArray(512)) }
             assertTrue(VoiceDiagnostics.report(context).contains("delivered no audio"))
         } finally { mic.stop() }
         val retry = ObservedMic(context, "car", FakeMic())
         try { retry.start() } finally { retry.stop() }
     }
     @Test fun disablingForegroundServiceClosesRegisteredPhoneMic() {
+        shadowOf(org.robolectric.RuntimeEnvironment.getApplication() as android.app.Application).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         val service = Robolectric.buildService(PhoneMicService::class.java).create().startCommand(0, 1)
+        var destroyed = false
         var stopped = false
         val device = object : MicSource {
             override val sampleRate = 16000
@@ -125,11 +128,24 @@ class DiagnosticsTest {
             assertTrue(PhoneMicService.ready)
             mic.start()
             service.destroy()
+            destroyed = true
             assertFalse(PhoneMicService.ready)
             assertTrue(stopped)
             assertFalse(VoiceDiagnostics.recording)
-            assertThrows(Exception::class.java) { PhoneMicService.register(device, requireService = true) }
-        } finally { mic.stop() }
+            assertThrows(DuplexException::class.java) { PhoneMicService.register(device, requireService = true) }
+        } finally { mic.stop(); if (!destroyed) service.destroy() }
+    }
+    @Test fun talkAdapterReopensWithANewMicAfterAnInterruptedReply() {
+        val devices = mutableListOf<FakeMic>()
+        val adapter = Microphones.forTalk { ObservedMic(context, "car", FakeMic().also { devices += it }) }
+        repeat(2) { try { adapter.start() } finally { adapter.stop() } }
+        assertEquals(2, devices.size)
+        assertEquals(listOf(1, 1), devices.map { it.starts })
+    }
+    @Test fun phoneBackgroundAccessRequiresAVisibleNotification() {
+        shadowOf(org.robolectric.RuntimeEnvironment.getApplication() as android.app.Application).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        val service = Robolectric.buildService(PhoneMicService::class.java).create().startCommand(0, 1)
+        try { assertFalse(PhoneMicService.ready) } finally { service.destroy() }
     }
     private fun descendants(view: View): List<View> = listOf(view) + if (view is ViewGroup)
         (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) } else emptyList()

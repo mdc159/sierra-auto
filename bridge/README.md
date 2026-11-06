@@ -189,7 +189,7 @@ Pick one:
 
   The bridge keeps `host = "127.0.0.1"`. The base URL for the phone is `https://<machine>.<tailnet>.ts.net/v1`. Do **not** use `tailscale funnel`; that would publish it to the internet.
 
-- **Bind to the Tailscale IP** directly: set `host = "100.x.y.z"` (from `tailscale ip -4`) and open nothing else. The base URL is `http://100.x.y.z:8787/v1` or `http://<machine>.<tailnet>.ts.net:8787/v1` with MagicDNS. Plain HTTP is fine here because WireGuard already encrypts it, but Android apps need `http://` explicitly allowed; the Sierra app accepts `http://` base URLs.
+- **Bind to the Tailscale IP** directly: set `host = "100.x.y.z"` (from `tailscale ip -4`) and open nothing else. Use `http://<machine>.<tailnet>.ts.net:8787/v1` with MagicDNS in Sierra. WireGuard encrypts this transport, and Sierra's remote cleartext allowlist requires the `*.ts.net` hostname rather than a bare IP.
 
 Either way, confirm from another device on the tailnet, and confirm from outside the tailnet that nothing answers.
 
@@ -205,7 +205,7 @@ On the phone, open **Sierra**. Under **Who answers**, choose **My agent, through
 | Bridge token | the value of `SIERRA_BRIDGE_TOKEN` |
 | Agent (bridge model name) | the `[models.<name>]` entry to talk to: `hermes` (default), `pi`, `claude`, ... |
 
-When the phone is signed in to Studio 54, the vault entries `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN`, if both are present in the phone's project, replace the typed URL and token, and no token is typed. **As of 2026-11-06 Studio 54's enrollment does not write them yet**, so for now the token has to be typed.
+When the phone is signed in to Studio 54, the vault entries `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN`, if both are present in the phone's project, replace the typed URL and token. The enrolled Sierra phone's entries were provisioned and verified on 2026-11-06 with `deploy/publish_phone_profile.py`. Tap **Connect to Hermes on Victoria**; see [operator instructions](../docs/MICROPHONE-DIAGNOSTICS.md) for provisioning another existing phone project.
 
 The bridge profile changes only where chat goes, that is Talk and full-duplex `ask_agent`. Transcription and gateway speech keep the main gateway settings, and the bridge token is never sent to them. Full-duplex voice has its own settings screen and is not affected; only its `ask_agent` tool follows this choice.
 

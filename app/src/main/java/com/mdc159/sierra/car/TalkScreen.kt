@@ -170,6 +170,7 @@ class TalkScreen(
             val voice = VoiceSettingsStore.load(carContext)
             val transcriber = VoiceStack.transcriber(voice, config)
             if (transcriber != null) return startConversation(config, client, voice, transcriber)
+            return setState(State.Failed("Set up a transcription endpoint on the phone to use the selected microphone, or choose Automatic to use the system speech recognizer."), initial)
         }
         job = lifecycleScope.launch {
             try {
@@ -200,7 +201,7 @@ class TalkScreen(
                 throw e
             } catch (e: AgentException) {
                 hideToolStatus()
-                Studio54.onAgentError(carContext, e)
+                Studio54.onAgentError(carContext, e, config.profile)
                 setState(State.Failed(e.message ?: "Something went wrong."))
             } catch (e: Exception) {
                 hideToolStatus()
@@ -244,7 +245,7 @@ class TalkScreen(
                     runInterruptible(Dispatchers.IO) { client.chat(session.conversation.messagesFor(userText), tools, toolListener) }
                 } catch (e: AgentException) {
                     VoiceDiagnostics.failure(carContext, "Agent failed", e)
-                    Studio54.onAgentError(carContext, e)
+                    Studio54.onAgentError(carContext, e, config.profile)
                     throw e
                 } finally {
                     hideToolStatus()
@@ -271,7 +272,7 @@ class TalkScreen(
                     noSpeechMs = if (diagnosticMode) 20_000 else if (followUp) base.silenceTimeoutMs else base.endpoint.noSpeechMs,
                 ),
         )
-        val input = try { Microphones.forTalk(Microphones.selected(carContext)) } catch (e: Exception) {
+        val input = try { Microphones.forTalk { Microphones.selected(carContext) } } catch (e: Exception) {
             VoiceDiagnostics.failure(carContext, "Talk microphone setup", e)
             return setState(State.Failed(e.message ?: "Microphone unavailable. Open Microphone & diagnostics on the phone."))
         }
