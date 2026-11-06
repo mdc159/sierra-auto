@@ -63,7 +63,7 @@ log_file = "/var/log/sierra-bridge/replies.jsonl"
 [models.<name>]          # <name> is what the phone's Model field must say
 adapter = "pi" | "hermes" | "command" | "openai"
 driving_prompt = true    # optional: wrap the agent in the driving-assistant prompt
-timeout_seconds = 180    # optional per-model override
+timeout_seconds = 110    # optional per-model override; keep below the app's 120 s
 speech_max_chars = 400   # optional per-model override
 # ... adapter options below
 ```
@@ -94,7 +94,7 @@ cwd = "/home/me/projects/sierra-auto" # the project Pi works in
 session_dir = "/var/lib/sierra-bridge/pi-sessions"
 extra_args = ["--no-approve"]         # anything from `pi --help`: --model, --thinking, --tools, ...
 driving_prompt = true
-timeout_seconds = 180
+timeout_seconds = 110
 idle_seconds = 600                    # stop an idle Pi process; the session file keeps the context
 max_sessions = 8                      # concurrent Pi processes
 ```
@@ -129,7 +129,7 @@ adapter = "command"
 command = ["claude", "-p", "--output-format", "text"]
 cwd = "/home/me/projects/sierra-auto"
 driving_prompt = true
-timeout_seconds = 240
+timeout_seconds = 110
 # input_format = "messages"   # whole history as a JSON array on stdin instead of just the question
 # env = { SOME_VAR = "value" }
 # max_output_bytes = 1000000
@@ -201,7 +201,7 @@ On the phone, open **Sierra**. Under **Who answers**, choose **My agent, through
 
 | Field | Value |
 | --- | --- |
-| Bridge URL | `https://<machine>.<tailnet>.ts.net/v1` (or with the `tailscale serve` port, e.g. `:8443/v1`), or `http://<machine>.<tailnet>.ts.net:8787/v1` when bound to the Tailscale IP. Not a bare `100.x.y.z`: the app allows plain `http` only for `*.ts.net` names |
+| Bridge URL | `https://<machine>.<tailnet>.ts.net/v1` (or with the `tailscale serve` port, e.g. `:8443/v1`), or `http://<machine>.<tailnet>.ts.net:8787/v1` when bound to the Tailscale IP. Not a bare `100.x.y.z`: for a remote host the app allows plain `http` only for `*.ts.net` names (plus `localhost`, `127.0.0.1` and the emulator's `10.0.2.2` for development) |
 | Bridge token | the value of `SIERRA_BRIDGE_TOKEN` |
 | Agent (bridge model name) | the `[models.<name>]` entry to talk to: `hermes` (default), `pi`, `claude`, ... |
 

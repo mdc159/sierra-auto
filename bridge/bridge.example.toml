@@ -8,7 +8,7 @@
 host = "127.0.0.1"          # Bind to loopback and publish with `tailscale serve`, or
                             # bind to the machine's Tailscale IP (100.x.y.z) directly.
 port = 8787
-timeout_seconds = 120       # per request; models may override
+timeout_seconds = 110       # per request; models may override. Keep below the app's 120 s bridge round
 speech_max_chars = 600      # what the car hears; the full reply goes to log_file
 log_file = "/var/log/sierra-bridge/replies.jsonl"
 
@@ -22,7 +22,7 @@ cwd = "/home/me/projects/sierra-auto"  # the project Pi works in
 session_dir = "/var/lib/sierra-bridge/pi-sessions"
 extra_args = ["--no-approve"]          # see `pi --help`; e.g. "--model", "anthropic/claude-sonnet-4-5"
 driving_prompt = true                  # answer in one to three spoken sentences
-timeout_seconds = 180
+timeout_seconds = 110                  # keep below the app's 120 s bridge round, so the 504 reaches the phone
 idle_seconds = 600                     # stop an idle Pi process; the session file keeps the context
 
 # A Hermes agent on another Tailscale node (API server enabled, see README).
@@ -40,7 +40,7 @@ adapter = "command"
 command = ["claude", "-p", "--output-format", "text"]
 cwd = "/home/me/projects/sierra-auto"
 driving_prompt = true
-timeout_seconds = 240
+timeout_seconds = 110
 # input_format = "messages"            # send the whole history as a JSON array instead of plain text
 
 # Plain pass-through, so one bridge can front the LiteLLM gateway too.
