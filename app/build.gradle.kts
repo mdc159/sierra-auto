@@ -48,6 +48,12 @@ android {
         }
     }
 
+    // Play refuses UPDATE_PACKAGES_WITHOUT_USER_ACTION. play.yml builds with -Pplay=true, which
+    // overlays src/play/AndroidManifest.xml on release to drop it from the Play bundle only.
+    if (findProperty("play") == "true") {
+        sourceSets.getByName("release").manifest.srcFile("src/play/AndroidManifest.xml")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
