@@ -57,6 +57,35 @@ class AgentClientTest {
     }
 
     @Test
+    fun bridgeProfileSendsChatToTheBridgeAndTranscriptionToTheGateway() {
+        val bridge = MockWebServer().apply { start() }
+        try {
+            bridge.enqueue(MockResponse().setBody("""{"choices":[{"message":{"role":"assistant","content":"On paper."}}]}"""))
+            server.enqueue(MockResponse().setBody("""{"text":"hello"}"""))
+            val c = config().copy(
+                profile = AgentProfile.BRIDGE,
+                bridgeUrl = bridge.url("/v1").toString(),
+                bridgeKey = "bridge-token",
+                bridgeModel = "hermes",
+            )
+            val client = AgentClient(c, http)
+            assertEquals("On paper.", client.chat(Conversation().messagesFor("Where are you?")))
+            client.transcribe(ByteArray(64))
+
+            val chat = bridge.takeRequest()
+            assertEquals("/v1/chat/completions", chat.path)
+            assertEquals("Bearer bridge-token", chat.getHeader("Authorization"))
+            assertEquals("hermes", JSONObject(chat.body.readUtf8()).getString("model"))
+            val stt = server.takeRequest()
+            assertEquals("/v1/audio/transcriptions", stt.path)
+            assertEquals("Bearer test-key", stt.getHeader("Authorization")) // the gateway key, never the bridge token
+            assertEquals(1, bridge.requestCount)
+        } finally {
+            bridge.shutdown()
+        }
+    }
+
+    @Test
     fun errorBodyBecomesReadableMessage() {
         server.enqueue(
             MockResponse().setResponseCode(401)

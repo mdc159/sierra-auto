@@ -10,8 +10,8 @@ fixes independently reproduced Conversation startup/stop cleanup defects.
 Update Sierra through Google Play internal testing. Keep Tailscale connected.
 
 - **Connect to Hermes on Victoria** refreshes the existing Studio54 sign-in, selects
-  Hermes and tests it. No credential entry is needed. The checkbox saves with the
-  other settings; turn it off and Save to return to the existing chat model.
+  Hermes and tests it. No credential entry is needed. The Who answers selection saves with the
+  other settings; choose A model and Save to return to the existing chat model.
 - **Microphone & diagnostics** has Automatic, Car and Phone choices. Stop an active
   voice session before switching. Automatic retains the previous selection behavior.
 - To use the phone mic from Android Auto, tap **Enable phone microphone for Android

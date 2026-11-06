@@ -8,9 +8,10 @@ import android.text.InputType
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -20,6 +21,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.agent.AgentClient
 import com.mdc159.sierra.agent.AgentConfig
+import com.mdc159.sierra.agent.AgentProfile
 import com.mdc159.sierra.net.Http
 import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.studio54.Studio54Activity
@@ -47,7 +49,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var testButton: Button
     private lateinit var testResult: TextView
     private lateinit var vaultNote: TextView
-    private lateinit var hermes: CheckBox
+    private lateinit var profileGroup: RadioGroup
+    private lateinit var bridgeUrl: EditText
+    private lateinit var bridgeKey: EditText
+    private lateinit var bridgeModel: EditText
+    private lateinit var bridgeVaultNote: TextView
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refreshPermissions() }
@@ -85,26 +91,34 @@ class MainActivity : ComponentActivity() {
         form.addView(TextView(this).apply {
             text = "Set up your agent here, then open Sierra in Android Auto."
         })
+
+        heading("Who answers")
         form.addView(Button(this).apply {
             text = "Microphone & diagnostics"
             setOnClickListener { startActivity(Intent(this@MainActivity, com.mdc159.sierra.voice.diagnostics.MicDiagnosticsActivity::class.java)) }
         })
-
-        heading("Agent (OpenAI-compatible)")
-        hermes = CheckBox(this).apply {
-            text = "Talk to Hermes on Victoria"
+        profileGroup = RadioGroup(this).apply {
+            orientation = RadioGroup.VERTICAL
+            addView(RadioButton(this@MainActivity).apply { text = "A model (gateway settings below)"; id = PROFILE_GATEWAY })
+            addView(RadioButton(this@MainActivity).apply { text = "My agent, through the Sierra bridge"; id = PROFILE_BRIDGE })
             form.addView(this)
         }
+        form.addView(TextView(this).apply {
+            text = "Talk and full-duplex \"ask my agent\" go to the one chosen here. " +
+                "Transcription and full-duplex voice always use the gateway settings."
+        })
         form.addView(Button(this).apply {
             text = "Connect to Hermes on Victoria"
             setOnClickListener {
-                hermes.isChecked = true
+                profileGroup.check(PROFILE_BRIDGE)
+                bridgeModel.setText("hermes")
                 ConfigStore.save(this@MainActivity, currentConfig())
                 isEnabled = false
                 testResult.text = "Refreshing Hermes connection from Studio 54…"
                 lifecycleScope.launch {
                     try {
                         Studio54.refreshNow(this@MainActivity)
+                        showVaultHints()
                         testConnection()
                     } catch (e: Exception) {
                         if (e is kotlinx.coroutines.CancellationException) throw e
@@ -114,13 +128,22 @@ class MainActivity : ComponentActivity() {
             }
         })
         form.addView(TextView(this).apply {
-            text = "Hermes uses its own agent, tools and memory on Victoria. Tailscale must be connected. Your chat model and speech settings are kept for switching back. In Conversation, say ‘ask the agent’ to reach Hermes through the voice assistant."
+            text = "Hermes uses its own agent, tools and memory on Victoria. Keep Tailscale connected. Your existing chat model and speech settings are kept for switching back."
         })
+
+        heading("Agent (OpenAI-compatible)")
         baseUrl = field("Base URL", "https://example.com/v1")
         apiKey = field("API key", "sk-…", secret = true)
         vaultNote = TextView(this).apply { text = "Base URL and API key come from the Studio 54 vault." }
         form.addView(vaultNote)
         model = field("Model", "gpt-4o-mini")
+
+        heading("My agent (Sierra bridge)")
+        bridgeUrl = field("Bridge URL", "https://<bridge-host>:8443/v1")
+        bridgeKey = field("Bridge token", "", secret = true)
+        bridgeVaultNote = TextView(this).apply { text = "Bridge URL and token come from the Studio 54 vault." }
+        form.addView(bridgeVaultNote)
+        bridgeModel = field("Agent (bridge model name)", AgentConfig.DEFAULT_BRIDGE_MODEL)
 
         heading("Transcription (optional)")
         form.addView(TextView(this).apply {
@@ -204,6 +227,10 @@ class MainActivity : ComponentActivity() {
         vaultNote.visibility = if (vault) View.VISIBLE else View.GONE
         baseUrl.hint = if (vault) "From Studio 54 vault" else "https://example.com/v1"
         apiKey.hint = if (vault) "From Studio 54 vault" else "sk-…"
+        val bridgeVault = Studio54.suppliesBridge(this)
+        bridgeVaultNote.visibility = if (bridgeVault) View.VISIBLE else View.GONE
+        bridgeUrl.hint = if (bridgeVault) "From Studio 54 vault" else "https://<bridge-host>:8443/v1"
+        bridgeKey.hint = if (bridgeVault) "From Studio 54 vault" else ""
     }
 
     private fun loadConfig() {
@@ -214,7 +241,10 @@ class MainActivity : ComponentActivity() {
         sttUrl.setText(c.sttUrl)
         sttKey.setText(c.sttKey)
         sttModel.setText(c.sttModel)
-        hermes.isChecked = c.useHermes
+        profileGroup.check(if (c.usesBridge) PROFILE_BRIDGE else PROFILE_GATEWAY)
+        bridgeUrl.setText(c.bridgeUrl)
+        bridgeKey.setText(c.bridgeKey)
+        bridgeModel.setText(c.bridgeModel)
     }
 
     private fun currentConfig() = AgentConfig(
@@ -224,14 +254,21 @@ class MainActivity : ComponentActivity() {
         sttUrl = sttUrl.text.toString().trim(),
         sttKey = sttKey.text.toString().trim(),
         sttModel = sttModel.text.toString().trim().ifBlank { AgentConfig.DEFAULT_STT_MODEL },
-        useHermes = hermes.isChecked,
+        profile = if (profileGroup.checkedRadioButtonId == PROFILE_BRIDGE) AgentProfile.BRIDGE else AgentProfile.GATEWAY,
+        bridgeUrl = bridgeUrl.text.toString().trim(),
+        bridgeKey = bridgeKey.text.toString().trim(),
+        bridgeModel = bridgeModel.text.toString().trim().ifBlank { AgentConfig.DEFAULT_BRIDGE_MODEL },
     )
 
     private fun save() {
         val config = currentConfig()
         ConfigStore.save(this, config)
         val ready = Studio54.agentConfig(this, config).isConfigured
-        val note = if (ready) "Saved." else "Saved. Base URL and model are required."
+        val note = when {
+            ready -> "Saved."
+            config.usesBridge -> "Saved. Connect to Hermes or supply the bridge URL and token."
+            else -> "Saved. Base URL and model are required."
+        }
         Toast.makeText(this, note, Toast.LENGTH_SHORT).show()
     }
 
@@ -242,17 +279,18 @@ class MainActivity : ComponentActivity() {
         // Test what Talk will use: the vault's base URL and key replace the typed ones when known.
         val config = Studio54.agentConfig(this, typed)
         if (!config.isConfigured) {
-            testResult.text = if (config.useHermes) "Hermes connection is missing from the vault. Check Studio 54 sign-in and Tailscale, then tap Connect to Hermes again." else "Enter a base URL and model first."
+            testResult.text = if (typed.usesBridge) "Bridge connection is missing. Check Studio 54 sign-in and Tailscale, then tap Connect to Hermes; or supply a bridge URL and token." else "Enter a base URL and model first."
             return
         }
         testButton.isEnabled = false
-        testResult.text = "Testing…"
+        // An agent behind the bridge answers "ready" through its own model, so it can take a while.
+        testResult.text = if (typed.usesBridge) "Testing ${config.chatModel} through the bridge…" else "Testing…"
         lifecycleScope.launch {
             val lines = mutableListOf<String>()
             val client = AgentClient(config)
             lines += try {
                 val reply = withContext(Dispatchers.IO) { client.testConnection() }
-                "${config.targetLabel} OK: \"$reply\""
+                "Agent OK: \"$reply\""
             } catch (e: Exception) {
                 Studio54.onAgentError(this@MainActivity, e)
                 "Agent failed: ${e.message ?: Http.describe(e)}"
@@ -297,6 +335,9 @@ class MainActivity : ComponentActivity() {
         runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"
 
     companion object {
+        private const val PROFILE_GATEWAY = 1
+        private const val PROFILE_BRIDGE = 2
+
         val REQUIRED = listOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,

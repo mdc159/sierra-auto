@@ -23,12 +23,12 @@ class HermesRoutingTest {
         try {
             hermes.enqueue(MockResponse().setBody("""{"choices":[{"message":{"role":"assistant","content":"Hermes ready"}}]}"""))
             gateway.enqueue(MockResponse().setBody("""{"text":"test words"}"""))
-            val typed = AgentConfig(model = "my-existing-model", sttUrl = gateway.url("/v1").toString(), useHermes = true)
+            val typed = AgentConfig(model = "my-existing-model", sttUrl = gateway.url("/v1").toString(), profile = AgentProfile.BRIDGE)
             val merged = AgentOverlay.apply(secrets(mapOf(
                 SecretNames.OPENAI_BASE_URL to gateway.url("/v1").toString(),
                 SecretNames.OPENAI_API_KEY to "gateway-test-key",
-                SecretNames.HERMES_BASE_URL to hermes.url("/v1").toString(),
-                SecretNames.HERMES_API_KEY to "hermes-test-key",
+                SecretNames.SIERRA_BRIDGE_URL to hermes.url("/v1").toString(),
+                SecretNames.SIERRA_BRIDGE_TOKEN to "hermes-test-key",
             )), typed)
             assertTrue(merged.isConfigured)
             assertEquals("my-existing-model", merged.model)
@@ -42,8 +42,8 @@ class HermesRoutingTest {
             val speechRequest = gateway.takeRequest()
             assertEquals("/v1/audio/transcriptions", speechRequest.path)
             assertEquals("Bearer gateway-test-key", speechRequest.getHeader("Authorization"))
-            assertEquals("my-existing-model", merged.copy(useHermes = false).chatModel)
-            assertEquals(merged.baseUrl, merged.copy(useHermes = false).chatBaseUrl)
+            assertEquals("my-existing-model", merged.copy(profile = AgentProfile.GATEWAY).chatModel)
+            assertEquals(merged.baseUrl, merged.copy(profile = AgentProfile.GATEWAY).chatBaseUrl)
         } finally { hermes.shutdown(); gateway.shutdown() }
     }
 
@@ -51,7 +51,7 @@ class HermesRoutingTest {
         val config = AgentOverlay.apply(secrets(mapOf(
             SecretNames.OPENAI_BASE_URL to "https://gateway.example/v1",
             SecretNames.OPENAI_API_KEY to "gateway-key",
-        )), AgentConfig(model = "saved-model", useHermes = true))
+        )), AgentConfig(model = "saved-model", profile = AgentProfile.BRIDGE))
         assertFalse(config.isConfigured)
         assertThrows(AgentException::class.java) { AgentClient(config).chat(listOf(ChatMessage("user", "test"))) }
     }

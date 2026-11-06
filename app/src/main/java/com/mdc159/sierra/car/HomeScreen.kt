@@ -15,6 +15,7 @@ import androidx.lifecycle.LifecycleOwner
 import com.mdc159.sierra.R
 import com.mdc159.sierra.agent.ConfigStore
 import com.mdc159.sierra.obd.live.ObdSettingsStore
+import com.mdc159.sierra.studio54.Studio54
 
 /**
  * Landing hub: Talk, Places, Truck and History as a four-item grid. GridTemplate is
@@ -37,7 +38,10 @@ class HomeScreen(
     }
 
     override fun onGetTemplate(): Template {
-        val configured = runCatching { ConfigStore.load(carContext).isConfigured }.getOrDefault(false)
+        // What Talk will use: with Studio 54 the vault fills the base URL and key, so the typed
+        // settings alone can look empty on a phone that is fully set up.
+        val configured = runCatching { Studio54.agentConfig(carContext, ConfigStore.load(carContext)).isConfigured }
+            .getOrDefault(false)
         val demoTruck = runCatching { ObdSettingsStore.load(carContext).isDemo }.getOrDefault(true)
         return template(
             entries(

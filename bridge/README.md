@@ -63,7 +63,7 @@ log_file = "/var/log/sierra-bridge/replies.jsonl"
 [models.<name>]          # <name> is what the phone's Model field must say
 adapter = "pi" | "hermes" | "command" | "openai"
 driving_prompt = true    # optional: wrap the agent in the driving-assistant prompt
-timeout_seconds = 180    # optional per-model override
+timeout_seconds = 110    # optional per-model override; keep below the app's 120 s
 speech_max_chars = 400   # optional per-model override
 # ... adapter options below
 ```
@@ -94,7 +94,7 @@ cwd = "/home/me/projects/sierra-auto" # the project Pi works in
 session_dir = "/var/lib/sierra-bridge/pi-sessions"
 extra_args = ["--no-approve"]         # anything from `pi --help`: --model, --thinking, --tools, ...
 driving_prompt = true
-timeout_seconds = 180
+timeout_seconds = 110
 idle_seconds = 600                    # stop an idle Pi process; the session file keeps the context
 max_sessions = 8                      # concurrent Pi processes
 ```
@@ -129,7 +129,7 @@ adapter = "command"
 command = ["claude", "-p", "--output-format", "text"]
 cwd = "/home/me/projects/sierra-auto"
 driving_prompt = true
-timeout_seconds = 240
+timeout_seconds = 110
 # input_format = "messages"   # whole history as a JSON array on stdin instead of just the question
 # env = { SOME_VAR = "value" }
 # max_output_bytes = 1000000
@@ -197,15 +197,21 @@ Health check: `curl -s https://<machine>.<tailnet>.ts.net/health` returns `{"sta
 
 ### Point the Sierra phone app at it
 
-On the phone, open **Sierra**, then the agent settings:
+On the phone, open **Sierra**. Under **Who answers**, choose **My agent, through the Sierra bridge**. Then fill in the **My agent (Sierra bridge)** section:
 
 | Field | Value |
 | --- | --- |
-| Base URL | `https://<machine>.<tailnet>.ts.net/v1` (or `http://100.x.y.z:8787/v1`) |
-| API key | the value of `SIERRA_BRIDGE_TOKEN` |
-| Model | the `[models.<name>]` entry to talk to: `pi`, `hermes`, `claude`, ... |
+| Bridge URL | `https://<machine>.<tailnet>.ts.net/v1` (or with the `tailscale serve` port, e.g. `:8443/v1`), or `http://<machine>.<tailnet>.ts.net:8787/v1` when bound to the Tailscale IP. Not a bare `100.x.y.z`: for a remote host the app allows plain `http` only for `*.ts.net` names (plus `localhost`, `127.0.0.1` and the emulator's `10.0.2.2` for development) |
+| Bridge token | the value of `SIERRA_BRIDGE_TOKEN` |
+| Agent (bridge model name) | the `[models.<name>]` entry to talk to: `hermes` (default), `pi`, `claude`, ... |
 
-Tap **Test connection**; it sends "Reply with the single word: ready" through the chosen adapter, so a coding agent will take a few seconds. The phone must be on the tailnet (Tailscale app installed and connected) for the URL to resolve. Switching agents is a matter of changing the Model field; `GET /v1/models` lists the names.
+When the phone is signed in to Studio 54, the vault entries `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN`, if both are present in the phone's project, replace the typed URL and token, and no token is typed. **As of 2026-11-06 Studio 54's enrollment does not write them yet**, so for now the token has to be typed.
+
+The bridge profile changes only where chat goes, that is Talk and full-duplex `ask_agent`. Transcription and gateway speech keep the main gateway settings, and the bridge token is never sent to them. Full-duplex voice has its own settings screen and is not affected; only its `ask_agent` tool follows this choice.
+
+Time limits: on the bridge profile one model round may take 120 s and a whole exchange 140 s. On the gateway the limits are 30 s and 60 s, because an agent can run tools before it answers. Keep the bridge's own `timeout_seconds` below 120 (110 on victoria), so the bridge's 504 reaches the phone first.
+
+Tap **Test connection**. It sends "Reply with the single word: ready" through the chosen adapter, so a coding agent takes a few seconds. The phone must be on the tailnet (the Tailscale app installed and connected) for the URL to resolve. To switch agents, change the agent name. `GET /v1/models` lists the names.
 
 ## Logs
 
