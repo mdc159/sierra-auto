@@ -1,5 +1,6 @@
 package com.mdc159.sierra.voice.duplex
 
+import com.mdc159.sierra.voice.stt.MicLevels
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -27,6 +28,8 @@ class DuplexController(
     /** Speaker rate. The service rate is used when null (no output resampling). */
     private val speakerRate: Int? = null,
     private val jitterPrefillMs: Long = 80,
+    /** Diagnostic lines (mic levels and end reasons, never audio); the car screen sends them to logcat. */
+    private val log: (String) -> Unit = {},
 ) {
     val gate = EchoGate(mode, ratio = guardRatio)
 
@@ -87,6 +90,7 @@ class DuplexController(
 
     private fun stop(reason: String) {
         if (!stopped.compareAndSet(false, true)) return
+        log("duplex stopped reason=$reason")
         cleanup()
         // Our reason first; the session's own Ended (emitted by close) is then a duplicate.
         if (endedForwarded.compareAndSet(false, true)) listener.onEvent(DuplexEvent.Ended(reason))
@@ -141,6 +145,8 @@ class DuplexController(
         val micRate = mic.sampleRate
         val frame = ByteArray(Resampler.bytesForMs(frameMs.toLong(), micRate).coerceAtLeast(2))
         val resampler = Resampler(micRate, session.inputSampleRate)
+        // Levels per stretch of LEVEL_LOG_MS, so a silent or very quiet car mic shows in logcat.
+        var levels = MicLevels(micRate)
         while (!stopped.get()) {
             val n = try {
                 mic.read(frame)
@@ -148,10 +154,16 @@ class DuplexController(
                 -1
             }
             if (n < 0) {
+                log("duplex mic closed by host; last ${levels.summary()}")
                 stop("Microphone closed")
                 return
             }
             if (n == 0) continue
+            levels.offer(frame, n)
+            if (levels.durationMs >= LEVEL_LOG_MS) {
+                log("duplex mic ${levels.summary()}")
+                levels = MicLevels(micRate)
+            }
             val gated = gate.process(frame, n)
             val out = resampler.process(gated, 0, n)
             session.sendAudio(out)
@@ -173,5 +185,9 @@ class DuplexController(
                 return
             }
         }
+    }
+
+    private companion object {
+        const val LEVEL_LOG_MS = 5_000L
     }
 }

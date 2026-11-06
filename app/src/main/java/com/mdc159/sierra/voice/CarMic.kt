@@ -10,6 +10,7 @@ import androidx.car.app.media.CarAudioRecord
 import androidx.car.app.versioning.CarAppApiLevels
 import androidx.core.content.ContextCompat
 import com.mdc159.sierra.agent.AgentException
+import com.mdc159.sierra.voice.stt.MicLevels
 import java.io.ByteArrayOutputStream
 
 /**
@@ -63,6 +64,7 @@ class CarMic(private val carContext: CarContext) {
             val out = ByteArrayOutputStream()
             val buf = ByteArray(CarAudioRecord.AUDIO_CONTENT_BUFFER_SIZE)
             val endpointer = SpeechEndpointer()
+            val levels = MicLevels(CarAudioRecord.AUDIO_CONTENT_SAMPLING_RATE)
             var dismissed = false
             record.startRecording()
             try {
@@ -74,13 +76,19 @@ class CarMic(private val carContext: CarContext) {
                     }
                     if (n == 0) continue
                     out.write(buf, 0, n)
+                    levels.offer(buf, n)
                     val chunkMs = n * 1000L / (Pcm.SAMPLE_RATE * 2)
                     if (endpointer.offer(Pcm.rms(buf, n), chunkMs)) break
                 }
             } finally {
                 record.stopRecording()
             }
+            MicLog.i(
+                "talk recording dismissed=$dismissed heardSpeech=${endpointer.heardSpeech} " +
+                    "finishedByUser=$stopRequested ${levels.summary()}",
+            )
             if (dismissed) return null
+            if (!endpointer.heardSpeech && levels.isDigitalSilence) throw AgentException(MicLevels.SILENT_MESSAGE)
             if (!endpointer.heardSpeech && !stopRequested) throw AgentException("Didn't hear anything.")
             if (out.size() == 0) throw AgentException("Didn't hear anything.")
             return Pcm.toWav(out.toByteArray(), CarAudioRecord.AUDIO_CONTENT_SAMPLING_RATE)

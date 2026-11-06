@@ -23,6 +23,10 @@ import kotlin.math.sqrt
  *   it, a loud cabin is known from the first chunk and only a voice above it counts.
  * @property floorRiseMs time constant for the noise floor to creep up when the cabin gets
  *   louder while nobody is speaking.
+ * @property sendUnconfirmed when the gate hears no speech before [noSpeechMs] but the audio is
+ *   not digital silence, hand it to the transcriber anyway (used for the first question of a
+ *   Talk, where the driver has just asked to speak). Off for follow-up turns, so a quiet cabin
+ *   still ends a conversation.
  */
 data class EndpointConfig(
     val silenceMs: Long = 1_200,
@@ -35,6 +39,7 @@ data class EndpointConfig(
     val calibrationMs: Long = 600,
     val initialNoiseFloor: Double = Double.NaN,
     val floorRiseMs: Long = 3_000,
+    val sendUnconfirmed: Boolean = false,
 )
 
 /**

@@ -111,4 +111,58 @@ class UtteranceRecorderTest {
         assertEquals(UtteranceRecorder.Outcome.Failed("Car microphone unavailable."), recorder().record())
         assertTrue(focus.abandons == 1)
     }
+
+    @Test
+    fun zerosFromTheCarAreReportedAsSilenceNotAsNoSpeech() {
+        mic.feedMs(2_500, 0)
+        assertEquals(UtteranceRecorder.Outcome.Silent, recorder().record())
+        assertEquals(1, focus.abandons)
+    }
+
+    @Test
+    fun aQuietVoiceTheGateMissesGoesToTheTranscriberWhenAllowed() {
+        // Speech below the absolute gate (a quiet head-unit mic, or road noise masking it).
+        mic.feedMs(2_500, 300)
+        val lines = mutableListOf<String>()
+        val r = UtteranceRecorder(mic, focus, config.copy(sendUnconfirmed = true), bufferSize = 640, log = { lines += it })
+        val outcome = r.record() as UtteranceRecorder.Outcome.Speech
+        assertFalse(outcome.confirmed)
+        assertEquals(2_000L, outcome.durationMs)
+        assertTrue(lines.single().contains("outcome=unconfirmed-speech"))
+        assertTrue(lines.single().contains("verdict=NO_SPEECH"))
+    }
+
+    @Test
+    fun withoutPermissionAQuietRecordingIsStillNoSpeech() {
+        mic.feedMs(2_500, 300)
+        assertEquals(UtteranceRecorder.Outcome.NoSpeech(finishedByUser = false), recorder().record())
+    }
+
+    @Test
+    fun doneAfterHalfASecondSendsWhatWasRecordedEvenIfTheGateHeardNothing() {
+        val r = recorder()
+        mic.feedMs(600, 300)
+        val pool = Executors.newSingleThreadExecutor()
+        val future = pool.submit<UtteranceRecorder.Outcome> { r.record() }
+        Thread.sleep(150)
+        r.finishNow()
+        mic.feed(ByteArray(0))
+        val outcome = future.get(5, TimeUnit.SECONDS) as UtteranceRecorder.Outcome.Speech
+        assertFalse(outcome.confirmed)
+        assertEquals(600L, outcome.durationMs)
+        pool.shutdownNow()
+    }
+
+    @Test
+    fun logsOneLineWithLevelsAndNoAudio() {
+        mic.feedMs(200, 100)
+        mic.feedMs(600, 3_000)
+        mic.feedMs(1_000, 100)
+        val lines = mutableListOf<String>()
+        UtteranceRecorder(mic, focus, config, bufferSize = 640, log = { lines += it }).record()
+        val line = lines.single()
+        assertTrue(line, line.startsWith("utterance outcome=speech verdict=END_OF_SPEECH heardSpeech=true"))
+        assertTrue(line, line.contains("peakRms=3000.0"))
+        assertTrue(line, line.contains("threshold="))
+    }
 }

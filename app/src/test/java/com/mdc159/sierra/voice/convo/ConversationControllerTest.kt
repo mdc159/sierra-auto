@@ -7,6 +7,7 @@ import com.mdc159.sierra.voice.FakeMic
 import com.mdc159.sierra.voice.FakeSpeechOutput
 import com.mdc159.sierra.voice.FakeTranscriber
 import com.mdc159.sierra.voice.stt.EndpointConfig
+import com.mdc159.sierra.voice.stt.MicLevels
 import com.mdc159.sierra.voice.tts.AudioFocusGate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -99,6 +100,39 @@ class ConversationControllerTest {
         assertEquals(EndReason.SILENCE, (c.state.value as ConversationState.Ended).reason)
         assertTrue(agent.asked.isEmpty())
         assertTrue(speech.spoken.isEmpty())
+    }
+
+    @Test
+    fun aCarMicThatSendsOnlyZerosSaysSo() = runBlocking {
+        mic.feedMs(2_000, 0)
+        val transcriber = FakeTranscriber()
+        val c = controller(transcriber)
+        withTimeout(10_000) { c.run() }
+        val ended = c.state.value as ConversationState.Ended
+        assertEquals(EndReason.ERROR, ended.reason)
+        assertEquals(MicLevels.SILENT_MESSAGE, ended.message)
+        assertTrue(transcriber.received.isEmpty())
+    }
+
+    @Test
+    fun firstTurnSendsAudioTheGateMissedButFollowUpsDoNot() = runBlocking {
+        mic.feedMs(2_000, 300) // a voice under the gate on the first question
+        mic.feedMs(2_000, 300) // the same level on the follow-up: nobody answered
+        val transcriber = FakeTranscriber("find fuel")
+        val lines = Collections.synchronizedList(mutableListOf<String>())
+        val c = ConversationController(
+            mic, transcriber, agent, speech, focus,
+            ConversationConfig(endpoint = endpoint.copy(sendUnconfirmed = true), silenceTimeoutMs = 1_000),
+            onState = { states += it },
+            log = { lines += it },
+        )
+        withTimeout(10_000) { c.run() }
+        assertEquals(listOf("find fuel"), agent.asked)
+        assertEquals(1, transcriber.received.size)
+        assertEquals(EndReason.SILENCE, (c.state.value as ConversationState.Ended).reason)
+        assertTrue(lines.any { it.startsWith("turn 1: utterance outcome=unconfirmed-speech") })
+        assertTrue(lines.any { it.startsWith("turn 2: utterance outcome=no-speech") })
+        assertTrue(lines.last().startsWith("ended reason=SILENCE"))
     }
 
     @Test

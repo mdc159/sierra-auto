@@ -13,10 +13,18 @@ class UtteranceRecorder(
     private val focus: AudioFocusGate,
     private val config: EndpointConfig = EndpointConfig(),
     private val bufferSize: Int = 512,
+    private val log: (String) -> Unit = {},
 ) {
     sealed class Outcome {
-        /** The driver said something. [pcm] is 16-bit mono at [sampleRate]. */
-        data class Speech(val pcm: ByteArray, val sampleRate: Int, val durationMs: Long) : Outcome()
+        /**
+         * The driver said something. [pcm] is 16-bit mono at [sampleRate]. [confirmed] is false
+         * when the energy gate never saw speech but the audio is sent anyway (a Done tap, or
+         * [EndpointConfig.sendUnconfirmed]); the transcriber then decides.
+         */
+        data class Speech(val pcm: ByteArray, val sampleRate: Int, val durationMs: Long, val confirmed: Boolean = true) : Outcome()
+
+        /** The microphone delivered only digital silence (see [MicLevels.isDigitalSilence]). */
+        data object Silent : Outcome()
 
         /** Nothing heard. [finishedByUser] when the driver tapped to end listening early. */
         data class NoSpeech(val finishedByUser: Boolean) : Outcome()
@@ -62,6 +70,7 @@ class UtteranceRecorder(
                 return Outcome.Failed(e.message?.takeIf { it.isNotBlank() } ?: "Car microphone unavailable.")
             }
             val detector = EndOfSpeechDetector(config, mic.sampleRate).also { lastDetector = it }
+            val levels = MicLevels(mic.sampleRate)
             val out = ByteArrayOutputStream()
             val buf = ByteArray(bufferSize)
             var verdict = EndOfSpeechDetector.Verdict.CONTINUE
@@ -75,26 +84,71 @@ class UtteranceRecorder(
                     }
                     if (n == 0) continue
                     out.write(buf, 0, n)
+                    levels.offer(buf, n)
                     verdict = detector.feed(buf, n)
                     if (verdict != EndOfSpeechDetector.Verdict.CONTINUE) break
                 }
             } finally {
                 mic.stop()
             }
-            if (hostEnded) {
-                // CarAudioRecord (1.7.0) answers a refused openMicrophone (Assistant up, call in
-                // progress, DHU `mic reject on`) with an immediate -1, before any audio flows. A real
-                // dismissal always comes after the indicator was up and some bytes were read.
-                if (out.size() == 0 && !finishRequested) return Outcome.Failed("Car microphone unavailable. Try again.")
-                return Outcome.HostEnded
-            }
-            if (!detector.heardSpeech || verdict == EndOfSpeechDetector.Verdict.NO_SPEECH) {
-                if (focusLost) return Outcome.FocusDenied
-                return Outcome.NoSpeech(finishedByUser = finishRequested)
-            }
-            return Outcome.Speech(out.toByteArray(), mic.sampleRate, detector.elapsedMs)
+            val outcome = decide(hostEnded, verdict, detector, levels, out)
+            log(
+                "utterance outcome=${outcome.label()} verdict=$verdict heardSpeech=${detector.heardSpeech} " +
+                    "finishedByUser=$finishRequested focusLost=$focusLost ${levels.summary()} " +
+                    "floor=${fmt(detector.noiseFloor)} threshold=${fmt(detector.threshold)} " +
+                    "initialFloor=${fmt(config.initialNoiseFloor)} sendUnconfirmed=${config.sendUnconfirmed}",
+            )
+            return outcome
         } finally {
             focus.abandon()
         }
+    }
+
+    private fun decide(
+        hostEnded: Boolean,
+        verdict: EndOfSpeechDetector.Verdict,
+        detector: EndOfSpeechDetector,
+        levels: MicLevels,
+        out: ByteArrayOutputStream,
+    ): Outcome {
+        if (hostEnded) {
+            // CarAudioRecord (1.7.0) answers a refused openMicrophone (Assistant up, call in
+            // progress, DHU `mic reject on`) with an immediate -1, before any audio flows. A real
+            // dismissal always comes after the indicator was up and some bytes were read.
+            if (out.size() == 0 && !finishRequested) return Outcome.Failed("Car microphone unavailable. Try again.")
+            return Outcome.HostEnded
+        }
+        if (detector.heardSpeech && verdict != EndOfSpeechDetector.Verdict.NO_SPEECH) {
+            return Outcome.Speech(out.toByteArray(), mic.sampleRate, detector.elapsedMs)
+        }
+        if (focusLost) return Outcome.FocusDenied
+        if (levels.isDigitalSilence) return Outcome.Silent
+        // The energy gate heard nothing, but a road-noise floor or a quiet head-unit mic can hide
+        // a voice from it. When the driver tapped Done, or the caller allows it (the first
+        // question of a Talk), let the transcriber decide instead of dropping the audio.
+        if ((finishRequested || config.sendUnconfirmed) && levels.durationMs >= MIN_UNCONFIRMED_MS) {
+            return Outcome.Speech(out.toByteArray(), mic.sampleRate, levels.durationMs, confirmed = false)
+        }
+        return Outcome.NoSpeech(finishedByUser = finishRequested)
+    }
+
+    private fun Outcome.label(): String = when (this) {
+        is Outcome.Speech -> if (confirmed) "speech" else "unconfirmed-speech"
+        is Outcome.NoSpeech -> "no-speech"
+        Outcome.Silent -> "silent"
+        Outcome.HostEnded -> "host-ended"
+        Outcome.FocusDenied -> "focus-denied"
+        is Outcome.Failed -> "failed"
+    }
+
+    private fun fmt(v: Double): String = when {
+        v.isNaN() -> "none"
+        v == Double.MAX_VALUE -> "unset"
+        else -> String.format(java.util.Locale.US, "%.1f", v)
+    }
+
+    companion object {
+        /** Shortest unconfirmed recording worth sending to the transcriber. */
+        const val MIN_UNCONFIRMED_MS = 300L
     }
 }

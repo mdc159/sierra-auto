@@ -10,6 +10,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.CarMic
+import com.mdc159.sierra.voice.MicLog
 import com.mdc159.sierra.voice.duplex.AndroidFocus
 import com.mdc159.sierra.voice.duplex.AudioTrackSink
 import com.mdc159.sierra.voice.duplex.CarMicSource
@@ -76,6 +77,7 @@ class ConversationScreen(carContext: CarContext) : Screen(carContext) {
                     else -> Unit
                 }
             },
+            log = MicLog::i,
         )
         controller = c
         lifecycleScope.launch {

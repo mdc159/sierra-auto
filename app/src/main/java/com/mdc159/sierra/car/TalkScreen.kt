@@ -36,6 +36,7 @@ import com.mdc159.sierra.net.Http
 import com.mdc159.sierra.places.PhoneLocation
 import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.CarMic
+import com.mdc159.sierra.voice.MicLog
 import com.mdc159.sierra.voice.PhoneRecognizer
 import com.mdc159.sierra.voice.convo.ConversationAgent
 import com.mdc159.sierra.voice.convo.ConversationController
@@ -149,6 +150,10 @@ class TalkScreen(
         if (!config.isConfigured) return setState(State.NotConfigured, initial)
 
         val useCarMic = config.hasTranscription && CarMic.isSupported(carContext)
+        MicLog.i(
+            "talk start carApiLevel=${carContext.carAppApiLevel} carMic=$useCarMic " +
+                "micPermission=${CarMic.hasPermission(carContext)} followUp=${previous != null}",
+        )
         if (useCarMic && !CarMic.hasPermission(carContext)) return setState(State.NeedsMic, initial)
 
         setState(State.Listening(useCarMic), initial)
@@ -239,7 +244,9 @@ class TalkScreen(
             continuous = false, // the screen chains turns itself, so each turn starts with a fresh step budget
             speakErrors = false, // errors are shown with Try again, as before
             endpoint = (if (followUp) base.endpoint.copy(noSpeechMs = base.silenceTimeoutMs) else base.endpoint)
-                .copy(initialNoiseFloor = TalkVoice.noiseFloor), // the cabin as the last turn heard it
+                // The cabin as the last turn heard it. On the first question, a recording the energy
+                // gate called empty still goes to the transcriber (road noise can hide a voice from it).
+                .copy(initialNoiseFloor = TalkVoice.noiseFloor, sendUnconfirmed = !followUp),
         )
         val c = ConversationController(
             mic = CarMicSource(carContext),
@@ -249,6 +256,7 @@ class TalkScreen(
             focus = AndroidAudioFocus(carContext),
             config = controllerConfig,
             onState = { render(it, voice.conversationMode) }, // called on the main thread
+            log = MicLog::i,
         )
         controller = c
         job = lifecycleScope.launch {
