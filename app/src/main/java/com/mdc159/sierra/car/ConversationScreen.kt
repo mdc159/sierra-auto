@@ -8,6 +8,7 @@ import androidx.car.app.model.Template
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.CarMic
 import com.mdc159.sierra.voice.duplex.AndroidFocus
 import com.mdc159.sierra.voice.duplex.AudioTrackSink
@@ -49,7 +50,7 @@ class ConversationScreen(carContext: CarContext) : Screen(carContext) {
         // Built inside the Talk screen's click listener: a store that cannot be opened (#11, #28)
         // must end in a message here, not in an exception the host treats as an app crash.
         val config = try {
-            DuplexConfigStore.load(carContext)
+            Studio54.duplexConfig(carContext, DuplexConfigStore.load(carContext))
         } catch (e: Exception) {
             failure = "Full-duplex settings are unavailable. Open Sierra on the phone."
             return
@@ -68,13 +69,20 @@ class ConversationScreen(carContext: CarContext) : Screen(carContext) {
             focus = AndroidFocus(carContext),
             mode = config.mode,
             guardRatio = config.guardRatio,
-            listener = { event -> if (event is DuplexEvent.Ended) lifecycleScope.launch { onEnded(event.reason) } },
+            listener = { event ->
+                when (event) {
+                    is DuplexEvent.Error -> Studio54.onDuplexError(carContext, config.provider, event.message)
+                    is DuplexEvent.Ended -> lifecycleScope.launch { onEnded(event.reason) }
+                    else -> Unit
+                }
+            },
         )
         controller = c
         lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) { c.start() }
             } catch (e: DuplexException) {
+                Studio54.onDuplexError(carContext, config.provider, e.message)
                 controller = null
                 failure = e.message ?: "Couldn't start the conversation."
                 invalidate()
