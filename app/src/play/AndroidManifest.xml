@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release overlay for Play builds only (-Pplay=true, see app/build.gradle.kts).
+     Play refuses this permission. Without it the in-app updater still works but the
+     system asks the owner to confirm each install. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission
+        android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION"
+        tools:node="remove" />
+
+</manifest>
