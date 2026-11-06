@@ -102,6 +102,12 @@ tests and PR checks pass. The phone microphone service declares the microphone
 foreground type and permissions, starts only from an explicit visible phone action,
 does not restart on boot, and exposes a Stop notification action.
 
+Final combined local check on 2026-11-06: 561 Android tests, 559 passed and two
+skipped, zero failures. Debug APK, Play-format release AAB, debug lint and release
+lint all completed successfully. The two profile-publication unit tests also passed.
+The check included the existing agent-profile work from PR #52. Lint has existing
+nonfatal warnings; this is not a claim of warning-free output.
+
 References: [Android microphone foreground services](https://developer.android.com/develop/background-work/services/fgs/service-types#microphone),
 [foreground start restrictions](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start),
 [AudioRecord routing](https://developer.android.com/reference/android/media/AudioRecord).

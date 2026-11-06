@@ -63,4 +63,3 @@ class DuplexLifecycleTest {
         assertEquals(0, sink.opens.get())
     }
 }
-

@@ -1,5 +1,10 @@
 # Agent backends for Sierra
 
+For the verified Victoria connection, one-tap phone setup and cable-free microphone
+tests, see [Microphone diagnostics and Hermes on Victoria](MICROPHONE-DIAGNOSTICS.md).
+The phone's existing Studio54 project now supplies `SIERRA_BRIDGE_URL` and
+`SIERRA_BRIDGE_TOKEN`; the deployment script reconciles them without manual key entry.
+
 Sierra's Talk screen sends each question to one OpenAI-compatible chat endpoint, configured on the phone as **Base URL**, **API key** and **Model**. Anything that speaks `POST /v1/chat/completions` can be the agent. This page lists what the owner can plug in today and how to set each up. Written 2026-11-05 for lane H; the bridge lives in `bridge/`.
 
 How the app calls the endpoint (`app/src/main/java/com/mdc159/sierra/agent/AgentClient.kt`): a plain, non-streaming POST with `model` and `messages`, where `messages` is Sierra's driving-assistant system prompt plus the last six turns plus the new question. The reply is `choices[0].message.content`, cut to 300 characters for the screen and 800 for speech. Errors show `error.message` from the body. The base URL may be `https://host`, `https://host/v1` or the full `/chat/completions` URL.
