@@ -2,6 +2,7 @@ package com.mdc159.sierra.studio54
 
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.AgentException
+import com.mdc159.sierra.agent.AgentProfile
 import com.mdc159.sierra.voice.duplex.DuplexConfig
 import com.mdc159.sierra.voice.duplex.DuplexException
 import com.mdc159.sierra.voice.duplex.DuplexProvider
@@ -76,6 +77,39 @@ class AgentOverlayTest {
         assertTrue(AgentOverlay.isUnauthorized(DuplexException("The voice service refused the connection (HTTP 401).")))
         assertFalse(AgentOverlay.isUnauthorized(DuplexException("The voice service refused the connection (HTTP 403).")))
         assertFalse(AgentOverlay.isUnauthorized(DuplexException("ElevenLabs refused the sign-in (HTTP 401).")))
+    }
+
+    @Test
+    fun bridgeUrlAndTokenComeFromTheVaultIndependentlyOfTheGateway() {
+        val typedBridge = typed.copy(profile = AgentProfile.BRIDGE, bridgeUrl = "https://typed-bridge/v1", bridgeKey = "typed-bt")
+        val onlyBridge = FakeSecrets(
+            mapOf(SecretNames.SIERRA_BRIDGE_URL to " https://bridge.example:8443/v1 ", SecretNames.SIERRA_BRIDGE_TOKEN to "vault-bt"),
+        )
+        val merged = AgentOverlay.apply(onlyBridge, typedBridge)
+        assertEquals("https://bridge.example:8443/v1", merged.bridgeUrl)
+        assertEquals("vault-bt", merged.bridgeKey)
+        assertEquals("https://typed.example/v1", merged.baseUrl) // no gateway secrets: typed gateway kept
+        assertEquals("typed-key", merged.apiKey)
+        assertEquals(AgentProfile.BRIDGE, merged.profile) // the owner's choice
+        assertTrue(AgentOverlay.isBridgeActive(onlyBridge))
+        assertFalse(AgentOverlay.isActive(onlyBridge))
+
+        val both = FakeSecrets(
+            mapOf(
+                SecretNames.OPENAI_BASE_URL to "http://gw",
+                SecretNames.OPENAI_API_KEY to "sk-vault",
+                SecretNames.SIERRA_BRIDGE_URL to "https://bridge.example:8443/v1",
+                SecretNames.SIERRA_BRIDGE_TOKEN to "vault-bt",
+            ),
+        )
+        val all = AgentOverlay.apply(both, typedBridge)
+        assertEquals("http://gw", all.baseUrl)
+        assertEquals("sk-vault", all.effectiveSttKey) // transcription keeps the gateway key
+        assertEquals("vault-bt", all.chatKey)
+
+        // Half a bridge pair changes nothing.
+        assertSame(typedBridge, AgentOverlay.apply(FakeSecrets(mapOf(SecretNames.SIERRA_BRIDGE_URL to "https://b")), typedBridge))
+        assertFalse(AgentOverlay.isBridgeActive(FakeSecrets(mapOf(SecretNames.SIERRA_BRIDGE_TOKEN to "t"))))
     }
 
     private val gateway = FakeSecrets(

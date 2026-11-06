@@ -20,4 +20,8 @@ object SecretNames {
     const val OPENAI_BASE_URL = "OPENAI_BASE_URL"
     const val OPENAI_API_KEY = "OPENAI_API_KEY"
     const val ELEVENLABS_API_KEY = "ELEVENLABS_API_KEY"
+
+    /** The Sierra bridge (`bridge/`): its base URL and the bearer token it checks. */
+    const val SIERRA_BRIDGE_URL = "SIERRA_BRIDGE_URL"
+    const val SIERRA_BRIDGE_TOKEN = "SIERRA_BRIDGE_TOKEN"
 }

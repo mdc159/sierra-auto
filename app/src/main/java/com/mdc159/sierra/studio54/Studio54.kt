@@ -70,8 +70,10 @@ object Studio54 {
         withContext(Dispatchers.IO) { source(context).refresh() }
 
     /**
-     * Phase 2 hook for the Talk screen: the typed agent settings, with the base URL and key
-     * taken from the vault when signed in and known. Also makes sure the refresh timer runs.
+     * The settings Talk, `ask_agent` and Test connection use: the typed agent settings, with
+     * the gateway and bridge addresses and keys taken from the vault when signed in and known.
+     * The chosen profile decides where chat goes ([AgentConfig.chatBaseUrl]). Also makes sure
+     * the refresh timer runs.
      */
     fun agentConfig(context: Context, typed: AgentConfig): AgentConfig = try {
         start(context)
@@ -92,6 +94,13 @@ object Studio54 {
         typed
     }
 
+    /** True when the vault supplies the bridge URL and token, so the typed ones are not used. */
+    fun suppliesBridge(context: Context): Boolean = try {
+        AgentOverlay.isBridgeActive(source(context))
+    } catch (e: Exception) {
+        false
+    }
+
     /** True when the vault supplies the agent base URL and key, so the typed ones are not used. */
     fun suppliesAgent(context: Context): Boolean = try {
         AgentOverlay.isActive(source(context))
@@ -105,7 +114,8 @@ object Studio54 {
      */
     fun onAgentError(context: Context, e: Throwable) {
         try {
-            if (AgentOverlay.isUnauthorized(e) && AgentOverlay.isActive(source(context))) onUnauthorized(context)
+            val s = source(context)
+            if (AgentOverlay.isUnauthorized(e) && (AgentOverlay.isActive(s) || AgentOverlay.isBridgeActive(s))) onUnauthorized(context)
         } catch (storeFailure: Exception) {
             // Reporting a failure must never add a second one on the car screen.
         }

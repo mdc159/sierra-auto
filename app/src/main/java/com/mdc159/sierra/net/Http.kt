@@ -19,6 +19,16 @@ object Http {
         .callTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    /**
+     * For the owner's agents behind the Sierra bridge: a coding agent may run tools for a minute
+     * or two before the first byte of its (non-streamed) answer. Callers bound each call with
+     * `call.timeout()`; the read timeout only has to outlast the agent's silence.
+     */
+    val slowClient: OkHttpClient = client.newBuilder()
+        .readTimeout(150, TimeUnit.SECONDS)
+        .callTimeout(150, TimeUnit.SECONDS)
+        .build()
+
     /** Turns a network exception into a short message fit for a car screen. */
     fun describe(e: Throwable): String = when (e) {
         is SocketTimeoutException -> "Timed out. Check signal and try again."

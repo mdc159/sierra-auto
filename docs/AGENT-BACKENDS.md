@@ -79,6 +79,22 @@ A plain forward to another OpenAI-compatible URL, so the bridge can also front t
 - It does not keep history for the command and openai adapters beyond what the request carries.
 - It does not expose anything without the token, except `/health`.
 
+## Built: a profile switch on the phone (2026-11-06)
+
+The phone settings have a **Who answers** switch with two choices:
+
+- **A model**: the main settings, which means the gateway when signed in to Studio 54.
+- **My agent, through the Sierra bridge**: a bridge URL, a token and an agent name, `hermes` by default.
+
+What the switch controls:
+
+- Only chat follows it: Talk and full-duplex `ask_agent`, through `AgentConfig.chatBaseUrl`, `chatKey` and `chatModel`.
+- Transcription, gateway speech and full-duplex voice stay on the main settings.
+- The vault supplies the bridge pair as `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN`, the same way it supplies the gateway pair.
+- Bridge turns get 120 s per round and 140 s in all, against 30 s and 60 s on the gateway.
+
+The voice-switched profiles below are still a proposal.
+
 ## Proposal for a later lane: named agent profiles switched by voice
 
 Today one agent is configured and switching means editing the Model field on the phone. The owner wants "ask Hermes whether the deploy finished" or "ask Pi to check the OBD tests" from the wheel. What the app would need, as a sketch, with no app changes made in this lane:

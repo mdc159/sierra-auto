@@ -197,15 +197,19 @@ Health check: `curl -s https://<machine>.<tailnet>.ts.net/health` returns `{"sta
 
 ### Point the Sierra phone app at it
 
-On the phone, open **Sierra**, then the agent settings:
+On the phone, open **Sierra**. Under **Who answers**, choose **My agent, through the Sierra bridge**. Then fill in the **My agent (Sierra bridge)** section:
 
 | Field | Value |
 | --- | --- |
-| Base URL | `https://<machine>.<tailnet>.ts.net/v1` (or `http://100.x.y.z:8787/v1`) |
-| API key | the value of `SIERRA_BRIDGE_TOKEN` |
-| Model | the `[models.<name>]` entry to talk to: `pi`, `hermes`, `claude`, ... |
+| Bridge URL | `https://<machine>.<tailnet>.ts.net/v1` (or with the `tailscale serve` port, e.g. `:8443/v1`, or `http://100.x.y.z:8787/v1`) |
+| Bridge token | the value of `SIERRA_BRIDGE_TOKEN` |
+| Agent (bridge model name) | the `[models.<name>]` entry to talk to: `hermes` (default), `pi`, `claude`, ... |
 
-Tap **Test connection**; it sends "Reply with the single word: ready" through the chosen adapter, so a coding agent will take a few seconds. The phone must be on the tailnet (Tailscale app installed and connected) for the URL to resolve. Switching agents is a matter of changing the Model field; `GET /v1/models` lists the names.
+When the phone is signed in to Studio 54, the vault entries `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN`, if both are present in the phone's project, replace the typed URL and token. No token is typed then.
+
+The bridge profile changes only where chat goes, that is Talk and full-duplex `ask_agent`. Transcription, gateway speech and full-duplex voice keep the gateway settings, and the bridge token is never sent to them. A bridge turn may take up to 120 s (the gateway's limit is 30 s), because an agent can run tools before it answers.
+
+Tap **Test connection**. It sends "Reply with the single word: ready" through the chosen adapter, so a coding agent takes a few seconds. The phone must be on the tailnet (the Tailscale app installed and connected) for the URL to resolve. To switch agents, change the agent name. `GET /v1/models` lists the names.
 
 ## Logs
 

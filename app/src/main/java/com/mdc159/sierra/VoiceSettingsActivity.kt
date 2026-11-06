@@ -16,6 +16,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import com.mdc159.sierra.agent.ConfigStore
+import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.convo.SttProvider
 import com.mdc159.sierra.voice.convo.VoiceProvider
 import com.mdc159.sierra.voice.convo.VoiceSettings
@@ -232,7 +233,8 @@ class VoiceSettingsActivity : Activity() {
     private fun testVoice() {
         val settings = current()
         VoiceSettingsStore.save(this, settings)
-        val agent = ConfigStore.load(this)
+        // Signed in to Studio 54, the vault fills the gateway URL and key; the typed ones may be blank.
+        val agent = Studio54.agentConfig(this, ConfigStore.load(this))
         if (!settings.providerIsUsable(gatewayConfigured = agent.baseUrl.isNotBlank())) {
             testResult.text = when (settings.provider) {
                 VoiceProvider.GATEWAY -> "Enter the agent base URL on the main screen first."
