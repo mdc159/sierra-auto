@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
@@ -44,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var sttModel: EditText
     private lateinit var testButton: Button
     private lateinit var testResult: TextView
+    private lateinit var vaultNote: TextView
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refreshPermissions() }
@@ -85,6 +87,8 @@ class MainActivity : ComponentActivity() {
         heading("Agent (OpenAI-compatible)")
         baseUrl = field("Base URL", "https://example.com/v1")
         apiKey = field("API key", "sk-…", secret = true)
+        vaultNote = TextView(this).apply { text = "Base URL and API key come from the Studio 54 vault." }
+        form.addView(vaultNote)
         model = field("Model", "gpt-4o-mini")
 
         heading("Transcription (optional)")
@@ -166,6 +170,7 @@ class MainActivity : ComponentActivity() {
     /** When Studio 54 supplies the base URL and key, say so instead of showing example values. */
     private fun showVaultHints() {
         val vault = Studio54.suppliesAgent(this)
+        vaultNote.visibility = if (vault) View.VISIBLE else View.GONE
         baseUrl.hint = if (vault) "From Studio 54 vault" else "https://example.com/v1"
         apiKey.hint = if (vault) "From Studio 54 vault" else "sk-…"
     }
@@ -216,6 +221,7 @@ class MainActivity : ComponentActivity() {
                 val reply = withContext(Dispatchers.IO) { client.testConnection() }
                 "Agent OK: \"$reply\""
             } catch (e: Exception) {
+                Studio54.onAgentError(this@MainActivity, e)
                 "Agent failed: ${e.message ?: Http.describe(e)}"
             }
             if (config.hasTranscription) {

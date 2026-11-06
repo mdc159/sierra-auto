@@ -128,7 +128,8 @@ class UpdateActivity : ComponentActivity() {
         // A Shizuku install grants the system installer read access to the APK; take it back.
         shizuku.revokeGrant(File(File(cacheDir, "updates"), ReleaseInfo.APK_NAME))
         refreshInstalled()
-        refreshUnknownSources()
+        // Play builds drop REQUEST_INSTALL_PACKAGES; asking about it then throws SecurityException.
+        if (!BuildConfig.PLAY_BUILD) refreshUnknownSources()
         refreshShizuku()
         UpdateStatusReceiver.listener = { status, message -> say(SessionInstaller.describe(status, message)) }
     }
