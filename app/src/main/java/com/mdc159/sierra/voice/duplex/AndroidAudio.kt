@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioFormat
 import android.media.AudioManager
@@ -16,6 +17,7 @@ import android.media.audiofx.NoiseSuppressor
 import androidx.car.app.CarContext
 import androidx.car.app.media.CarAudioRecord
 import androidx.core.content.ContextCompat
+import com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics
 
 /** Speech attributes shared by mic focus and playback, per the constraints doc (USAGE_ASSISTANT). */
 internal val speechAttributes: AudioAttributes = AudioAttributes.Builder()
@@ -53,7 +55,8 @@ class AndroidFocus(context: Context) : FocusHandle {
  * platform's acoustic echo canceller and noise suppressor where the device has them.
  * This is what "Try it on this phone" uses. Needs RECORD_AUDIO.
  */
-class PhoneMic(override val sampleRate: Int = 16_000) : MicSource {
+class PhoneMic(override val sampleRate: Int = 16_000, private val context: Context? = null) : MicSource {
+    @Volatile
     private var record: AudioRecord? = null
     private var aec: AcousticEchoCanceler? = null
     private var ns: NoiseSuppressor? = null
@@ -83,8 +86,21 @@ class PhoneMic(override val sampleRate: Int = 16_000) : MicSource {
         if (NoiseSuppressor.isAvailable()) {
             ns = runCatching { NoiseSuppressor.create(r.audioSessionId)?.also { it.setEnabled(true) } }.getOrNull()
         }
-        r.startRecording()
-        record = r
+        try {
+            val builtIn = context?.getSystemService(AudioManager::class.java)?.getDevices(AudioManager.GET_DEVICES_INPUTS)
+                ?.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_MIC }
+            if (builtIn != null) r.setPreferredDevice(builtIn)
+            r.startRecording()
+            record = r
+            context?.let {
+                VoiceDiagnostics.event(it, "Phone audio route", "requested=built-in actualType=${r.routedDevice?.type ?: -1} silenced=${r.activeRecordingConfiguration?.isClientSilenced ?: false}")
+            }
+        } catch (e: Exception) {
+            r.release()
+            aec?.release(); aec = null
+            ns?.release(); ns = null
+            throw e
+        }
     }
 
     /** True when the platform echo canceller is attached (for the settings screen). */
@@ -97,11 +113,12 @@ class PhoneMic(override val sampleRate: Int = 16_000) : MicSource {
     }
 
     override fun stop() {
-        record?.let { r ->
+        val current = record
+        record = null
+        current?.let { r ->
             runCatching { r.stop() }
             r.release()
         }
-        record = null
         aec?.release()
         aec = null
         ns?.release()
@@ -115,7 +132,7 @@ class PhoneMic(override val sampleRate: Int = 16_000) : MicSource {
  */
 class CarMicSource(private val carContext: CarContext) : MicSource {
     override val sampleRate: Int = CarAudioRecord.AUDIO_CONTENT_SAMPLING_RATE
-    private var record: CarAudioRecord? = null
+    @Volatile private var record: CarAudioRecord? = null
 
     override fun start() {
         // CarAudioRecord requires RECORD_AUDIO; the screen checks first, but never rely on it.
@@ -129,8 +146,8 @@ class CarMicSource(private val carContext: CarContext) : MicSource {
         } catch (e: Exception) {
             throw DuplexException("Car microphone unavailable.", e)
         }
-        r.startRecording()
         record = r
+        try { r.startRecording() } catch (e: Exception) { stop(); throw e }
     }
 
     override fun read(dest: ByteArray): Int {
@@ -140,8 +157,9 @@ class CarMicSource(private val carContext: CarContext) : MicSource {
     }
 
     override fun stop() {
-        record?.let { runCatching { it.stopRecording() } }
+        val current = record
         record = null
+        current?.let { runCatching { it.stopRecording() } }
     }
 }
 

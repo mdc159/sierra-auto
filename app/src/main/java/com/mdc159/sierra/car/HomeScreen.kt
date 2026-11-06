@@ -51,6 +51,9 @@ class HomeScreen(
                 placesIcon = icon(R.drawable.ic_place),
                 truckIcon = icon(R.drawable.ic_truck),
                 historyIcon = icon(R.drawable.ic_history),
+            ) + listOf(
+                Entry("Mic test", "Five-second audio check", icon(R.drawable.ic_mic)) { screenManager.push(MicTestScreen(carContext)) },
+                Entry("Conversation", "Talk and interrupt", icon(R.drawable.ic_mic)) { screenManager.push(ConversationScreen(carContext)) },
             ),
             limit = CarLimits.listLimit(carContext, ConstraintManager.CONTENT_LIMIT_TYPE_GRID),
         )

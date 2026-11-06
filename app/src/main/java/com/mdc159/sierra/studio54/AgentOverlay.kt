@@ -11,9 +11,15 @@ import com.mdc159.sierra.voice.duplex.DuplexConfig
 object AgentOverlay {
     /** [typed] with base URL and key from [secrets] when both are known; otherwise [typed] unchanged. */
     fun apply(secrets: SecretSource, typed: AgentConfig): AgentConfig {
-        val baseUrl = secrets.get(SecretNames.OPENAI_BASE_URL)?.trim()?.takeIf { it.isNotEmpty() } ?: return typed
-        val apiKey = secrets.get(SecretNames.OPENAI_API_KEY)?.trim()?.takeIf { it.isNotEmpty() } ?: return typed
-        return typed.copy(baseUrl = baseUrl, apiKey = apiKey)
+        val baseUrl = secrets.get(SecretNames.OPENAI_BASE_URL)?.trim()?.takeIf { it.isNotEmpty() }
+        val apiKey = secrets.get(SecretNames.OPENAI_API_KEY)?.trim()?.takeIf { it.isNotEmpty() }
+        val voice = if (baseUrl != null && apiKey != null) typed.copy(baseUrl = baseUrl, apiKey = apiKey) else typed
+        if (!typed.useHermes) return voice
+        // Chat routing is independent of transcription, TTS and realtime voice credentials.
+        return voice.copy(
+            hermesBaseUrl = secrets.get(SecretNames.HERMES_BASE_URL)?.trim().orEmpty(),
+            hermesApiKey = secrets.get(SecretNames.HERMES_API_KEY)?.trim().orEmpty(),
+        )
     }
 
     /**

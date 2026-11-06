@@ -52,6 +52,7 @@ object ConfigStore {
             sttUrl = p.getString("stt_url", "").orEmpty(),
             sttKey = p.getString("stt_key", "").orEmpty(),
             sttModel = p.getString("stt_model", "").orEmpty().ifBlank { AgentConfig.DEFAULT_STT_MODEL },
+            useHermes = p.getBoolean("use_hermes", false),
         )
     }
 
@@ -63,6 +64,7 @@ object ConfigStore {
             .putString("stt_url", config.sttUrl.trim())
             .putString("stt_key", config.sttKey.trim())
             .putString("stt_model", config.sttModel.trim())
+            .putBoolean("use_hermes", config.useHermes)
             .apply()
     }
 

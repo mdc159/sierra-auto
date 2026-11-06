@@ -20,4 +20,6 @@ object SecretNames {
     const val OPENAI_BASE_URL = "OPENAI_BASE_URL"
     const val OPENAI_API_KEY = "OPENAI_API_KEY"
     const val ELEVENLABS_API_KEY = "ELEVENLABS_API_KEY"
+    const val HERMES_BASE_URL = "SIERRA_HERMES_BASE_URL"
+    const val HERMES_API_KEY = "SIERRA_HERMES_API_KEY"
 }

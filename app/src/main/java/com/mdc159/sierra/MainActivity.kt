@@ -8,6 +8,7 @@ import android.text.InputType
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -46,6 +47,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var testButton: Button
     private lateinit var testResult: TextView
     private lateinit var vaultNote: TextView
+    private lateinit var hermes: CheckBox
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refreshPermissions() }
@@ -83,8 +85,37 @@ class MainActivity : ComponentActivity() {
         form.addView(TextView(this).apply {
             text = "Set up your agent here, then open Sierra in Android Auto."
         })
+        form.addView(Button(this).apply {
+            text = "Microphone & diagnostics"
+            setOnClickListener { startActivity(Intent(this@MainActivity, com.mdc159.sierra.voice.diagnostics.MicDiagnosticsActivity::class.java)) }
+        })
 
         heading("Agent (OpenAI-compatible)")
+        hermes = CheckBox(this).apply {
+            text = "Talk to Hermes on Victoria"
+            form.addView(this)
+        }
+        form.addView(Button(this).apply {
+            text = "Connect to Hermes on Victoria"
+            setOnClickListener {
+                hermes.isChecked = true
+                ConfigStore.save(this@MainActivity, currentConfig())
+                isEnabled = false
+                testResult.text = "Refreshing Hermes connection from Studio 54…"
+                lifecycleScope.launch {
+                    try {
+                        Studio54.refreshNow(this@MainActivity)
+                        testConnection()
+                    } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        testResult.text = "Could not refresh Hermes settings. Check Studio 54 sign-in and Tailscale, then try again."
+                    } finally { isEnabled = true }
+                }
+            }
+        })
+        form.addView(TextView(this).apply {
+            text = "Hermes uses its own agent, tools and memory on Victoria. Tailscale must be connected. Your chat model and speech settings are kept for switching back. In Conversation, say ‘ask the agent’ to reach Hermes through the voice assistant."
+        })
         baseUrl = field("Base URL", "https://example.com/v1")
         apiKey = field("API key", "sk-…", secret = true)
         vaultNote = TextView(this).apply { text = "Base URL and API key come from the Studio 54 vault." }
@@ -183,6 +214,7 @@ class MainActivity : ComponentActivity() {
         sttUrl.setText(c.sttUrl)
         sttKey.setText(c.sttKey)
         sttModel.setText(c.sttModel)
+        hermes.isChecked = c.useHermes
     }
 
     private fun currentConfig() = AgentConfig(
@@ -192,6 +224,7 @@ class MainActivity : ComponentActivity() {
         sttUrl = sttUrl.text.toString().trim(),
         sttKey = sttKey.text.toString().trim(),
         sttModel = sttModel.text.toString().trim().ifBlank { AgentConfig.DEFAULT_STT_MODEL },
+        useHermes = hermes.isChecked,
     )
 
     private fun save() {
@@ -209,7 +242,7 @@ class MainActivity : ComponentActivity() {
         // Test what Talk will use: the vault's base URL and key replace the typed ones when known.
         val config = Studio54.agentConfig(this, typed)
         if (!config.isConfigured) {
-            testResult.text = "Enter a base URL and model first."
+            testResult.text = if (config.useHermes) "Hermes connection is missing from the vault. Check Studio 54 sign-in and Tailscale, then tap Connect to Hermes again." else "Enter a base URL and model first."
             return
         }
         testButton.isEnabled = false
@@ -219,7 +252,7 @@ class MainActivity : ComponentActivity() {
             val client = AgentClient(config)
             lines += try {
                 val reply = withContext(Dispatchers.IO) { client.testConnection() }
-                "Agent OK: \"$reply\""
+                "${config.targetLabel} OK: \"$reply\""
             } catch (e: Exception) {
                 Studio54.onAgentError(this@MainActivity, e)
                 "Agent failed: ${e.message ?: Http.describe(e)}"

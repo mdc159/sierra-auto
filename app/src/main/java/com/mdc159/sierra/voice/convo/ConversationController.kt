@@ -134,6 +134,7 @@ class ConversationController(
     fun stop() {
         stopRequested.set(true)
         recorder?.finishNow()
+        mic.stop() // Unblock a host pipe read; coroutine interruption alone need not unblock it.
         speech.stop()
     }
 

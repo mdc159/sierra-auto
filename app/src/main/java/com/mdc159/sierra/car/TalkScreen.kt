@@ -37,6 +37,10 @@ import com.mdc159.sierra.places.PhoneLocation
 import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.CarMic
 import com.mdc159.sierra.voice.MicLog
+import com.mdc159.sierra.voice.diagnostics.MicSettings
+import com.mdc159.sierra.voice.diagnostics.MicrophoneSource
+import com.mdc159.sierra.voice.diagnostics.Microphones
+import com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics
 import com.mdc159.sierra.voice.PhoneRecognizer
 import com.mdc159.sierra.voice.convo.ConversationAgent
 import com.mdc159.sierra.voice.convo.ConversationController
@@ -50,6 +54,7 @@ import com.mdc159.sierra.voice.stt.Transcriber
 import com.mdc159.sierra.voice.tts.AndroidAudioFocus
 import com.mdc159.sierra.voice.tts.SpeechOutput
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -149,7 +154,9 @@ class TalkScreen(
         val config = Studio54.agentConfig(carContext, ConfigStore.load(carContext))
         if (!config.isConfigured) return setState(State.NotConfigured, initial)
 
-        val useCarMic = config.hasTranscription && CarMic.isSupported(carContext)
+        val selected = MicSettings.source(carContext)
+        val useCarMic = selected != MicrophoneSource.AUTOMATIC || (config.hasTranscription && CarMic.isSupported(carContext))
+        VoiceDiagnostics.event(carContext, "Talk", "start; source=${if (useCarMic) selected.label else "system recognizer"}; followUp=${previous != null}")
         MicLog.i(
             "talk start carApiLevel=${carContext.carAppApiLevel} carMic=$useCarMic " +
                 "micPermission=${CarMic.hasPermission(carContext)} followUp=${previous != null}",
@@ -158,6 +165,7 @@ class TalkScreen(
 
         setState(State.Listening(useCarMic), initial)
         val client = AgentClient(config)
+        VoiceDiagnostics.event(carContext, "Agent target", config.targetLabel)
         if (useCarMic) {
             val voice = VoiceSettingsStore.load(carContext)
             val transcriber = VoiceStack.transcriber(voice, config)
@@ -216,23 +224,33 @@ class TalkScreen(
         // Lane I's hook: a 401 from the gateway may mean the vault key was rotated.
         val watchedTranscriber = object : Transcriber {
             override suspend fun transcribe(pcm: ByteArray, sampleRate: Int): String = try {
-                transcriber.transcribe(pcm, sampleRate)
+                VoiceDiagnostics.event(carContext, "Transcription", "request sent; bytes=${pcm.size}; rate=$sampleRate")
+                transcriber.transcribe(pcm, sampleRate).also {
+                    VoiceDiagnostics.event(carContext, "Transcription", "response received; characters=${it.length}")
+                }
             } catch (e: AgentException) {
+                VoiceDiagnostics.failure(carContext, "Transcription failed", e)
                 Studio54.onAgentError(carContext, e)
+                throw e
+            } catch (e: Exception) {
+                if (e !is CancellationException) VoiceDiagnostics.failure(carContext, "Transcription failed", e)
                 throw e
             }
         }
         val agent = object : ConversationAgent {
             override suspend fun reply(userText: String): String {
+                VoiceDiagnostics.event(carContext, "Agent", "request sent")
                 val reply = try {
                     runInterruptible(Dispatchers.IO) { client.chat(session.conversation.messagesFor(userText), tools, toolListener) }
                 } catch (e: AgentException) {
+                    VoiceDiagnostics.failure(carContext, "Agent failed", e)
                     Studio54.onAgentError(carContext, e)
                     throw e
                 } finally {
                     hideToolStatus()
                 }
                 session.conversation.record(userText, reply)
+                VoiceDiagnostics.event(carContext, "Agent", "reply received; characters=${reply.length}")
                 withContext(Dispatchers.IO) { runCatching { History.add(carContext, userText, reply) } }
                 return Conversation.forSpeech(reply)
             }
@@ -240,28 +258,42 @@ class TalkScreen(
         val out = TalkVoice.speechFor(session, carContext, voice, config).also { speech = it }
         val base = voice.conversationConfig()
         val followUp = previous != null
+        val diagnosticMode = MicSettings.manual(carContext)
         val controllerConfig = base.copy(
             continuous = false, // the screen chains turns itself, so each turn starts with a fresh step budget
             speakErrors = false, // errors are shown with Try again, as before
             endpoint = (if (followUp) base.endpoint.copy(noSpeechMs = base.silenceTimeoutMs) else base.endpoint)
                 // The cabin as the last turn heard it. On the first question, a recording the energy
                 // gate called empty still goes to the transcriber (road noise can hide a voice from it).
-                .copy(initialNoiseFloor = TalkVoice.noiseFloor, sendUnconfirmed = !followUp),
+                .copy(
+                    initialNoiseFloor = TalkVoice.noiseFloor, sendUnconfirmed = !followUp || diagnosticMode,
+                    silenceMs = if (diagnosticMode) 20_000 else base.endpoint.silenceMs,
+                    noSpeechMs = if (diagnosticMode) 20_000 else if (followUp) base.silenceTimeoutMs else base.endpoint.noSpeechMs,
+                ),
         )
+        val input = try { Microphones.forTalk(Microphones.selected(carContext)) } catch (e: Exception) {
+            VoiceDiagnostics.failure(carContext, "Talk microphone setup", e)
+            return setState(State.Failed(e.message ?: "Microphone unavailable. Open Microphone & diagnostics on the phone."))
+        }
         val c = ConversationController(
-            mic = CarMicSource(carContext),
+            mic = input,
             transcriber = watchedTranscriber,
             agent = agent,
             speech = out,
             focus = AndroidAudioFocus(carContext),
             config = controllerConfig,
             onState = { render(it, voice.conversationMode) }, // called on the main thread
-            log = MicLog::i,
+            log = { MicLog.i(it); VoiceDiagnostics.recorder(carContext, it) },
         )
         controller = c
         job = lifecycleScope.launch {
             try {
                 c.run()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                VoiceDiagnostics.failure(carContext, "Talk failed", e)
+                setState(State.Failed(e.message ?: "Microphone unavailable. Open diagnostics on the phone."))
             } finally {
                 TalkVoice.noiseFloor = c.lastNoiseFloor
             }
@@ -274,6 +306,7 @@ class TalkScreen(
             is ConversationState.Thinking -> setState(State.Thinking)
             is ConversationState.Speaking -> setState(State.Replied(s.heard, s.reply))
             is ConversationState.Ended -> {
+                VoiceDiagnostics.event(carContext, "Talk ended", s.reason.name)
                 val heard = s.lastHeard
                 val reply = s.lastReply
                 val shown = if (heard != null && reply != null) heard to reply else previous
@@ -363,10 +396,13 @@ class TalkScreen(
                 mic?.requestStop()
                 controller?.stop()
                 speech?.stop()
-                job?.cancel()
                 session.speaker.stop()
-                screenManager.pop()
-                screenManager.push(ConversationScreen(carContext))
+                val previousJob = job
+                lifecycleScope.launch {
+                    previousJob?.cancelAndJoin()
+                    screenManager.pop()
+                    screenManager.push(ConversationScreen(carContext))
+                }
             }
             .build()
 

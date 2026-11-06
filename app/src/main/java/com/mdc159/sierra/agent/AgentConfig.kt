@@ -12,14 +12,22 @@ data class AgentConfig(
     val sttUrl: String = "",
     val sttKey: String = "",
     val sttModel: String = DEFAULT_STT_MODEL,
+    val useHermes: Boolean = false,
+    /** Runtime-only vault values; ConfigStore never persists these with the typed settings. */
+    val hermesBaseUrl: String = "",
+    val hermesApiKey: String = "",
 ) {
-    val isConfigured: Boolean get() = baseUrl.isNotBlank() && model.isNotBlank()
+    val chatBaseUrl: String get() = if (useHermes) hermesBaseUrl else baseUrl
+    val chatApiKey: String get() = if (useHermes) hermesApiKey else apiKey
+    val chatModel: String get() = if (useHermes) "hermes" else model
+    val targetLabel: String get() = if (useHermes) "Hermes on Victoria" else "Configured chat model"
+    val isConfigured: Boolean get() = chatBaseUrl.isNotBlank() && chatModel.isNotBlank() && (!useHermes || chatApiKey.isNotBlank())
     val hasTranscription: Boolean get() = sttUrl.isNotBlank()
 
     /** Transcription falls back to the agent key when no separate key is given. */
     val effectiveSttKey: String get() = sttKey.ifBlank { apiKey }
 
-    fun chatCompletionsUrl(): String = endpoint(baseUrl, "chat/completions")
+    fun chatCompletionsUrl(): String = endpoint(chatBaseUrl, "chat/completions")
     fun transcriptionsUrl(): String = endpoint(sttUrl, "audio/transcriptions")
     fun modelsUrl(): String = endpoint(baseUrl, "models")
 

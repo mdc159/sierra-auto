@@ -185,7 +185,14 @@ class TalkScreenTest {
         val manager = carContext.getCarService(TestScreenManager::class.java)
         val fresh = manager.screensPushed.last()
         assertTrue(fresh is TalkScreen && fresh !== screen)
-        CarTestHost.await(what = "second reply") { fresh.onGetTemplate() is PaneTemplate }
+        CarTestHost.show(fresh)
+        CarTestHost.await(what = "second reply") {
+            val template = fresh.onGetTemplate()
+            if (template is MessageTemplate && template.message.toString() != "Listening…" && !template.isLoading) {
+                throw AssertionError("Second turn failed: ${template.message}\n${com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics.report(carContext)}")
+            }
+            template is PaneTemplate
+        }
         val second = fresh.onGetTemplate() as PaneTemplate
         assertEquals("You: how far to reno", (second.pane.rows[0] as Row).titleText)
         assertEquals(listOf("how far to reno", "find gas"), History.list(carContext).map { it.question })

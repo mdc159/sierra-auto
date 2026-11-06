@@ -44,6 +44,8 @@ class UtteranceRecorder(
 
     @Volatile
     private var focusLost = false
+    private val micLock = Any()
+    private var micStarted = false
 
     @Volatile
     var lastDetector: EndOfSpeechDetector? = null
@@ -52,11 +54,12 @@ class UtteranceRecorder(
     /** Ends the utterance now with whatever has been captured (the "Done" tap). */
     fun finishNow() {
         finishRequested = true
+        synchronized(micLock) { if (micStarted) runCatching { mic.stop() } }
     }
 
     /** Blocking; call off the main thread. */
     fun record(): Outcome {
-        finishRequested = false
+        if (finishRequested) return Outcome.NoSpeech(finishedByUser = true)
         focusLost = false
         val granted = focus.request(AudioFocusGate.Mode.LISTEN) {
             focusLost = true
@@ -65,8 +68,13 @@ class UtteranceRecorder(
         if (!granted) return Outcome.FocusDenied
         try {
             try {
-                mic.start()
+                synchronized(micLock) {
+                    if (finishRequested) return Outcome.NoSpeech(finishedByUser = true)
+                    mic.start()
+                    micStarted = true
+                }
             } catch (e: Exception) {
+                runCatching { mic.stop() }
                 return Outcome.Failed(e.message?.takeIf { it.isNotBlank() } ?: "Car microphone unavailable.")
             }
             val detector = EndOfSpeechDetector(config, mic.sampleRate).also { lastDetector = it }
@@ -89,7 +97,7 @@ class UtteranceRecorder(
                     if (verdict != EndOfSpeechDetector.Verdict.CONTINUE) break
                 }
             } finally {
-                mic.stop()
+                synchronized(micLock) { mic.stop(); micStarted = false }
             }
             val outcome = decide(hostEnded, verdict, detector, levels, out)
             log(
@@ -111,7 +119,8 @@ class UtteranceRecorder(
         levels: MicLevels,
         out: ByteArrayOutputStream,
     ): Outcome {
-        if (hostEnded) {
+        if (focusLost) return Outcome.FocusDenied
+        if (hostEnded && !finishRequested) {
             // CarAudioRecord (1.7.0) answers a refused openMicrophone (Assistant up, call in
             // progress, DHU `mic reject on`) with an immediate -1, before any audio flows. A real
             // dismissal always comes after the indicator was up and some bytes were read.

@@ -82,6 +82,7 @@ class AgentClient(
      * asks for along the way. [listener] hears when each tool starts and ends.
      */
     fun chat(messages: List<ChatMessage>, tools: List<Tool>, listener: ToolListener?): String {
+        if (config.useHermes && !config.isConfigured) throw AgentException("Hermes is not configured. Open Sierra on the phone and connect to Hermes on Victoria.")
         val history = messages.toMutableList()
         val byName = tools.associateBy { it.name }
         var offerTools = tools.isNotEmpty() && toolsSupported
@@ -125,12 +126,12 @@ class AgentClient(
 
     private fun request(messages: List<ChatMessage>, tools: List<Tool>, timeoutMs: Long): ChatMessage {
         val body = JSONObject()
-            .put("model", config.model)
+            .put("model", config.chatModel)
             .put("messages", JSONArray().apply { messages.forEach { put(encode(it)) } })
         if (tools.isNotEmpty()) body.put("tools", JSONArray().apply { tools.forEach { put(it.spec()) } })
         val request = Request.Builder()
             .url(config.chatCompletionsUrl())
-            .withAuth(config.apiKey)
+            .withAuth(config.chatApiKey)
             .post(body.toString().toRequestBody(JSON))
             .build()
         val json = execute(request, "Agent", timeoutMs)

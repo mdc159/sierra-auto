@@ -11,6 +11,10 @@ import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.CarMic
 import com.mdc159.sierra.voice.MicLog
+import com.mdc159.sierra.voice.diagnostics.MicSettings
+import com.mdc159.sierra.voice.diagnostics.MicrophoneSource
+import com.mdc159.sierra.voice.diagnostics.Microphones
+import com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics
 import com.mdc159.sierra.voice.duplex.AndroidFocus
 import com.mdc159.sierra.voice.duplex.AudioTrackSink
 import com.mdc159.sierra.voice.duplex.CarMicSource
@@ -58,22 +62,40 @@ class ConversationScreen(carContext: CarContext) : Screen(carContext) {
         }
         when {
             !config.isConfigured -> failure = "Set up full-duplex voice in Sierra on the phone."
-            !CarMic.isSupported(carContext) -> failure = "This car does not offer its microphone to apps."
+            MicSettings.source(carContext) != MicrophoneSource.PHONE && !CarMic.isSupported(carContext) -> failure = "This car does not offer its microphone to apps. Select Phone microphone in Sierra."
             !CarMic.hasPermission(carContext) -> failure = "Allow the microphone in Sierra on the phone."
         }
         if (failure != null) return
+        VoiceDiagnostics.event(carContext, "Conversation", "connecting; source=${MicSettings.source(carContext).label}; provider=${config.provider.name}")
+        val input = try { Microphones.selected(carContext) } catch (e: Exception) {
+            VoiceDiagnostics.failure(carContext, "Conversation microphone setup", e)
+            failure = e.message ?: "Microphone unavailable. Open diagnostics on the phone."
+            return
+        }
+        var audioSeen = false
         val tools = Duplex.tools(carContext, TalkToolAdapter.adapt(TalkTools.forCar(carContext)))
         val c = DuplexController(
             session = Duplex.session(config, tools),
-            mic = CarMicSource(carContext),
+            mic = input,
             sink = AudioTrackSink(),
             focus = AndroidFocus(carContext),
             mode = config.mode,
             guardRatio = config.guardRatio,
             listener = { event ->
                 when (event) {
-                    is DuplexEvent.Error -> Studio54.onDuplexError(carContext, config.provider, event.message)
-                    is DuplexEvent.Ended -> lifecycleScope.launch { onEnded(event.reason) }
+                    is DuplexEvent.Error -> {
+                        VoiceDiagnostics.failure(carContext, "Voice connection error", DuplexException(event.message))
+                        Studio54.onDuplexError(carContext, config.provider, event.message)
+                    }
+                    is DuplexEvent.Connected -> VoiceDiagnostics.event(carContext, "Conversation", "connected")
+                    is DuplexEvent.Reconnecting -> VoiceDiagnostics.event(carContext, "Conversation", "reconnecting attempt=${event.attempt}")
+                    is DuplexEvent.UserStartedSpeaking -> { audioSeen = false; VoiceDiagnostics.event(carContext, "Conversation", "server detected speech") }
+                    is DuplexEvent.UserTranscript -> if (event.final) VoiceDiagnostics.event(carContext, "Conversation", "transcription received; characters=${event.text.length}")
+                    is DuplexEvent.AssistantAudio -> if (!audioSeen) { audioSeen = true; VoiceDiagnostics.event(carContext, "Conversation", "reply audio received") }
+                    is DuplexEvent.Ended -> {
+                        VoiceDiagnostics.event(carContext, "Conversation", "ended")
+                        lifecycleScope.launch { onEnded(event.reason) }
+                    }
                     else -> Unit
                 }
             },
@@ -84,6 +106,7 @@ class ConversationScreen(carContext: CarContext) : Screen(carContext) {
             try {
                 withContext(Dispatchers.IO) { c.start() }
             } catch (e: DuplexException) {
+                VoiceDiagnostics.failure(carContext, "Conversation startup failed", e)
                 Studio54.onDuplexError(carContext, config.provider, e.message)
                 controller = null
                 failure = e.message ?: "Couldn't start the conversation."

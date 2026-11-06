@@ -238,7 +238,7 @@ class DuplexSettingsActivity : ComponentActivity() {
         val session = Duplex.session(config, Duplex.defaultTools(this))
         val c = DuplexController(
             session = session,
-            mic = PhoneMic(),
+            mic = com.mdc159.sierra.voice.diagnostics.Microphones.phone(this),
             sink = AudioTrackSink(),
             focus = AndroidFocus(this),
             mode = config.mode,

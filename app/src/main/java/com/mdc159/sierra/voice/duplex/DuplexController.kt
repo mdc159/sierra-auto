@@ -36,6 +36,7 @@ class DuplexController(
     private val running = AtomicBoolean(false)
     private val stopped = AtomicBoolean(false)
     private val endedForwarded = AtomicBoolean(false)
+    private val lifecycleLock = Any()
     private var micThread: Thread? = null
     private var playThread: Thread? = null
 
@@ -53,28 +54,38 @@ class DuplexController(
      */
     @Throws(DuplexException::class)
     fun start() {
-        if (!running.compareAndSet(false, true)) return
-        if (!focus.request(onLoss = { stop("Audio focus lost") })) {
-            running.set(false)
-            throw DuplexException("Couldn't get the audio. Try again.")
+        synchronized(lifecycleLock) {
+            if (stopped.get() || !running.compareAndSet(false, true)) return
+            if (!focus.request(onLoss = { stop("Audio focus lost") })) {
+                stopped.set(true)
+                cleanup()
+                session.close()
+                throw DuplexException("Couldn't get the audio. Try again.")
+            }
         }
         try {
+            if (stopped.get()) return
             session.start(::onSessionEvent)
-            val outRate = speakerRate ?: session.outputSampleRate
-            val buffer = JitterBuffer(outRate, jitterPrefillMs)
-            jitter = buffer
-            outResampler = Resampler(session.outputSampleRate, outRate)
-            sink.start(outRate)
-            mic.start()
-        } catch (e: DuplexException) {
-            cleanup()
-            throw e
+            synchronized(lifecycleLock) {
+                if (stopped.get()) { session.close(); return }
+                val outRate = speakerRate ?: session.outputSampleRate
+                jitter = JitterBuffer(outRate, jitterPrefillMs)
+                outResampler = Resampler(session.outputSampleRate, outRate)
+                sink.start(outRate)
+                mic.start()
+                playThread = Thread(::playLoop, "duplex-play").apply { isDaemon = true; start() }
+                micThread = Thread(::micLoop, "duplex-mic").apply { isDaemon = true; start() }
+            }
         } catch (e: Exception) {
-            cleanup()
+            val alreadyStopped = stopped.getAndSet(true)
+            // The caller renders startup errors. Do not emit a misleading normal Ended first.
+            endedForwarded.set(true)
+            synchronized(lifecycleLock) { cleanup() }
+            session.close()
+            if (alreadyStopped) return
+            if (e is DuplexException) throw e
             throw DuplexException(e.message ?: "Couldn't start the conversation.", e)
         }
-        playThread = Thread(::playLoop, "duplex-play").apply { isDaemon = true; start() }
-        micThread = Thread(::micLoop, "duplex-mic").apply { isDaemon = true; start() }
     }
 
     /** The driver tapped to interrupt. Cuts playback and tells the service. */
@@ -91,7 +102,7 @@ class DuplexController(
     private fun stop(reason: String) {
         if (!stopped.compareAndSet(false, true)) return
         log("duplex stopped reason=$reason")
-        cleanup()
+        synchronized(lifecycleLock) { cleanup() }
         // Our reason first; the session's own Ended (emitted by close) is then a duplicate.
         if (endedForwarded.compareAndSet(false, true)) listener.onEvent(DuplexEvent.Ended(reason))
         session.close()
@@ -131,8 +142,12 @@ class DuplexController(
                 if (event.cancelled) cutPlayback()
             }
             is DuplexEvent.Ended -> {
-                if (stopped.compareAndSet(false, true)) cleanup()
-                if (endedForwarded.compareAndSet(false, true)) listener.onEvent(event)
+                val forward = endedForwarded.compareAndSet(false, true)
+                if (stopped.compareAndSet(false, true)) {
+                    synchronized(lifecycleLock) { cleanup() }
+                    session.close()
+                }
+                if (forward) listener.onEvent(event)
                 return
             }
             is DuplexEvent.Error -> if (event.fatal) stop(event.message)

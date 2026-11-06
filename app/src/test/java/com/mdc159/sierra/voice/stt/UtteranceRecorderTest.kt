@@ -12,6 +12,38 @@ import java.util.concurrent.TimeUnit
 
 class UtteranceRecorderTest {
 
+    @Test fun doneUnblocksNativeReadWithoutAnotherAudioPacket() {
+        val blocked = java.util.concurrent.CountDownLatch(1)
+        val stopped = java.util.concurrent.CountDownLatch(1)
+        val nativeMic = object : MicSource {
+            override val sampleRate = 16000
+            var sent = false
+            override fun start() {}
+            override fun read(buf: ByteArray, offset: Int, length: Int): Int {
+                if (!sent) {
+                    sent = true
+                    for (i in offset until offset + length step 2) { buf[i] = 0; buf[i + 1] = 16 }
+                    return length
+                }
+                blocked.countDown()
+                check(stopped.await(2, TimeUnit.SECONDS))
+                return -1
+            }
+            override fun stop() { stopped.countDown() }
+        }
+        val focus = FakeAudioFocus()
+        val recorder = UtteranceRecorder(nativeMic, focus, EndpointConfig(), bufferSize = 16000)
+        val pool = Executors.newSingleThreadExecutor()
+        try {
+            val future = pool.submit<UtteranceRecorder.Outcome> { recorder.record() }
+            assertTrue(blocked.await(2, TimeUnit.SECONDS))
+            recorder.finishNow()
+            val outcome = future.get(2, TimeUnit.SECONDS)
+            assertTrue("Done submits captured speech, not a host cancellation", outcome is UtteranceRecorder.Outcome.Speech)
+            assertEquals(1, focus.abandons)
+        } finally { recorder.finishNow(); pool.shutdownNow() }
+    }
+
     private val config = EndpointConfig(silenceMs = 400, noSpeechMs = 2_000, maxMs = 10_000, minSpeechMs = 100)
     private val mic = FakeMic()
     private val focus = FakeAudioFocus()
