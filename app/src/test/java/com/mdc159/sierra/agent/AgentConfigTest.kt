@@ -39,7 +39,11 @@ class AgentConfigTest {
     @Test
     fun bridgeProfileNeedsABridgeUrlButNotTheGateway() {
         assertFalse(gateway.copy(profile = AgentProfile.BRIDGE).isConfigured)
-        assertTrue(AgentConfig(profile = AgentProfile.BRIDGE, bridgeUrl = "https://bridge/v1").isConfigured)
-        assertFalse(AgentConfig(profile = AgentProfile.BRIDGE, bridgeUrl = "https://bridge/v1", bridgeModel = " ").isConfigured)
+        assertTrue(AgentConfig(profile = AgentProfile.BRIDGE, bridgeUrl = "https://bridge/v1", bridgeKey = "bt").isConfigured)
+        assertFalse(AgentConfig(profile = AgentProfile.BRIDGE, bridgeUrl = "https://bridge/v1", bridgeKey = "bt", bridgeModel = " ").isConfigured)
+        // The bridge always checks its token, so no token means every turn would be a 401.
+        assertFalse(AgentConfig(profile = AgentProfile.BRIDGE, bridgeUrl = "https://bridge/v1").isConfigured)
+        // A keyless gateway-profile provider (local Ollama) is still fine.
+        assertTrue(AgentConfig(baseUrl = "http://ollama.ts.net:11434/v1", model = "llama3").isConfigured)
     }
 }

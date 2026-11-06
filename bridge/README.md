@@ -201,13 +201,15 @@ On the phone, open **Sierra**. Under **Who answers**, choose **My agent, through
 
 | Field | Value |
 | --- | --- |
-| Bridge URL | `https://<machine>.<tailnet>.ts.net/v1` (or with the `tailscale serve` port, e.g. `:8443/v1`, or `http://100.x.y.z:8787/v1`) |
+| Bridge URL | `https://<machine>.<tailnet>.ts.net/v1` (or with the `tailscale serve` port, e.g. `:8443/v1`), or `http://<machine>.<tailnet>.ts.net:8787/v1` when bound to the Tailscale IP. Not a bare `100.x.y.z`: the app allows plain `http` only for `*.ts.net` names |
 | Bridge token | the value of `SIERRA_BRIDGE_TOKEN` |
 | Agent (bridge model name) | the `[models.<name>]` entry to talk to: `hermes` (default), `pi`, `claude`, ... |
 
-When the phone is signed in to Studio 54, the vault entries `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN`, if both are present in the phone's project, replace the typed URL and token. No token is typed then.
+When the phone is signed in to Studio 54, the vault entries `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN`, if both are present in the phone's project, replace the typed URL and token, and no token is typed. **As of 2026-11-06 Studio 54's enrollment does not write them yet**, so for now the token has to be typed.
 
-The bridge profile changes only where chat goes, that is Talk and full-duplex `ask_agent`. Transcription, gateway speech and full-duplex voice keep the gateway settings, and the bridge token is never sent to them. A bridge turn may take up to 120 s (the gateway's limit is 30 s), because an agent can run tools before it answers.
+The bridge profile changes only where chat goes, that is Talk and full-duplex `ask_agent`. Transcription and gateway speech keep the main gateway settings, and the bridge token is never sent to them. Full-duplex voice has its own settings screen and is not affected; only its `ask_agent` tool follows this choice.
+
+Time limits: on the bridge profile one model round may take 120 s and a whole exchange 140 s. On the gateway the limits are 30 s and 60 s, because an agent can run tools before it answers. Keep the bridge's own `timeout_seconds` below 120 (110 on victoria), so the bridge's 504 reaches the phone first.
 
 Tap **Test connection**. It sends "Reply with the single word: ready" through the chosen adapter, so a coding agent takes a few seconds. The phone must be on the tailnet (the Tailscale app installed and connected) for the URL to resolve. To switch agents, change the agent name. `GET /v1/models` lists the names.
 

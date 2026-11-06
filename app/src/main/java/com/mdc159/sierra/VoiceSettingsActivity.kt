@@ -259,7 +259,11 @@ class VoiceSettingsActivity : Activity() {
             testResult.text = when (result) {
                 SpeakResult.Completed -> "OK: ${voice.name} (%.1f s including playback)".format(seconds)
                 SpeakResult.Interrupted -> "Stopped."
-                is SpeakResult.Failed -> "Failed: ${result.message}"
+                is SpeakResult.Failed -> {
+                    // A gateway 401 with a vault key: the key may have rotated, so read the vault again.
+                    if (settings.provider == VoiceProvider.GATEWAY) Studio54.onAgentError(this@VoiceSettingsActivity, RuntimeException(result.message))
+                    "Failed: ${result.message}"
+                }
             }
             testButton.isEnabled = true
             voice.close()

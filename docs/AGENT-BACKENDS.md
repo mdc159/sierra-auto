@@ -89,9 +89,10 @@ The phone settings have a **Who answers** switch with two choices:
 What the switch controls:
 
 - Only chat follows it: Talk and full-duplex `ask_agent`, through `AgentConfig.chatBaseUrl`, `chatKey` and `chatModel`.
-- Transcription, gateway speech and full-duplex voice stay on the main settings.
-- The vault supplies the bridge pair as `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN`, the same way it supplies the gateway pair.
-- Bridge turns get 120 s per round and 140 s in all, against 30 s and 60 s on the gateway.
+- Transcription and gateway speech stay on the main settings. Full-duplex voice has its own settings screen and is not touched; only its `ask_agent` tool follows the switch.
+- The app reads the bridge pair from the vault as `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN` when both are in the phone's project. **Studio 54's enrollment does not write them yet (2026-11-06)**, so until that change lands the bridge token is typed in the bridge section.
+- A bridge profile without a token does not count as set up; the bridge always checks one.
+- Bridge turns get 120 s per round and 140 s per exchange, against 30 s and 60 s on the gateway. Transcription keeps the normal client's limits.
 
 The voice-switched profiles below are still a proposal.
 

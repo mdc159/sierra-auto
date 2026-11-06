@@ -60,7 +60,7 @@ interface ToolListener {
  */
 class AgentClient(
     private val config: AgentConfig,
-    private val client: OkHttpClient = if (config.usesBridge) Http.slowClient else Http.client,
+    private val client: OkHttpClient = Http.client,
     private val maxRounds: Int = MAX_ROUNDS,
     private val roundTimeoutMs: Long = if (config.usesBridge) BRIDGE_ROUND_TIMEOUT_MS else ROUND_TIMEOUT_MS,
     private val toolTimeoutMs: Long = TOOL_TIMEOUT_MS,
@@ -68,6 +68,9 @@ class AgentClient(
     /** Monotonic milliseconds; injectable so tests can spend the budget without waiting. */
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
+
+    /** Chat through the bridge may wait long for the first byte; transcription keeps [client]'s bounds. */
+    private val chatClient: OkHttpClient = if (config.usesBridge && client === Http.client) Http.slowClient else client
 
     @Volatile
     private var toolsSupported = true
@@ -133,7 +136,7 @@ class AgentClient(
             .withAuth(config.chatKey)
             .post(body.toString().toRequestBody(JSON))
             .build()
-        val json = execute(request, "Agent", timeoutMs)
+        val json = execute(request, "Agent", timeoutMs, chatClient)
         try {
             val message = JSONObject(json).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
             return decode(message)
@@ -197,7 +200,7 @@ class AgentClient(
     private fun Request.Builder.withAuth(key: String): Request.Builder =
         if (key.isBlank()) this else header("Authorization", "Bearer $key")
 
-    private fun execute(request: Request, what: String, timeoutMs: Long = 0): String {
+    private fun execute(request: Request, what: String, timeoutMs: Long = 0, client: OkHttpClient = this.client): String {
         val response: Response = try {
             val call = client.newCall(request)
             if (timeoutMs > 0) call.timeout().timeout(timeoutMs, TimeUnit.MILLISECONDS)
@@ -228,8 +231,9 @@ class AgentClient(
         const val EXCHANGE_BUDGET_MS = 60_000L
 
         /**
-         * The bridge profile: an agent such as Hermes may use its own tools before answering
-         * (the bridge itself allows 180 s for Hermes on victoria). One round, then the budget.
+         * The bridge profile: an agent such as Hermes may use its own tools before answering.
+         * Set the bridge's own `timeout_seconds` below the round limit (110 s on victoria), so
+         * the bridge answers with its 504 before the phone gives up.
          */
         const val BRIDGE_ROUND_TIMEOUT_MS = 120_000L
         const val BRIDGE_EXCHANGE_BUDGET_MS = 140_000L

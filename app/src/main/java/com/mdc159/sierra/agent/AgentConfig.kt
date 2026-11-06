@@ -38,8 +38,12 @@ data class AgentConfig(
     val chatKey: String get() = if (usesBridge) bridgeKey else apiKey
     val chatModel: String get() = if (usesBridge) bridgeModel else model
 
-    /** True when chat has somewhere to go: Talk and `ask_agent` can run. */
-    val isConfigured: Boolean get() = chatBaseUrl.isNotBlank() && chatModel.isNotBlank()
+    /**
+     * True when chat has somewhere to go: Talk and `ask_agent` can run. The bridge always
+     * checks a token; a gateway-profile provider may be keyless (a local Ollama).
+     */
+    val isConfigured: Boolean
+        get() = chatBaseUrl.isNotBlank() && chatModel.isNotBlank() && (!usesBridge || bridgeKey.isNotBlank())
     val hasTranscription: Boolean get() = sttUrl.isNotBlank()
 
     /** Transcription falls back to the agent key when no separate key is given. */
