@@ -1,0 +1,91 @@
+<!-- docs-standard: v1 -->
+# Conditional Documentation Guide
+
+Read only the docs whose conditions match the task in hand. Do not read everything.
+
+## Conditional Documentation
+
+- README.md
+  - Conditions:
+    - When first understanding the project structure
+    - When you need the commands to install the app, build it or run the tests
+    - When changing what the car screens offer (Talk, Places, History)
+- CLAUDE.md
+  - Conditions:
+    - Before any change: these are the rules an agent must not break
+- docs/PLAN.md
+  - Conditions:
+    - When you need the goal, the "done means" and the milestones (M1 to M5)
+    - When deciding whether a feature is in scope
+- docs/android-auto-constraints.md
+  - Conditions:
+    - Before adding or changing any car screen, template, list or action
+    - When working on the car microphone, audio focus, TTS, location or the Maps hand-off
+    - When a build installs but may not appear on the truck (section 0, the sideloading risk)
+- docs/TESTING.md
+  - Conditions:
+    - When installing a build on the phone or driving the Desktop Head Unit (DHU) from the PC
+    - When using or changing `scripts/` (install-phone, dhu, shot, smoke, car-logs, build-pr)
+- docs/UPDATES.md
+  - Conditions:
+    - When working on `app/src/main/java/com/mdc159/sierra/update/` or the Updates screen
+    - When working on how builds reach the phone (GitHub Releases, Shizuku, Play, `.github/workflows/play.yml`)
+- docs/IDEA-LOOP.md
+  - Conditions:
+    - When working on the idea loop: `file_idea`, the `idea` and `idea-voice` labels, `.github/workflows/claude.yml`
+- docs/AGENT-BACKENDS.md
+  - Conditions:
+    - When working on `agent/AgentClient.kt` or what Talk sends to the agent endpoint
+    - When choosing or configuring an agent backend (gateway, provider, bridge)
+- docs/VOICE.md
+  - Conditions:
+    - When working on turn-based conversational voice (streamed TTS, end of speech) in `voice/` or `TalkScreen`
+- docs/DUPLEX.md
+  - Conditions:
+    - When working on full-duplex voice in `voice/duplex/`, `ConversationScreen` or `DuplexSettingsActivity`
+    - When dealing with echo while Sierra speaks through the truck speakers
+- docs/VOICE-GATEWAY-CHECK.md
+  - Conditions:
+    - When choosing speech-to-text, TTS, chat or realtime models and need measured latency and formats
+    - When rerunning or extending `tools/voice-probe/`
+- docs/STUDIO54.md
+  - Conditions:
+    - When working on `studio54/` or `Studio54Activity` (vault sign-in, secrets on the phone)
+    - When a key the app needs should come from the vault instead of a settings field
+- docs/OBD2-PLAN.md
+  - Conditions:
+    - When working on anything under `obd/` or the Truck and Codes screens
+    - Before touching `ObdSafety` (section 8 holds the read-only rules)
+- docs/GM-PIDS.md
+  - Conditions:
+    - When working on GM Mode 22 data in `obd/gm/`
+    - When adding a truck reading that is not a standard Mode 01 PID
+- docs/HARDWARE.md
+  - Conditions:
+    - When choosing or troubleshooting the OBD-II adapter, wireless Android Auto dongle or phone mount
+    - When a problem may come from the truck's head unit rather than the app
+- docs/lanes/README.md
+  - Conditions:
+    - When running or reviewing a parallel cloud-session lane, or reading how the 2026-11-04 build was split up
+- docs/lanes/a-review.md, docs/lanes/b-talk-tools.md, docs/lanes/c-obd-live.md, docs/lanes/d-updates.md, docs/lanes/e-screen-tests.md, docs/lanes/f-gm-pids.md, docs/lanes/g-voice.md, docs/lanes/h-agent-bridge.md, docs/lanes/i-studio54-signin.md, docs/lanes/j-duplex-voice.md
+  - Conditions:
+    - When you need the original brief (scope and owned files) behind a first-wave feature: review, Talk tools, live OBD, updates, screen tests, GM PIDs, voice, agent bridge, Studio 54 sign-in, full-duplex voice
+- docs/lanes/k-review-fixes.md, docs/lanes/l-vehicle-tools.md, docs/lanes/m-agent-profiles.md, docs/lanes/n-docs-and-truck-plan.md
+  - Conditions:
+    - When picking up second-wave work that has not landed yet: review fixes, vehicle tools, agent profiles, docs and the first truck test plan
+- bridge/README.md
+  - Conditions:
+    - When working on anything under `bridge/` (the OpenAI-compatible front for Pi, Hermes, CLI and other agents)
+    - When deploying the bridge on the Tailscale network
+- tools/voice-probe/README.md
+  - Conditions:
+    - When running the voice probes against the gateway or ElevenLabs
+- ai_docs/README.md
+  - Conditions:
+    - When you need the official documentation for a library, service or API the app uses
+- specs/README.md
+  - Conditions:
+    - When writing a plan or spec for new work
+- app_docs/README.md
+  - Conditions:
+    - When documenting how a finished feature works
