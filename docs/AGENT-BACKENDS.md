@@ -95,7 +95,7 @@ What the switch controls:
 
 - Only chat follows it: Talk and full-duplex `ask_agent`, through `AgentConfig.chatBaseUrl`, `chatKey` and `chatModel`.
 - Transcription and gateway speech stay on the main settings. Full-duplex voice has its own settings screen and is not touched; only its `ask_agent` tool follows the switch.
-- The app reads the bridge pair from the vault as `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN` when both are in the phone's project. **Studio 54's enrollment does not write them yet (2026-11-06)**, so until that change lands the bridge token is typed in the bridge section.
+- The app reads the bridge pair from the vault as `SIERRA_BRIDGE_URL` and `SIERRA_BRIDGE_TOKEN` when both are in the phone's project. The phone profile was provisioned and verified on 2026-11-06 by `bridge/deploy/publish_phone_profile.py`; tap **Connect to Hermes on Victoria** to refresh and select it. Other enrolled devices need their own profile provisioned or a typed bridge configuration.
 - A bridge profile without a token does not count as set up; the bridge always checks one.
 - Bridge turns get 120 s per round and 140 s per exchange, against 30 s and 60 s on the gateway. Transcription keeps the normal client's limits.
 
