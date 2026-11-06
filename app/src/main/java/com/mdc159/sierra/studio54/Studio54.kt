@@ -2,6 +2,7 @@ package com.mdc159.sierra.studio54
 
 import android.content.Context
 import com.mdc159.sierra.agent.AgentConfig
+import com.mdc159.sierra.voice.duplex.DuplexConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -78,6 +79,17 @@ object Studio54 {
         typed
     }
 
+    /**
+     * The duplex settings with the OpenAI Realtime base URL and key taken from the vault when
+     * signed in and known (see [AgentOverlay.applyDuplex]). Also makes sure the refresh timer runs.
+     */
+    fun duplexConfig(context: Context, typed: DuplexConfig): DuplexConfig = try {
+        start(context)
+        AgentOverlay.applyDuplex(source(context), typed)
+    } catch (e: Exception) {
+        typed
+    }
+
     /** True when the vault supplies the agent base URL and key, so the typed ones are not used. */
     fun suppliesAgent(context: Context): Boolean = try {
         AgentOverlay.isActive(source(context))
@@ -86,7 +98,7 @@ object Studio54 {
     }
 
     /**
-     * Phase 2 hook for the Talk screen's failure path: a 401 from the gateway while the vault
+     * Phase 2 hook for the Talk and duplex failure paths: a 401 from the gateway while the vault
      * supplies the key means the key may have been rotated, so the vault is read again.
      */
     fun onAgentError(context: Context, e: Throwable) {

@@ -2,6 +2,8 @@ package com.mdc159.sierra.studio54
 
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.AgentException
+import com.mdc159.sierra.voice.duplex.DuplexConfig
+import com.mdc159.sierra.voice.duplex.DuplexException
 import org.junit.Assert.assertEquals
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -32,6 +34,13 @@ class Studio54HooksTest {
     }
 
     @Test
+    fun duplexConfigFallsBackToTheTypedSettingsWhenTheStoreCannotOpen() {
+        assumeStoreCannotOpen()
+        val typed = DuplexConfig(openAiApiKey = "typed-key")
+        assertEquals(typed, Studio54.duplexConfig(context, typed))
+    }
+
+    @Test
     fun suppliesAgentIsFalseWhenTheStoreCannotOpen() {
         assumeStoreCannotOpen()
         assertEquals(false, Studio54.suppliesAgent(context))
@@ -42,5 +51,6 @@ class Studio54HooksTest {
         assumeStoreCannotOpen()
         Studio54.start(context)
         Studio54.onAgentError(context, AgentException("Agent error 401: bad key"))
+        Studio54.onAgentError(context, DuplexException("The voice service refused the connection (HTTP 401)."))
     }
 }

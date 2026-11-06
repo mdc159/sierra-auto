@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
@@ -16,6 +17,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.mdc159.sierra.studio54.AgentOverlay
+import com.mdc159.sierra.studio54.Studio54
 
 /**
  * Phone-side settings for the full-duplex conversation, plus "Try it on this phone",
@@ -26,6 +29,7 @@ class DuplexSettingsActivity : ComponentActivity() {
 
     private lateinit var providerGroup: RadioGroup
     private lateinit var modeGroup: RadioGroup
+    private lateinit var vaultNote: TextView
     private lateinit var openAiUrl: EditText
     private lateinit var openAiKey: EditText
     private lateinit var openAiModel: EditText
@@ -96,6 +100,10 @@ class DuplexSettingsActivity : ComponentActivity() {
         guardRatio = field("Guarded: how much louder you must be than the playback (x)", "2.0")
 
         heading("OpenAI Realtime")
+        vaultNote = TextView(this).apply {
+            text = "Base URL and API key come from the Studio 54 vault. Leave the model blank for ${AgentOverlay.GATEWAY_REALTIME_MODEL}."
+        }
+        form.addView(vaultNote)
         openAiUrl = field("Base URL", DuplexConfig.DEFAULT_OPENAI_BASE_URL)
         openAiKey = field("API key", "sk-…", secret = true)
         openAiModel = field("Model (gateway: openai/gpt-realtime-2.1-mini)", DuplexConfig.DEFAULT_OPENAI_MODEL)
@@ -142,6 +150,28 @@ class DuplexSettingsActivity : ComponentActivity() {
 
         setContentView(ScrollView(this).apply { addView(form) })
         load()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        showVaultHints()
+    }
+
+    /**
+     * When the vault supplies the gateway (Studio54.duplexConfig), the typed base URL and key
+     * are not used, and the built-in OpenAI model name becomes the gateway's realtime model.
+     */
+    private fun showVaultHints() {
+        val vault = Studio54.suppliesAgent(this)
+        vaultNote.visibility = if (vault) View.VISIBLE else View.GONE
+        openAiUrl.hint = if (vault) "From Studio 54 vault" else DuplexConfig.DEFAULT_OPENAI_BASE_URL
+        openAiKey.hint = if (vault) "From Studio 54 vault" else "sk-…"
+        openAiModel.hint = if (vault) AgentOverlay.GATEWAY_REALTIME_MODEL else DuplexConfig.DEFAULT_OPENAI_MODEL
+        if (vault) {
+            // Built-in defaults would hide the hints; blank fields save as the same defaults.
+            if (openAiUrl.text.toString() == DuplexConfig.DEFAULT_OPENAI_BASE_URL) openAiUrl.setText("")
+            if (openAiModel.text.toString() == DuplexConfig.DEFAULT_OPENAI_MODEL) openAiModel.setText("")
+        }
     }
 
     override fun onStop() {
@@ -192,7 +222,7 @@ class DuplexSettingsActivity : ComponentActivity() {
 
     private fun tryIt() {
         if (controller != null) return
-        val config = current()
+        val config = Studio54.duplexConfig(this, current())
         if (!config.isConfigured) {
             setStatus(
                 if (config.provider == DuplexProvider.ELEVENLABS) "Enter an ElevenLabs agent ID first."
@@ -224,6 +254,7 @@ class DuplexSettingsActivity : ComponentActivity() {
                     interruptButton.isEnabled = true
                 }
             } catch (e: DuplexException) {
+                Studio54.onAgentError(this@DuplexSettingsActivity, e)
                 runOnUiThread {
                     setStatus("Couldn't start: ${e.message}")
                     finished()

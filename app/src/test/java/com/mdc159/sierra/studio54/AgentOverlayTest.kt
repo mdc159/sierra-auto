@@ -2,6 +2,9 @@ package com.mdc159.sierra.studio54
 
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.AgentException
+import com.mdc159.sierra.voice.duplex.DuplexConfig
+import com.mdc159.sierra.voice.duplex.DuplexException
+import com.mdc159.sierra.voice.duplex.DuplexProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -70,5 +73,45 @@ class AgentOverlayTest {
         assertFalse(AgentOverlay.isUnauthorized(AgentException("Agent error 403: forbidden")))
         assertFalse(AgentOverlay.isUnauthorized(AgentException("Timed out. Check signal and try again.")))
         assertFalse(AgentOverlay.isUnauthorized(RuntimeException()))
+        assertTrue(AgentOverlay.isUnauthorized(DuplexException("The voice service refused the connection (HTTP 401).")))
+        assertFalse(AgentOverlay.isUnauthorized(DuplexException("The voice service refused the connection (HTTP 403).")))
+    }
+
+    private val gateway = FakeSecrets(
+        mapOf(SecretNames.OPENAI_BASE_URL to " http://gw.tail1234.ts.net:4000 ", SecretNames.OPENAI_API_KEY to "sk-vault"),
+    )
+
+    @Test
+    fun duplexTakesTheGatewayAndSwapsOnlyTheBuiltInModelName() {
+        // Untouched settings: OpenAI's address, no key, OpenAI's own model name.
+        val merged = AgentOverlay.applyDuplex(gateway, DuplexConfig())
+        assertEquals("http://gw.tail1234.ts.net:4000", merged.openAiBaseUrl)
+        assertEquals("sk-vault", merged.openAiApiKey)
+        assertEquals(AgentOverlay.GATEWAY_REALTIME_MODEL, merged.openAiModel)
+        assertTrue(merged.isConfigured)
+        // In-session transcription keeps OpenAI's bare name: the gateway passes it upstream and
+        // rejects the prefixed gateway name (checked against the gateway on 2026-11-05).
+        assertEquals(DuplexConfig.DEFAULT_OPENAI_TRANSCRIPTION_MODEL, merged.openAiTranscriptionModel)
+
+        val chosen = AgentOverlay.applyDuplex(gateway, DuplexConfig(openAiModel = "openai/gpt-realtime-2.1"))
+        assertEquals("openai/gpt-realtime-2.1", chosen.openAiModel)
+        assertEquals(AgentOverlay.GATEWAY_REALTIME_MODEL, AgentOverlay.applyDuplex(gateway, DuplexConfig(openAiModel = " ")).openAiModel)
+    }
+
+    @Test
+    fun duplexLeavesElevenLabsAndTypedSettingsAloneWithoutTheVault() {
+        val typedDuplex = DuplexConfig(
+            provider = DuplexProvider.ELEVENLABS,
+            openAiBaseUrl = "https://typed.example/v1",
+            openAiApiKey = "typed",
+            elevenApiKey = "el-typed",
+            elevenAgentId = "agent_1",
+        )
+        assertSame(typedDuplex, AgentOverlay.applyDuplex(FakeSecrets(emptyMap()), typedDuplex))
+        assertSame(typedDuplex, AgentOverlay.applyDuplex(FakeSecrets(mapOf(SecretNames.OPENAI_BASE_URL to "http://gw")), typedDuplex))
+        val merged = AgentOverlay.applyDuplex(gateway, typedDuplex)
+        assertEquals("el-typed", merged.elevenApiKey)
+        assertEquals("agent_1", merged.elevenAgentId)
+        assertEquals(DuplexProvider.ELEVENLABS, merged.provider)
     }
 }

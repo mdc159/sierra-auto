@@ -94,7 +94,8 @@ Measured from the owner's PC on 2026-11-04 against the LiteLLM gateway (full wri
 - **Gemini Live through the gateway** sends no `session.updated` and wanted 16 kHz input. `OpenAiRealtimeSession` tolerates the missing `session.updated` (it continues after the handshake timeout with a warning) but always declares 24 kHz, so Gemini Live is **not supported** by this code without a per-model input-rate setting.
 - **Not measured there:** realtime tool calls and barge-in (both exercised here only against the fake server), long sessions, anything from the phone or truck.
 - **ElevenLabs** direct TTS (`eleven_flash_v2_5`, `pcm_24000`) streamed with about 180 to 340 ms to first byte; Agents were not tested. That is the voice path ElevenLabs Agents uses, so the Agents turn should land near the LLM's time plus a few hundred milliseconds. **Unverified** for Agents specifically.
-- **Recommended default from #39:** realtime through the gateway with `openai/gpt-realtime-2.1-mini`. The app's built-in default stays OpenAI direct with `gpt-realtime`, because the gateway hostname is private and must be typed on the phone anyway.
+- **Recommended default from #39:** realtime through the gateway with `openai/gpt-realtime-2.1-mini`. The app's built-in default stays OpenAI direct with `gpt-realtime` for a phone that is not signed in to Studio 54.
+- **Signed in to Studio 54 (the owner's phone):** the realtime base URL and key come from the vault, as Talk's do (`Studio54.duplexConfig`, `AgentOverlay.applyDuplex`), and the typed ones are ignored. While the model field is blank or still `gpt-realtime`, the gateway's `openai/gpt-realtime-2.1-mini` is used; any other typed model name is kept. ElevenLabs settings are not touched. A refused handshake (HTTP 401) re-reads the vault, as Talk does. In-session transcription keeps OpenAI's bare name `gpt-4o-mini-transcribe`: on 2026-11-05 the gateway accepted that name in `session.update` and rejected `openai/gpt-4o-mini-transcribe` with `model_not_found` (checked from the PC with this machine's key, not from the phone).
 
 ---
 
@@ -141,7 +142,7 @@ Sent as `session.update` right after the socket opens (from `OpenAiRealtimeSessi
 
 Mic frames: `{"type":"input_audio_buffer.append","audio":"<base64 pcm16 24k>"}`. Assistant audio: `response.output_audio.delta` (`response.audio.delta` from a beta-pinned gateway is also accepted). Tool results: `conversation.item.create` with `{"type":"function_call_output","call_id":…,"output":…}` then `response.create`.
 
-Defaults the owner may want to change on the phone: model (`gpt-realtime`; the gateway lists `openai/gpt-realtime-2.1`, so enter that name when using the gateway), voice, transcription model (blank turns input transcription off, which saves money and removes the "You:" lines).
+Defaults the owner may want to change on the phone: model (`gpt-realtime` for OpenAI direct; signed in to Studio 54, a blank field means `openai/gpt-realtime-2.1-mini`, and `openai/gpt-realtime-2.1` is the slower, larger option), voice, transcription model (blank turns input transcription off, which saves money and removes the "You:" lines; through the gateway use the bare OpenAI name, not the `openai/` gateway name).
 
 ---
 
