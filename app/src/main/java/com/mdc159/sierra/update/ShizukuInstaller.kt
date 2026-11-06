@@ -13,7 +13,14 @@ import rikka.shizuku.Shizuku
 import java.io.File
 import java.io.IOException
 
-/** Optional install path through Shizuku. The app works without Shizuku installed. */
+/**
+ * Optional install path through Shizuku. The app works without Shizuku installed.
+ *
+ * The shell holds INSTALL_PACKAGES. Installers up to Android 16's AOSP code keep the requested
+ * installer name only for such a launcher. The Google package installer 17 on the Galaxy A54 does
+ * the reverse and drops it (measured: event log `Invalid EXTRA_INSTALLER_PACKAGE_NAME`, uid 2000),
+ * so on that phone [SystemInstaller] is the path that works.
+ */
 class ShizukuInstaller(private val context: Context) {
 
     enum class Status(val label: String) {

@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.BuildConfig
 import com.mdc159.sierra.net.Http
@@ -23,7 +24,8 @@ import java.io.File
 /**
  * Phone-side update screen. Shows how the current build was installed (the record Android Auto
  * checks), fetches the latest GitHub Release, verifies its signer against the installed app and
- * installs it either through Sierra's own PackageInstaller session or, optionally, through Shizuku.
+ * installs it through the system package installer (keeps a Play record on the Galaxy A54), through
+ * Sierra's own PackageInstaller session or, optionally, through Shizuku.
  */
 class UpdateActivity : ComponentActivity() {
 
@@ -36,6 +38,7 @@ class UpdateActivity : ComponentActivity() {
     private lateinit var log: TextView
     private lateinit var checkButton: Button
     private lateinit var downloadButton: Button
+    private lateinit var systemInstallButton: Button
     private lateinit var installButton: Button
     private lateinit var shizukuInstallButton: Button
     private lateinit var shizukuAllowButton: Button
@@ -43,6 +46,11 @@ class UpdateActivity : ComponentActivity() {
     private var release: ReleaseInfo? = null
     private var apk: File? = null
     private val shizuku by lazy { ShizukuInstaller(this) }
+
+    // The app is replaced while the installer runs, so this result usually never arrives.
+    private val systemInstall = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        refreshInstalled()
+    }
 
     private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { code, _ ->
         if (code == SHIZUKU_REQUEST) refreshShizuku()
@@ -91,6 +99,14 @@ class UpdateActivity : ComponentActivity() {
         heading("Install")
         unknownSources = line()
         button("Allow Sierra to install apps") { openUnknownSourcesSettings() }
+        systemInstallButton = button("Install through the system installer (Play record)") { installWithSystemInstaller() }
+        systemInstallButton.isEnabled = false
+        form.addView(TextView(this).apply {
+            text = "Sierra opens the phone's own installer and asks it to record Play as installer. " +
+                "Confirm the system dialog, reopen Sierra and read the record above. " +
+                "Package installer 17 keeps the Play name only for an ordinary app like this one (read from its code). " +
+                "Not yet seen working: a phone whose work profile forbids unknown sources refuses it."
+        })
         installButton = button("Install (Sierra becomes the installer)") { installWithSession() }
         installButton.isEnabled = false
         form.addView(TextView(this).apply {
@@ -99,8 +115,9 @@ class UpdateActivity : ComponentActivity() {
 
         heading("Install through Shizuku (optional, experimental)")
         form.addView(TextView(this).apply {
-            text = "With Shizuku running (Wireless debugging, no PC), the shell opens the system installer " +
-                "so Play is recorded as installer. Same method as UnknownAuto. Not yet verified on this phone."
+            text = "With Shizuku running (Wireless debugging, no PC), the shell opens the system installer. " +
+                "Older installers keep the Play name only this way. The Galaxy A54's installer (17) drops it " +
+                "when the shell asks (measured), so this button cannot give a Play record on that phone."
         })
         shizukuStatus = line()
         shizukuAllowButton = button("Allow Sierra in Shizuku") { shizuku.requestPermission(SHIZUKU_REQUEST) }
@@ -157,10 +174,12 @@ class UpdateActivity : ComponentActivity() {
 
     private fun refreshUnknownSources() {
         val allowed = packageManager.canRequestPackageInstalls()
-        unknownSources.text = if (allowed) {
+        unknownSources.text = if (SystemInstaller.blockedByPolicy(this)) {
+            SystemInstaller.POLICY_MESSAGE
+        } else if (allowed) {
             "Sierra may install apps (\"Install unknown apps\" is on)."
         } else {
-            "\"Install unknown apps\" is off for Sierra. Needed for the normal install path."
+            "\"Install unknown apps\" is off for Sierra. Needed for both install buttons above."
         }
     }
 
@@ -204,6 +223,7 @@ class UpdateActivity : ComponentActivity() {
     private fun download() {
         val found = release ?: return
         downloadButton.isEnabled = false
+        systemInstallButton.isEnabled = false
         installButton.isEnabled = false
         shizukuInstallButton.isEnabled = false
         apk = null
@@ -231,6 +251,7 @@ class UpdateActivity : ComponentActivity() {
                     else -> {
                         apk = file
                         say("Downloaded ${found.tag} (versionCode ${facts.versionCode}). Signer matches the installed app.")
+                        systemInstallButton.isEnabled = true
                         installButton.isEnabled = true
                         refreshShizuku()
                     }
@@ -242,8 +263,31 @@ class UpdateActivity : ComponentActivity() {
         }
     }
 
+    private fun installWithSystemInstaller() {
+        val file = apk ?: return
+        if (SystemInstaller.blockedByPolicy(this)) {
+            say(SystemInstaller.POLICY_MESSAGE)
+            return
+        }
+        if (!packageManager.canRequestPackageInstalls()) {
+            say("Turn on \"Install unknown apps\" for Sierra first.")
+            openUnknownSourcesSettings()
+            return
+        }
+        try {
+            systemInstall.launch(SystemInstaller.intent(this, file))
+            say("System installer opened. Confirm on the phone, then reopen Sierra and read the installer record.")
+        } catch (e: Exception) {
+            say("Could not open the system installer: ${e.message ?: e.toString()}")
+        }
+    }
+
     private fun installWithSession() {
         val file = apk ?: return
+        if (SystemInstaller.blockedByPolicy(this)) {
+            say(SystemInstaller.POLICY_MESSAGE)
+            return
+        }
         if (!packageManager.canRequestPackageInstalls()) {
             say("Turn on \"Install unknown apps\" for Sierra first.")
             openUnknownSourcesSettings()
