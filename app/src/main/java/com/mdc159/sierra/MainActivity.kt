@@ -19,6 +19,7 @@ import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.agent.AgentClient
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.net.Http
+import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.studio54.Studio54Activity
 import com.mdc159.sierra.voice.Pcm
 import com.mdc159.sierra.voice.duplex.DuplexSettingsActivity
@@ -159,6 +160,14 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshPermissions()
+        showVaultHints()
+    }
+
+    /** When Studio 54 supplies the base URL and key, say so instead of showing example values. */
+    private fun showVaultHints() {
+        val vault = Studio54.suppliesAgent(this)
+        baseUrl.hint = if (vault) "From Studio 54 vault" else "https://example.com/v1"
+        apiKey.hint = if (vault) "From Studio 54 vault" else "sk-…"
     }
 
     private fun loadConfig() {
@@ -183,14 +192,17 @@ class MainActivity : ComponentActivity() {
     private fun save() {
         val config = currentConfig()
         ConfigStore.save(this, config)
-        val note = if (config.isConfigured) "Saved." else "Saved. Base URL and model are required."
+        val ready = Studio54.agentConfig(this, config).isConfigured
+        val note = if (ready) "Saved." else "Saved. Base URL and model are required."
         Toast.makeText(this, note, Toast.LENGTH_SHORT).show()
     }
 
     /** Saves, then sends a tiny chat request (and a silent clip, if transcription is set). */
     private fun testConnection() {
-        val config = currentConfig()
-        ConfigStore.save(this, config)
+        val typed = currentConfig()
+        ConfigStore.save(this, typed)
+        // Test what Talk will use: the vault's base URL and key replace the typed ones when known.
+        val config = Studio54.agentConfig(this, typed)
         if (!config.isConfigured) {
             testResult.text = "Enter a base URL and model first."
             return

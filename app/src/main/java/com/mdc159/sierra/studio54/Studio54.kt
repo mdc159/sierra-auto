@@ -78,6 +78,13 @@ object Studio54 {
         typed
     }
 
+    /** True when the vault supplies the agent base URL and key, so the typed ones are not used. */
+    fun suppliesAgent(context: Context): Boolean = try {
+        AgentOverlay.isActive(source(context))
+    } catch (e: Exception) {
+        false
+    }
+
     /**
      * Phase 2 hook for the Talk screen's failure path: a 401 from the gateway while the vault
      * supplies the key means the key may have been rotated, so the vault is read again.
