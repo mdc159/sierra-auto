@@ -69,14 +69,20 @@ class ConversationScreen(carContext: CarContext) : Screen(carContext) {
             focus = AndroidFocus(carContext),
             mode = config.mode,
             guardRatio = config.guardRatio,
-            listener = { event -> if (event is DuplexEvent.Ended) lifecycleScope.launch { onEnded(event.reason) } },
+            listener = { event ->
+                when (event) {
+                    is DuplexEvent.Error -> Studio54.onDuplexError(carContext, config.provider, event.message)
+                    is DuplexEvent.Ended -> lifecycleScope.launch { onEnded(event.reason) }
+                    else -> Unit
+                }
+            },
         )
         controller = c
         lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) { c.start() }
             } catch (e: DuplexException) {
-                Studio54.onAgentError(carContext, e)
+                Studio54.onDuplexError(carContext, config.provider, e.message)
                 controller = null
                 failure = e.message ?: "Couldn't start the conversation."
                 invalidate()

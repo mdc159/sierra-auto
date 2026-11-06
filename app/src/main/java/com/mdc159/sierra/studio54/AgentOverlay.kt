@@ -48,5 +48,5 @@ object AgentOverlay {
     fun isUnauthorized(e: Throwable): Boolean =
         e.message?.let { UNAUTHORIZED.containsMatchIn(it) } == true
 
-    private val UNAUTHORIZED = Regex("\\b(?:error|HTTP) 401\\b")
+    private val UNAUTHORIZED = Regex("\\berror 401\\b|refused the connection \\(HTTP 401\\)")
 }

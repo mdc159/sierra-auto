@@ -243,7 +243,10 @@ class DuplexSettingsActivity : ComponentActivity() {
             focus = AndroidFocus(this),
             mode = config.mode,
             guardRatio = config.guardRatio,
-            listener = { event -> runOnUiThread { onEvent(event) } },
+            listener = { event ->
+                if (event is DuplexEvent.Error) Studio54.onDuplexError(this, config.provider, event.message)
+                runOnUiThread { onEvent(event) }
+            },
         )
         controller = c
         Thread({
@@ -254,7 +257,7 @@ class DuplexSettingsActivity : ComponentActivity() {
                     interruptButton.isEnabled = true
                 }
             } catch (e: DuplexException) {
-                Studio54.onAgentError(this@DuplexSettingsActivity, e)
+                Studio54.onDuplexError(this@DuplexSettingsActivity, config.provider, e.message)
                 runOnUiThread {
                     setStatus("Couldn't start: ${e.message}")
                     finished()

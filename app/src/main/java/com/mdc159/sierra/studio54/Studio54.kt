@@ -3,6 +3,8 @@ package com.mdc159.sierra.studio54
 import android.content.Context
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.voice.duplex.DuplexConfig
+import com.mdc159.sierra.voice.duplex.DuplexException
+import com.mdc159.sierra.voice.duplex.DuplexProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -107,6 +109,16 @@ object Studio54 {
         } catch (storeFailure: Exception) {
             // Reporting a failure must never add a second one on the car screen.
         }
+    }
+
+    /**
+     * The duplex failure path, for a failed start and for every `DuplexEvent.Error` (a reconnect
+     * that the gateway refuses arrives only as an Error event). Only OpenAI Realtime uses the
+     * vault's key; an ElevenLabs 401 is about the typed ElevenLabs key and refreshes nothing.
+     */
+    fun onDuplexError(context: Context, provider: DuplexProvider, message: String?) {
+        if (provider != DuplexProvider.OPENAI_REALTIME || message == null) return
+        onAgentError(context, DuplexException(message))
     }
 
     /**

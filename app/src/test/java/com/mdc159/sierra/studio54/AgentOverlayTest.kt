@@ -75,6 +75,7 @@ class AgentOverlayTest {
         assertFalse(AgentOverlay.isUnauthorized(RuntimeException()))
         assertTrue(AgentOverlay.isUnauthorized(DuplexException("The voice service refused the connection (HTTP 401).")))
         assertFalse(AgentOverlay.isUnauthorized(DuplexException("The voice service refused the connection (HTTP 403).")))
+        assertFalse(AgentOverlay.isUnauthorized(DuplexException("ElevenLabs refused the sign-in (HTTP 401).")))
     }
 
     private val gateway = FakeSecrets(
