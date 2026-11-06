@@ -9,6 +9,16 @@ spec.loader.exec_module(profile)
 
 
 class PhoneProfileTest(unittest.TestCase):
+    def test_vault_transport_rejects_public_cleartext_and_url_credentials(self):
+        for url in (None, "http://public.example", "http://192.168.1.2", "ftp://vault.ts.net",
+                    "https://user:secret@vault.ts.net", "https://vault.ts.net?token=secret",
+                    "https://vault.ts.net/other", "https://", "http://100.128.0.1"):
+            with self.subTest(url=url), self.assertRaises(profile.ProfileError):
+                profile.vault_url(url)
+        for url in ("https://vault.example", "http://studio54.ts.net:8080", "http://100.88.239.16:8080",
+                    "http://[fd7a:115c:a1e0::1]:8080"):
+            self.assertEqual(url, profile.vault_url(url + "/"))
+
     def test_alias_cleanup_is_scoped_and_verified(self):
         values = profile.profile_values("https://victoria.ts.net/v1", "test-token")
         class Vault:

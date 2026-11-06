@@ -7,6 +7,7 @@ two Sierra profile entries. It does not enroll identities or change gateway keys
 See docs/MICROPHONE-DIAGNOSTICS.md for deployment and verification.
 """
 import argparse
+import ipaddress
 import json
 import pathlib
 import sys
@@ -16,6 +17,23 @@ import urllib.request
 
 class ProfileError(ValueError):
     """A locally written, credential-free operator message."""
+
+
+def vault_url(value):
+    if not value:
+        raise ProfileError("Studio54 has no vault address; supply --vault-url")
+    url = urllib.parse.urlsplit(value)
+    host = url.hostname or ""
+    tailnet = host.endswith(".ts.net")
+    try:
+        address = ipaddress.ip_address(host)
+        tailnet = any(address in ipaddress.ip_network(net) for net in ("100.64.0.0/10", "fd7a:115c:a1e0::/48"))
+    except ValueError:
+        pass
+    if (not host or url.username is not None or url.password is not None or url.query or url.fragment
+            or url.path.rstrip("/") or not (url.scheme == "https" or (url.scheme == "http" and tailnet))):
+        raise ProfileError("Use an HTTPS vault URL, or HTTP only over Tailscale, without credentials or a path")
+    return value.rstrip("/")
 
 
 def profile_values(base_url, token):
@@ -85,10 +103,8 @@ def main():
         bootstrap.ENV_FILE = str(args.studio54 / ".env")
         import enroll
         env = bootstrap.read_env()
-        bootstrap.INFISICAL = args.vault_url or env.get("INFISICAL_API_URL") or (
-            "http://" + env["BIND_IP"] + ":8080" if env.get("BIND_IP") else None)
-        if not bootstrap.INFISICAL:
-            raise ProfileError("Studio54 has no vault address; supply --vault-url")
+        bootstrap.INFISICAL = vault_url(args.vault_url or env.get("INFISICAL_API_URL") or (
+            "http://" + env["BIND_IP"] + ":8080" if env.get("BIND_IP") else None))
         vault = enroll.AgentVault(env["CONTROLLER_TOKEN"], env["INFISICAL_ORG_ID"])
         created, updated = reconcile(vault, args.project, values)
         print(f"Hermes profile verified: {created} entries created, {updated} updated in {args.project}.")

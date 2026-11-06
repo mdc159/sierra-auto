@@ -272,9 +272,11 @@ class TalkScreen(
                     noSpeechMs = if (diagnosticMode) 20_000 else if (followUp) base.silenceTimeoutMs else base.endpoint.noSpeechMs,
                 ),
         )
-        val input = try { Microphones.forTalk { Microphones.selected(carContext) } } catch (e: Exception) {
-            VoiceDiagnostics.failure(carContext, "Talk microphone setup", e)
-            return setState(State.Failed(e.message ?: "Microphone unavailable. Open Microphone & diagnostics on the phone."))
+        val input = Microphones.forTalk {
+            try { Microphones.selected(carContext) } catch (e: Exception) {
+                VoiceDiagnostics.failure(carContext, "Talk microphone setup", e)
+                throw e
+            }
         }
         val c = ConversationController(
             mic = input,

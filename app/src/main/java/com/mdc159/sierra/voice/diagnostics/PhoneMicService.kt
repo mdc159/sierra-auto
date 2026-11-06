@@ -29,7 +29,12 @@ class PhoneMicService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == STOP) { stopSelf(); return START_NOT_STICKY }
         try {
-            if (!MicSettings.notificationsAllowed(this)) throw DuplexException("Allow notifications so the phone microphone Stop action stays available.")
+            if (!MicSettings.notificationsAllowed(this)) {
+                synchronized(active) { ready = false }
+                VoiceDiagnostics.event(this, "Enable phone microphone", "notifications blocked; Stop action unavailable")
+                stopSelf()
+                return START_NOT_STICKY
+            }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(NotificationChannel(CHANNEL, "Phone microphone", NotificationManager.IMPORTANCE_LOW))
             val open = PendingIntent.getActivity(this, 0, Intent(this, MicDiagnosticsActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)

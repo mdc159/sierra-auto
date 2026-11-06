@@ -67,7 +67,7 @@ class UtteranceRecorder(
     private fun stopMic(asynchronous: Boolean) {
         if (stopClaimed.compareAndSet(false, true)) {
             val close = Runnable {
-                try { mic.stop() } catch (_: Exception) { }
+                try { mic.stop() } catch (e: Exception) { log("mic stop failed: ${e.javaClass.simpleName}") }
                 finally { stopCompleted.complete(Unit) }
             }
             if (asynchronous) Thread(close, "utterance-stop").apply { isDaemon = true; start() }

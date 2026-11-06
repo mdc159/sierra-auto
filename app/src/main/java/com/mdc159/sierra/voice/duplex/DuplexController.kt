@@ -101,7 +101,7 @@ class DuplexController(
 
     private fun stop(reason: String) {
         if (!stopped.compareAndSet(false, true)) return
-        val logReason = reason.takeIf { it in setOf("Stopped", "Audio focus lost", "Microphone closed", "Speaker failed") }
+        val logReason = reason.takeIf { it in setOf("Stopped", "Audio focus lost", "Microphone closed", "Speaker failed", "Microphone failed. See diagnostics on the phone.") }
             ?: "voice service error"
         log("duplex stopped reason=$logReason")
         synchronized(lifecycleLock) { cleanup() }
