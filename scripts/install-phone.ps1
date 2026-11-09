@@ -57,8 +57,9 @@ if ($PSCmdlet.ParameterSetName -eq 'Apk') {
         $Tag = (& gh release view -R $Repo --json tagName -q .tagName)
         if ($LASTEXITCODE -ne 0 -or -not $Tag) { throw "Could not read the latest release of $Repo." }
     }
-    # A fresh folder per tag, outside the repo.
-    $dir = Join-Path ([IO.Path]::GetTempPath()) "sierra-auto-apk\$Tag"
+    # Keep release downloads inside the canonical project, including from worktrees.
+    if ($Tag -notmatch '^[a-zA-Z0-9][a-zA-Z0-9._-]*$') { throw "Release tag is not safe as a folder name: $Tag" }
+    $dir = Get-SierraLocalDirectory -Name "downloads/releases/$Tag"
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     & gh release download $Tag -R $Repo -p 'sierra-auto.apk' -D $dir --clobber
     if ($LASTEXITCODE -ne 0) { throw "Could not download sierra-auto.apk from release $Tag of $Repo." }

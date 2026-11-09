@@ -5,12 +5,14 @@
 #                     (default D:\Projects\android-toolchain)
 #   SIERRA_SERIAL     adb serial of the phone (default: the only device attached)
 #   SIERRA_RUNS       where screenshots, logs and built APKs go
-#                     (default %USERPROFILE%\sierra-auto-runs, outside the repo)
+#                     (default <canonical repo>\.local\runs)
 #   SIERRA_STATE      where the DHU session state lives
-#                     (default %LOCALAPPDATA%\sierra-auto\dhu)
+#                     (default <canonical repo>\.local\state\dhu)
+# Output overrides must remain beneath the canonical repository's .local folder.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '_workspace.ps1')
 
 $SierraPackage = 'com.mdc159.sierra'
 $SierraService = 'com.mdc159.sierra/com.mdc159.sierra.car.SierraCarAppService'
@@ -97,15 +99,11 @@ function Get-InstallRecord {
 }
 
 function Get-RunsDir {
-    $dir = if ($env:SIERRA_RUNS) { $env:SIERRA_RUNS } else { Join-Path $HOME 'sierra-auto-runs' }
-    New-Item -ItemType Directory -Force -Path $dir | Out-Null
-    return (Resolve-Path $dir).Path
+    return Get-SierraLocalDirectory -Name 'runs' -Override $env:SIERRA_RUNS
 }
 
 function Get-StateDir {
-    $dir = if ($env:SIERRA_STATE) { $env:SIERRA_STATE } else { Join-Path $env:LOCALAPPDATA 'sierra-auto\dhu' }
-    New-Item -ItemType Directory -Force -Path $dir | Out-Null
-    return (Resolve-Path $dir).Path
+    return Get-SierraLocalDirectory -Name 'state/dhu' -Override $env:SIERRA_STATE
 }
 
 # The DHU session that dhu.ps1 started, if its processes are still alive.

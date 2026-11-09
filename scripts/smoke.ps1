@@ -7,7 +7,7 @@ Sierra, and save screenshots of Home, Places and Talk with the log.
 .DESCRIPTION
 Runs install-phone.ps1, dhu.ps1 start, opens Sierra on the car screen, then
 captures Home, Places and Talk. Everything goes to a timestamped folder under
-the runs folder (outside the repo):
+the runs folder (canonical repository .local\runs):
 
   home.png, places.png, talk.png   car screen
   launcher.png                     the Android Auto app grid, if it was used

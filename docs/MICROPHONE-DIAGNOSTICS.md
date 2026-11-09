@@ -1,9 +1,8 @@
 # Microphone diagnostics and Hermes on Victoria
 
-The truck microphone worked again during this investigation. Its original failure is
-intermittent and has not been reproduced on the physical truck. Automatic microphone
-selection remains the default. The release adds evidence for the next failure and
-fixes independently reproduced Conversation startup/stop cleanup defects.
+As of **2026-11-08, main `210448b`**: the November 6 investigation reported the truck microphone working again, but the original intermittent failure was not reproduced on demand and is **not proven fixed**. Automatic selection remains default; diagnostics and several startup/stop cleanup fixes are implemented. The November 8 review made no recording, transcription, agent, DHU or truck call. Its A54 inspection saw Automatic, override off, phone service off and “No voice attempt recorded yet” in the current store, not proof of no past testing.
+
+Known source-only failure paths remain: private ElevenLabs signed-URL HTTP cannot be stopped/bounded by the handshake timeout, native mic open/close can block Stop, legacy speaker callbacks can release newer focus, and several encrypted stores still reset on open errors. See [STATUS.md](STATUS.md) and [parked acceptance plan](TRUCK-TEST-PLAN.md).
 
 ## On the phone, without a USB cable
 
@@ -57,7 +56,7 @@ voice engine or imply that every casual realtime exchange invokes Hermes.
 
 Vault entries in the already enrolled `s54-agent-sierra-a54` project:
 
-- `SIERRA_BRIDGE_URL`: `https://victoria.tailfedd3b.ts.net:8443/v1`
+- `SIERRA_BRIDGE_URL`: `https://<bridge-host>.<tailnet>.ts.net:8443/v1`
 - `SIERRA_BRIDGE_TOKEN`: the existing Victoria bridge bearer token
 
 `bridge/deploy/publish_phone_profile.py` owns reconciliation of these two entries.
@@ -65,7 +64,7 @@ Run it on Studio54 with JSON `{"token":"..."}` supplied on stdin from Victoria's
 existing `/etc/sierra-bridge/env`, through an in-memory SSH pipe. Never put the real
 token on a command line, in a file export or in terminal output. The script uses
 Studio54's existing controller and refuses to create a missing phone project.
-It verifies authenticated bridge discovery before publishing. If Studio54's outbound
+It verifies authenticated bridge discovery before publishing. **Unfixed review finding:** its default urllib opener can forward bearer credentials after an off-origin redirect; initial HTTPS/tailnet validation alone does not prevent that. Restrict to trusted endpoints and repair redirect policy before treating verification as a security guarantee. If Studio54's outbound
 tailnet policy prevents the bridge check, run `--check-only` from the operator client
 first, and publish the identical in-memory input with `--client-verified`. Both steps
 are required in that case. No gateway key or enrollment is changed.
@@ -77,14 +76,19 @@ reach Victoria; Studio54's own outgoing connection to Victoria:8443 timed out, s
 operator-client validation path was used. Phone/truck connectivity still depends on
 that device's Tailscale connection.
 
-## Local verification before the pull request
+## Next steps
 
-Use an isolated worktree, not the user's active checkout:
+Bound/cancel private signed-URL HTTP and keep native microphone open/close off the UI Stop path, with stalled-device/HTTP regressions. Preserve settings on store failure and test legacy focus callbacks. Then record a current-build parked phone and truck capture/transcription/agent/speaker/interrupt/recovery chain; retain sanitized diagnostics for the intermittent failure rather than claiming it repaired. [TRUCK-TEST-PLAN.md](TRUCK-TEST-PLAN.md) defines gates.
+
+## Historical local verification before the pull request
+
+Historical development validation commands (not new passes). Root is now current main; use the authorized workspace helper for isolation if needed, never a sibling checkout. Select a fresh versionCode rather than reusing historical 100004:
 
 ```powershell
 .\gradlew.bat --no-daemon testDebugUnitTest assembleDebug lintDebug
-.\gradlew.bat --no-daemon bundleRelease lintRelease -Pplay=true -PversionCode=100004
-python -m unittest discover -s bridge/tests -p test_phone_profile.py
+.\gradlew.bat --no-daemon bundleRelease lintRelease -Pplay=true -PversionCode=<fresh-code>
+# From bridge/, using its project-local .venv:
+uv run --locked python -m unittest discover -s tests -p test_phone_profile.py
 ```
 
 Robolectric uses Android API 35, AndroidX's car FakeHost with PCM microphone input,
@@ -97,8 +101,7 @@ prove the physical phone mic/background capture works on Mike's device. The new
 in-app tests provide that final evidence after the Play update.
 
 Local release bundles use the repo's debug-signing fallback. The existing Play workflow
-uses the protected release signing key and uploads to the internal track after local
-tests and PR checks pass. The phone microphone service declares the microphone
+uses the protected release signing key and manually uploads to the internal track; it builds the bundle but does not itself run the full unit/lint suite. Verify source checks separately. The phone microphone service declares the microphone
 foreground type and permissions, starts only from an explicit visible phone action,
 does not restart on boot, and exposes a Stop notification action.
 

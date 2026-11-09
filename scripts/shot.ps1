@@ -6,14 +6,14 @@ Saves a PNG of the car screen shown by the Desktop Head Unit.
 .DESCRIPTION
 Uses the DHU's own `screenshot` console command when the DHU was started by
 dhu.ps1. Otherwise, or with -Window, it captures the DHU window's client area.
-The window capture reads only the DHU window, never the rest of the desktop.
+The fallback copies the DHU window rectangle; overlapping windows can appear.
 
 .EXAMPLE
 scripts\shot.ps1
 Saves to the runs folder with a timestamped name and prints the path.
 
 .EXAMPLE
-scripts\shot.ps1 -Out C:\tmp\home.png
+scripts\shot.ps1 -Out .local\runs\home.png
 #>
 [CmdletBinding()]
 param(
@@ -27,10 +27,8 @@ param(
 trap { Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red; exit 1 }
 
 if (-not $Out) { $Out = Join-Path (Get-RunsDir) ("shot-{0:yyyyMMdd-HHmmss}.png" -f (Get-Date)) }
-$parent = Split-Path -Parent ([System.IO.Path]::GetFullPath($Out))
-New-Item -ItemType Directory -Force -Path $parent | Out-Null
-$Out = Join-Path (Resolve-Path $parent).Path (Split-Path -Leaf $Out)
-Remove-Item $Out -ErrorAction SilentlyContinue
+$Out = Resolve-SierraOutputFile -Path $Out
+Remove-Item -LiteralPath $Out -ErrorAction SilentlyContinue
 
 $managed = Get-ManagedDhu
 $how = $null

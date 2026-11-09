@@ -12,27 +12,42 @@ phone (Sierra app) --Tailscale--> sierra-bridge --> pi --mode rpc      (Pi codin
 Endpoints: `POST /v1/chat/completions` (plain and `stream: true`), `GET /v1/models`, `GET /health`.
 The **model name in the request selects the adapter**, so one bridge can front several agents.
 
-Standard library only; `pytest` is the sole dev dependency. Python 3.11 or newer, managed with [uv](https://docs.astral.sh/uv/) in a project-local `.venv`. Never run it with the system Python.
+Standard library only; `pytest` is the sole dev dependency. Python 3.11 or newer, managed with [uv](https://docs.astral.sh/uv/) in a project-local `.venv`. Never install dependencies into system Python.
 
-## Safety rules the bridge enforces
+## Verified as-is and next steps — 2026-11-08, main `210448b`
 
-- **Bearer token required.** It comes from `SIERRA_BRIDGE_TOKEN`; the bridge refuses to start without one. Every `/v1` route checks it (constant-time compare). `/health` is public and returns only `{"status": "ok"}`.
+Adapters, auth, plain/SSE routes, speech formatting, logs and Linux service setup exist; this is not a proven reliable/isolation-safe vehicle backend. The review's Linux CI was green. Native Windows suite: **104 tests, 100 passed, 4 failed** (502/504 unreachable fixture expectation, default-encoding UTF-8 log read, two subprocess fixtures omitting `SystemRoot`). `PYTHONUTF8=1` fixed the targeted log test; normal inherited Windows environment passed CLI `--check`, not the whole suite. No paid provider/device/truck calls were run for this docs update.
+
+## Next steps — confirmed unfixed defects
+
+- **P1 conversation identity:** last-reply text is not unique; identical `Okay.` replies can bind one client to another backend session. Android sends no explicit ID. Introduce stable profile/model-scoped client conversation IDs, not reply chaining as isolation.
+- **P1 authenticated redirects:** `urllib.request.urlopen` in OpenAI/Hermes upstream code can forward bearer authorization off-origin (loopback reproduced). `deploy/publish_phone_profile.py` uses the same default behavior after initial URL validation. Disable redirects or enforce same origin without credential forwarding on change.
+- **P1 request framing:** unauthorized requests drain a body first; negative Content-Length can become `read(-1)` (reproduced), and partial positive bodies have no request deadline. Reject/close immediately, validate framing, bound reads/connection resources. Tailnet peers can still reach this boundary.
+- **P2 shutdown:** CLI signal handler calls `shutdown()` on the `serve_forever()` thread and deadlocks (reproduced). Move shutdown to another thread and verify bounded adapter cleanup; the current systemd stop timeout is not graceful-exit evidence.
+- **P2 disconnect:** failed SSE writes can skip `_finish_turn` and logging/bookkeeping (reproduced, #48). Use bounded `finally` cleanup/close generators, tolerate failed error writes.
+- **P2 number meaning:** incremental `The cost is 1.` + `25 dollars.` becomes `1. 25` (reproduced). Defer ambiguous final punctuation; test every split. Plain requests also feed adapter chunks, so this is not SSE-only.
+
+Pi capacity/deadlines, descendants/output limits, incomplete upstream SSE and tool-contract forwarding need further targeted tests; do not call every static concern a reproduced failure. [Project STATUS](../docs/STATUS.md) records evidence and wider defects. November 6 Victoria checks verified a narrow authenticated Hermes/profile response, not a completed current-build phone/truck conversation. No application fixes are claimed here.
+
+## Implemented controls (with the limitations above)
+
+- **Bearer token required.** It comes from `SIERRA_BRIDGE_TOKEN`; the bridge refuses to start without one. Supported non-health routes check it (constant-time compare). `/health` and `/v1/health` are public and return only `{"status": "ok"}`; the rejection/body-drain path still has the framing defect above.
 - **Binds to localhost by default.** Set `[server] host` to the machine's Tailscale IP, or keep loopback and publish with `tailscale serve` (below). Never expose it on a public interface.
-- **Per-request timeout** (`timeout_seconds`, default 120, per model override). A timed-out CLI is killed, a timed-out Pi turn is aborted, and the phone gets HTTP 504.
+- **Adapter-turn timeout** (`timeout_seconds`, default 120, per model override) is propagated to adapters and checked between chunks. CLI/Pi timeout paths attempt kill/abort and HTTP 504. This is not a total request-body/queue/process-descendant deadline guarantee; auth-body and capacity gaps remain.
 - **No request text ever reaches a shell.** Commands and arguments come only from the config file (`shell=False`). The question travels on stdin (command adapter) or inside a JSON record (Pi). The conversation id goes in an environment variable.
-- **The agent behind `pi` or `command` is not so constrained.** It receives the driver's words and runs with whatever autonomy its own flags grant (the example passes `--no-approve` to Pi; `claude -p` runs its tools), as the bridge's user, in `cwd`. Keep that user and directory disposable: a dedicated service account, a checkout you can throw away, no production credentials in its environment.
-- **Replies are trimmed for speech** (`speech_max_chars`, default 600) at a sentence boundary, with markdown, code blocks and URLs stripped. The **full reply is kept** in `log_file` as JSONL, with the user text, model, conversation id and timing.
+- **The agent behind `pi` or `command` is not so constrained.** It receives the driver's words and runs with whatever autonomy its own flags/settings grant (example CLI flags must be checked against the installed version), as the bridge's user, in `cwd`. Keep that user and directory disposable: a dedicated service account, a checkout you can throw away, no production credentials in its environment.
+- **Replies are formatted/trimmed for speech** (`speech_max_chars`, default 600), including Markdown/code/URL cleanup. Incremental boundary handling can change numbers as above; it is not yet meaning-invariant. Full-reply JSONL includes user text/model/conversation/timing on normal completion; disconnected streams can miss final logging. Treat logs as private content, not diagnostic-redacted data.
 - **Upstream keys come from the environment** (`api_key_env = "NAME"`), never from the config file.
-- Request bodies over `max_body_bytes` (1 MB) are rejected.
+- Normal authenticated JSON reads reject declared bodies above `max_body_bytes` (1 MB). Unauthorized drains/framing/resource limits are not safely bounded yet; do not describe this as a universal body limit.
 
 ## Quick start (any machine)
 
 ```sh
 cd bridge
-uv sync                                  # creates .venv with pytest
+uv sync --locked                         # creates project-local .venv with pytest
 cp bridge.example.toml bridge.toml       # edit: pick your models
-export SIERRA_BRIDGE_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
-echo "$SIERRA_BRIDGE_TOKEN"              # this is the API key you type into the phone
+export SIERRA_BRIDGE_TOKEN="$(uv run --locked python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+# Deliver the token through an approved secret channel; never echo/log it.
 uv run sierra-bridge --config bridge.toml --check   # validates config and token
 uv run sierra-bridge --config bridge.toml
 ```
@@ -46,7 +61,9 @@ curl -s http://127.0.0.1:8787/v1/chat/completions \
   -d '{"model":"pi","messages":[{"role":"user","content":"What does the oil life monitor actually measure?"}]}'
 ```
 
-Run the tests with `uv run pytest`. CI runs them in `.github/workflows/bridge.yml` on every push that touches `bridge/`.
+Run offline tests from `bridge/` with `uv run --locked pytest -q`. `.github/workflows/bridge.yml` exercises Linux on relevant pushes. Native Windows failures listed above remain explicit; no new run is implied by this reference.
+
+For this Windows workspace keep all run logs/results under canonical `D:\Projects\sierra-auto\.local\runs`, reviews under `.local/reviews`, local downloads under `.local/downloads`. Use each project's `.venv`; do not copy keys into those artifact directories. Linux service paths below are deployment examples on the service host, not destinations for this project's consolidation output.
 
 ## Configuration
 
@@ -80,7 +97,7 @@ The chat completions API is stateless, so the bridge works out which conversatio
 2. Otherwise, the last assistant message in the request is matched against replies the bridge sent earlier. Sierra sends the reply it got back on the next turn, so this survives Sierra's rolling six-turn window.
 3. Otherwise a new conversation starts.
 
-The id is the Pi session id, the Hermes `X-Hermes-Session-Id`, and `SIERRA_CONVERSATION_ID` for commands. Entries expire after `conversation_ttl_seconds` (6 hours).
+The id selects the derived Pi session, Hermes `X-Hermes-Session-Id` and command `SIERRA_CONVERSATION_ID`; reply registry entries expire after `conversation_ttl_seconds` (6 hours). **The fallback reply-text matcher can collide across clients/models** and is not an isolation boundary. Explicit IDs must be client/session/profile scoped; Android integration of those IDs remains next work.
 
 ## Adapters
 
@@ -103,7 +120,7 @@ The bridge starts `pi --mode rpc --session-dir <dir> --session-id <uuid5 of the 
 
 Protocol references (read 2026-11-05): `packages/coding-agent/docs/rpc.md`, `rpc-commands.md`, `json.md`, `cli.md` and `sessions.md` in <https://github.com/earendil-works/pi>. Install Pi with `npm install -g --ignore-scripts @earendil-works/pi-coding-agent` (Node 22.19+), run `pi` once interactively in `cwd` to set the provider and model, and check `pi --help` on the installed version: the flag names above are from the docs at that date and the bridge has only been exercised against a fake Pi that speaks the documented protocol.
 
-Trust: non-interactive modes do not prompt for project trust and use `defaultProjectTrust` from Pi's settings. `--no-approve` ignores trust-gated project-local config (safer), `--approve` trusts it.
+The flag/trust interpretation above is historical version-specific reference, not a validated current Pi deployment contract. Check the actual installed binary/settings and least-privilege working directory before enabling tools; do not treat `--no-approve` as a sandbox.
 
 ### `hermes`: Hermes Agent API server
 
@@ -119,7 +136,7 @@ session_header = true            # default; sends X-Hermes-Session-Id = conversa
 
 On the Hermes machine, per its docs (`website/docs/user-guide/features/api-server.md`), put `API_SERVER_ENABLED=true` and `API_SERVER_KEY=<key>` in `~/.hermes/.env`, optionally `API_SERVER_HOST=0.0.0.0` (or the Tailscale IP) and `API_SERVER_PORT=8642`, then run `hermes gateway`. The server is OpenAI-compatible: `/v1/chat/completions` with streaming, `/v1/models`, `/v1/responses`. If Hermes is on the same box as the bridge, the Sierra app can skip the bridge and point at Hermes directly; the bridge still adds speech trimming, the full-reply log and the single token for several agents.
 
-**Unverified:** this adapter has been tested only against a fake server that reproduces the documented behaviour (SSE with `: keepalive` comments and `hermes.tool.progress` events). Whether Hermes de-duplicates the replayed history when `X-Hermes-Session-Id` is set is not confirmed; if follow-up answers come back doubled, set `session_header = false`.
+Fake tests cover SSE keepalive/progress formatting. A November 6 authenticated Victoria/profile call returned HTTP 200 and “Hermes on Victoria is ready”; this is narrower than general provider/API or current phone/truck acceptance. Whether Hermes de-duplicates the replayed history when `X-Hermes-Session-Id` is set is not confirmed; if follow-up answers come back doubled, set `session_header = false`.
 
 ### `command`: any CLI agent
 
@@ -148,7 +165,7 @@ model = "gpt-4.1-mini"      # upstream model name; defaults to this entry's name
 # headers = { X-Extra = "..." }
 ```
 
-Forwards the messages, `temperature`, `top_p`, `max_tokens`, `max_completion_tokens` and `stop`, streams when asked, and rewrites the model name in the reply to the bridge's name.
+Forwards messages and selected generation fields (`temperature`, `top_p`, `max_tokens`, `max_completion_tokens`, `stop`), streams when asked and returns the bridge model name. **Not a complete OpenAI tool proxy:** top-level tool schemas/choice and arbitrary contracts are not passed through; verify expectations before assuming phone-side tool calls survive this route.
 
 ## Deployment on a Linux VPS, reachable only over Tailscale
 

@@ -5,7 +5,8 @@ Builds a pull request, runs its unit tests and installs it on the phone over
 the existing Sierra.
 
 .DESCRIPTION
-Fetches the PR head into a throwaway git worktree outside the repo, then:
+Fetches the PR head into a temporary worktree under the canonical repo's
+.worktrees folder, then:
 
   1. assembleDebug testDebugUnitTest      (no signing keys in the environment)
   2. assembleRelease                       (signed with the local release key)
@@ -20,8 +21,11 @@ SIGNING_KEY_PASSWORD. They come from %USERPROFILE%\.config\sierra-auto
 (release.jks and signing.env) and exist only inside the Gradle process for
 step 2. They are never printed.
 
-The build uses the versionCode already on the phone, so the PR build installs
-over it and the next real release still installs over the PR build.
+The build uses the versionCode already on the phone. Installation also requires
+a compatible signing certificate. Returning to a release requires a compatible
+certificate and a versionCode at least this high: the GitHub APK and Play tracks
+use different sequences, so the latest GitHub APK may be a downgrade. Prefer the
+enrolled Play channel for normal updates; do not uninstall to bypass a downgrade.
 
 SECURITY: a build runs the PR's own Gradle scripts on this PC, and step 2 runs
 them with the signing passwords in the environment. The script refuses a PR
@@ -64,8 +68,8 @@ function Invoke-Gradle {
     } finally { Pop-Location }
 }
 
-$repoRoot = (& git -C $PSScriptRoot rev-parse --show-toplevel).Trim()
-if (-not $repoRoot) { throw "scripts\ is not inside a git checkout." }
+$repoRoot = Get-SierraRoot
+Test-SierraWorkspace
 
 # 1. What is this PR?
 $pr = & gh pr view $Number -R $Repo --json number,title,state,headRefName,headRefOid,isCrossRepository,author | ConvertFrom-Json
@@ -101,22 +105,19 @@ if ($record) {
     Write-Note "Sierra is not on the phone; building with versionCode $versionCode (latest release $tag)."
 }
 
-# 4. Throwaway worktree, outside the repo.
+# 4. Unique temporary worktree beneath the canonical repository.
 $short = $pr.headRefOid.Substring(0, 7)
-$workRoot = Join-Path ([IO.Path]::GetTempPath()) 'sierra-auto-pr'
-$work = Join-Path $workRoot "pr-$Number-$short"
+$workName = "pr-$Number-$short-$([guid]::NewGuid().ToString('N').Substring(0,8))"
 $outDir = Join-Path (Get-RunsDir) ("pr-$Number-$short-{0:yyyyMMdd-HHmmss}" -f (Get-Date))
-New-Item -ItemType Directory -Force -Path $workRoot, $outDir | Out-Null
+New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $log = Join-Path $outDir 'gradle.log'
 
-Write-Step "Fetching PR #$Number into $work"
+Write-Step "Fetching PR #$Number for .worktrees\$workName"
 & git -C $repoRoot fetch --quiet origin "pull/$Number/head"
 if ($LASTEXITCODE -ne 0) { throw "git fetch of pull/$Number/head failed." }
 $fetched = (& git -C $repoRoot rev-parse FETCH_HEAD).Trim()
 if ($fetched -ne $pr.headRefOid) { Write-Note "Note: fetched $($fetched.Substring(0, 7)), GitHub reported $short. Building what was fetched." }
-if (Test-Path $work) { & git -C $repoRoot worktree remove --force $work 2>$null; Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue }
-& git -C $repoRoot worktree add --quiet --detach $work $fetched
-if ($LASTEXITCODE -ne 0) { throw "git worktree add failed." }
+$work = New-SierraWorktree -Name $workName -Ref $fetched -Detach
 
 $ok = $false
 try {
@@ -173,16 +174,15 @@ try {
         Write-Step "Step 3 of 3: installing on the phone"
         & (Join-Path $PSScriptRoot 'install-phone.ps1') -Apk $apk -Serial $Serial
         if ($LASTEXITCODE -ne 0) { throw "Install failed." }
-        Write-Note "The phone now runs PR #$Number ($short) under version name 0.1.$versionCode. Run install-phone.ps1 to go back to the latest release."
+        Write-Note "The phone now runs PR #$Number ($short) under version name 0.1.$versionCode. Return through the appropriate release channel with a compatible signer and versionCode >= $versionCode; the latest GitHub APK may be older than this Play-derived version. See docs/UPDATES.md."
     }
     $ok = $true
 } finally {
-    if ($Keep) {
-        Write-Note "Worktree kept at $work (remove with: git worktree remove --force `"$work`")"
+    if ($Keep -or -not $ok) {
+        Write-Note "Worktree kept at $work (after preserving evidence, remove with: scripts\workspace.ps1 remove -Name $workName)"
     } else {
-        & git -C $repoRoot worktree remove --force $work 2>$null
-        Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
-        & git -C $repoRoot worktree prune
+        try { Remove-SierraWorktree -Path $work }
+        catch { Write-Warning "Build completed; worktree retained for inspection: $($_.Exception.Message)" }
     }
 }
 if ($ok) { Write-Host ""; Write-Host "Done. Output folder: $outDir" }

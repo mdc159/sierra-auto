@@ -12,3 +12,7 @@ captures/
 *.apk
 *.p12
 .kotlin/
+
+# All project-local worktrees and private/generated evidence stay here.
+/.worktrees/
+/.local/

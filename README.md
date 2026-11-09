@@ -1,38 +1,135 @@
 # Sierra Auto
 
-A personal Android Auto app that puts my own agent on the screen of my 2018 GMC Sierra Denali.
+Sierra is a personal Android Auto application for a 2018 GMC Sierra Denali and
+Samsung Galaxy A54. It combines an agent conversation interface, nearby places,
+voice diagnostics and read-only vehicle data. The Android app is Kotlin; the
+optional Python bridge connects it to existing agents.
 
-The enrolled phone updates through **Google Play internal testing**. GitHub APK releases remain available for development; use the Play build for the truck. See [microphone diagnostics and Hermes setup](docs/MICROPHONE-DIAGNOSTICS.md) for cable-free testing and the Victoria agent connection.
+## As is
 
-See [`docs/PLAN.md`](docs/PLAN.md).
+Reviewed **2026-11-08**, application baseline **`210448b`**. This is an internal
+testing application with working build/distribution infrastructure. Reliable
+end-to-end operation in the truck has not yet been established by the current
+evidence. Workspace and documentation updates do not fix the application defects
+recorded in [project status](docs/STATUS.md).
 
-## Install
+| Area | Implemented | Remaining acceptance or integration |
+| --- | --- | --- |
+| Android Auto | Home, Places, Talk, History, Truck/Codes, Mic test, Conversation | Current build on the actual head unit; host acceptance and audio routing |
+| Places | OpenStreetMap providers, host-drawn map, navigation handoff | Stale-location handling and reporting actual handoff failures |
+| Agent and voice | OpenAI-compatible chat/tools, transcription, spoken replies, follow-ups, separate duplex Conversation flow | Failure/cancellation paths, real microphone/echo/barge-in tests |
+| Backend connection | Model gateway or Sierra bridge selection; Studio54 overlay; Hermes connection | Bridge security, conversation identity, disconnect and shutdown findings |
+| Vehicle data | Demo/live standard OBD, classic Bluetooth/BLE transports, read allowlist, GM reader/catalog code | Real adapter/ECU evidence; GM live-screen integration; vehicle voice tools and alerts |
+| Distribution | Signed GitHub development APKs and Google Play internal testing | Correct Play install provenance and truck visibility on the enrolled phone |
 
-1. On the enrolled phone, update **Sierra** in Google Play. New testers need the existing internal-testing opt-in link from the developer account; this is not a public production listing. Development APKs are available separately at <https://github.com/mdc159/sierra-auto/releases/latest>.
-2. Open **Sierra** on the phone. Grant location and microphone permission.
-3. For the configured Victoria agent, keep Tailscale connected and tap **Connect to Hermes on Victoria**. Studio54 supplies the credentials. To use another endpoint, enter the settings and tap **Test connection**:
-   - **Base URL**: any OpenAI-compatible endpoint. `https://host`, `https://host/v1` and the full `/chat/completions` URL all work.
-   - **API key** and **Model**.
-   - **Transcription URL** (optional): an OpenAI-compatible `/v1/audio/transcriptions` endpoint. When it is set, Sierra records with the car microphone. When it is blank, Sierra uses the phone's speech recognizer.
+The last reviewed GitHub release was **v0.1.110**; the connected phone had the
+**0.1.100005 Play-variant build**. These use different version-code sequences.
+The phone opened successfully, but this review did not perform a live agent turn,
+record audio or test the truck. Android reported Play as installer and shell as
+initiator; real head-unit acceptance still needs checking.
 
-   Settings are stored encrypted on the phone. No key ever goes in this repo.
+Validation at the same application baseline: Android build/unit tests/lint passed
+(569 tests: 567 passed, 2 live tests skipped; 0 lint errors, 124 warnings).
+The native-Windows bridge suite had 100 passes and 4 failures; Linux CI was green.
+See [status and evidence](docs/STATUS.md) and [testing](docs/TESTING.md) for scope,
+known defects and commands. A successful build is not truck acceptance.
 
-   Plain `http://` is allowed only for `*.ts.net` (a Tailscale network), `localhost`, `127.0.0.1` and the emulator alias `10.0.2.2`. Every other endpoint must be `https://`.
-4. Optional, for the idea loop: tap **Idea settings** and paste a fine-grained GitHub token (repository access: only `sierra-auto`; permission: Issues, read and write). **Test token** checks it without creating anything.
-5. Plug into the truck and open **Sierra** in Android Auto.
+## Use it
 
-## On the truck screen
+1. On the enrolled phone, update Sierra through **Google Play internal testing**.
+   New testers need the existing developer-account opt-in invitation; this is not
+   a public production listing. [GitHub APK releases](https://github.com/mdc159/sierra-auto/releases/latest)
+   are available for development, with installation limitations documented in
+   [updates](docs/UPDATES.md) and [testing](docs/TESTING.md).
+2. Open Sierra on the phone and grant microphone/location permissions as needed.
+   For the configured Hermes agent, connect Tailscale and use **Connect to Hermes
+   on Victoria** with the Studio54 settings. This configures the existing agent
+   route; it does not prove backend health. Other OpenAI-compatible endpoints can
+   be configured and checked with **Test connection**.
+3. Use [microphone diagnostics](docs/MICROPHONE-DIAGNOSTICS.md) to verify capture
+   before relying on Talk. Configure Bluetooth access separately for live OBD.
+4. Follow the [user guide](docs/USER-GUIDE.md) and [parked truck test plan](docs/TRUCK-TEST-PLAN.md).
 
-- **Talk**: speak, and Sierra transcribes the question, asks the agent, shows a short reply and reads it aloud. Use **Ask again** for a follow-up; Sierra keeps the last few turns. The agent has tools, so speaking does things: "find gas nearby" searches the Places sources and reads back the nearest; "take me to the Shell" hands off to Google Maps; "file an idea: …" opens a GitHub issue labelled `idea-voice` (needs a token, see **Idea settings** on the phone; add the `idea` label yourself to hand it to the cloud agent). While a tool runs, the screen says what it is doing ("Finding fuel nearby…"). Endpoints that do not support OpenAI tool calling still work as plain chat.
-- **Places**: Fuel, Food, Rest areas and Parking near you on a host-drawn map. Pick one, then **Navigate** hands off to Google Maps. Results come from OpenStreetMap (Nominatim, with Overpass as a fallback).
-- **History**: recent questions and answers. Tap one to hear it again.
+Credentials stay in encrypted phone settings, Studio54 or existing machine secret
+storage. Do not put keys, tokens, keystores or private diagnostic captures in Git.
 
-## Build
+## Work in this repository
 
+**Canonical Windows root: `D:\Projects\sierra-auto`.** All Sierra Auto source
+checkouts, local evidence and experiments belong under this folder. Use the main
+checkout for ordinary work; create a temporary worktree only when isolation or
+simultaneous work requires one.
+
+```text
+app/                    Android app and JVM/Robolectric tests
+bridge/                 Python HTTP bridge, adapters, deployment examples and tests
+docs/                   Current status, operating guides, reference and next steps
+scripts/                Windows device/build/workspace commands
+tools/voice-probe/       Voice-provider diagnostic utility
+.worktrees/             Ignored, temporary linked worktrees
+  install-record/       Preserved unmerged installer experiment
+.local/                 Ignored, local-only evidence and state
+  reviews/              Code review and device inspection evidence
+  runs/                 Build/device results and retired-worktree evidence
+  state/dhu/            Desktop Head Unit session state
+  downloads/releases/   Development APK downloads
+  archive/              Recovery bundle, migration manifest, older integration files
 ```
-./gradlew assembleDebug testDebugUnitTest
+
+```powershell
+pwsh -File scripts/workspace.ps1 check
+pwsh -File scripts/workspace.ps1 list
+# Only if a second checkout is needed:
+pwsh -File scripts/workspace.ps1 new -Name voice-fix -Branch fix/voice -Ref main
+# After preserving/committing source changes:
+pwsh -File scripts/workspace.ps1 remove -Name voice-fix
 ```
 
-You need JDK 17 and the Android SDK (platform 36). CI (`.github/workflows/build.yml`) builds and tests every PR. On every push to `main` it also builds a signed release APK and publishes it as Release `v0.1.<run>`.
+The helper rejects out-of-root paths and changed worktrees, preserves build
+evidence and a recovery commit reference, and never force-removes work. Read
+[AGENTS.md](AGENTS.md) and [workspace rules and consolidation record](docs/WORKSPACE.md)
+before creating a checkout or running old scripts. `.local` and `.worktrees` are
+not uploaded by Git; the local recovery archive is not an off-machine backup.
 
-To run the optional live API tests, set `SIERRA_LIVE_BASE_URL`, `SIERRA_LIVE_API_KEY` and `SIERRA_LIVE_MODEL`. For the transcription test, also set `SIERRA_LIVE_STT_MODEL` and `SIERRA_LIVE_TTS_MODEL`. When these are unset, the live tests are skipped.
+## Build and check
+
+Use PowerShell 7, Git, JDK 17 and Android SDK platform 36. The shared toolchain on
+this PC remains at `D:\Projects\android-toolchain`.
+
+```powershell
+$env:JAVA_HOME = 'D:\Projects\android-toolchain\jdk-17'
+$env:ANDROID_HOME = 'D:\Projects\android-toolchain\android-sdk'
+$env:GRADLE_USER_HOME = 'D:\Projects\android-toolchain\gradle-user-home'
+.\gradlew.bat --no-daemon assembleDebug testDebugUnitTest lintDebug
+pwsh -File scripts/test-workspace.ps1
+```
+
+For the bridge, use a project-local virtual environment:
+
+```powershell
+Set-Location bridge
+uv sync --locked
+uv run --locked pytest -q
+```
+
+The four known Windows bridge test failures are documented in
+[bridge/README.md](bridge/README.md); do not report that suite as fully passing.
+Optional Android live API tests require explicit `SIERRA_LIVE_*` configuration
+and can contact paid services. Ordinary validation leaves those unset.
+
+## Next steps
+
+1. Fix the reviewed security/data-boundary problems: idea workflow triggering,
+   destructive credential-store recovery, authenticated redirects, bridge
+   conversation identity and request-body handling.
+2. Repair bridge shutdown/stream cleanup and numerical speech formatting;
+   resolve the four Windows test failures and device-smoke false-pass cases.
+3. Verify Play installation provenance, microphone selection, Talk and duplex
+   behavior on the actual phone/head unit using recorded acceptance checks.
+4. Complete reliable OBD reconnect/no-data semantics, test the physical adapter,
+   then connect GM readings and read-only vehicle tools to the agent.
+
+The authoritative work order is [PLAN.md](docs/PLAN.md). Start with
+[STATUS.md](docs/STATUS.md) for evidence, [ARCHITECTURE.md](docs/ARCHITECTURE.md)
+for code boundaries, and [docs/lanes/README.md](docs/lanes/README.md) for the
+historical assignments and their present disposition.

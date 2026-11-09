@@ -21,9 +21,9 @@ the phone locked.
 .EXAMPLE
 scripts\car-logs.ps1
 .EXAMPLE
-scripts\car-logs.ps1 -Dump -Since '11-04 18:00:00.000' -Out C:\tmp\car.log
+scripts\car-logs.ps1 -Dump -Since '11-04 18:00:00.000' -Out .local\runs\car.log
 .EXAMPLE
-scripts\car-logs.ps1 -HostDump -Out C:\tmp\android-auto-dump.txt
+scripts\car-logs.ps1 -HostDump -Out .local\runs\android-auto-dump.txt
 #>
 [CmdletBinding()]
 param(
@@ -39,6 +39,8 @@ param(
 
 . (Join-Path $PSScriptRoot '_common.ps1')
 trap { Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red; exit 1 }
+
+if ($Out) { $Out = Resolve-SierraOutputFile -Path $Out }
 
 $Serial = Get-PhoneSerial -Serial $Serial
 $tags = @('CAR.VALIDATOR', 'GH.AppNotifier', 'GH.ConnLoggerV2')
@@ -59,7 +61,8 @@ if ($VerboseTags -or $ResetTags) {
 if ($HostDump) {
     $hostLines = Invoke-Adb $Serial 'shell', 'dumpsys', 'activity', 'service', $GearheadPackage -AllowFail
     if (-not $Out) { $Out = Join-Path (Get-RunsDir) ("android-auto-dump-{0:yyyyMMdd-HHmmss}.txt" -f (Get-Date)) }
-    Set-Content -Path $Out -Value $hostLines
+    $Out = Resolve-SierraOutputFile -Path $Out
+    Set-Content -LiteralPath $Out -Value $hostLines
     $state = Get-CarState -Serial $Serial
     Write-Note "Connected: $($state.Connected). On screen: $($state.Foreground). Unknown sources: $($state.UnknownSources)."
     Write-Note "Validator lines naming Sierra: $(@($hostLines | Where-Object { $_ -match 'CAR\.VALIDATOR' -and $_ -match 'mdc159' }).Count)"

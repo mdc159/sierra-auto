@@ -6,6 +6,8 @@
 **Network baseline:** 82 to 99 ms per round trip to the gateway on an open connection, 170 to 210 ms for the first request on a new one
 **Probe scripts and raw results:** `tools/voice-probe/` (every number below is in `tools/voice-probe/results/*.json` unless marked otherwise)
 
+**Historical evidence, reconciled 2026-11-08 against main `210448b`:** these measurements and raw JSON are retained as November 4 desktop/synthetic-audio observations, not a fresh provider/account audit or current phone/truck acceptance. Current Talk/duplex wiring is described in [VOICE.md](VOICE.md) and [DUPLEX.md](DUPLEX.md); old lane proposals do not establish current behavior. No probes were rerun for this docs update. [STATUS.md](STATUS.md) covers known defects, including the Python bridge's independent decimal-at-chunk-boundary bug (not fixed merely because these probe splitters were tightened).
+
 Everything here is measured unless it is marked **inferred** or **not tested**. Sample sizes are small (one to ten calls per cell), so read the numbers as ranges, not averages. All times are milliseconds on the client's clock, from sending the request.
 
 ---
@@ -22,7 +24,7 @@ Everything here is measured unless it is marked **inferred** or **not tested**. 
 | ElevenLabs directly? | Streams for real: first audio byte in 0.18 to 0.40 s (`eleven_flash_v2_5`). Speech-to-text (`scribe_v2`) in 0.36 to 0.84 s. |
 | Best end-to-end delay? | Realtime through the gateway: about 1.1 to 1.3 s from end of speech. Turn-based with ElevenLabs for ears and voice: 1.2 to 1.9 s after the app decides the turn is over. Turn-based on the gateway alone: 2.7 to 5.2 s. |
 
-## 2. Recommended defaults
+## 2. Historical probe recommendations (not current app defaults)
 
 ### Lowest delay
 
@@ -34,15 +36,15 @@ Everything here is measured unless it is marked **inferred** or **not tested**. 
    - Measured from "clip complete" to first audio byte: 1228 and 1354 ms (3.5 s question), 1897 ms (14 s question).
 3. **Turn-based on the gateway alone** (no ElevenLabs): `openai/gpt-4o-mini-transcribe`, `groq/openai/gpt-oss-120b`, `openai/gpt-4o-mini-tts` with `response_format=pcm`, one request per sentence. Measured, across both gateway speech-to-text models, 2742 to 4262 ms on the short question and 4291 to 5170 ms on the long one, plus one 13.9 s run caused by a stalled chat stream.
 
-### Best voice quality
+### Historical voice-quality hypotheses (not measured)
 
 Voice quality is a listening judgment and was **not measured**; this ranking is **inferred** from the vendors' own descriptions plus the latency measured here.
 
-1. ElevenLabs `eleven_v4_turbo`: ElevenLabs calls it its most expressive real-time model. First byte 216, 269 and 320 ms, and it streams (19.4 s of audio delivered over 3.1 s). This is the pick for a conversation.
+1. ElevenLabs `eleven_v4_turbo`: ElevenLabs calls it its most expressive real-time model. First byte 216, 269 and 320 ms, and it streams (19.4 s of audio delivered over 3.1 s). That was a research hypothesis, not a comparative listening result or present recommendation.
 2. ElevenLabs `eleven_v4`: described as its highest quality model. First byte 494 ms (one run). Fine for longer read-outs.
 3. Gateway only: `openai/gpt-4o-mini-tts` (accepts an `instructions` field for tone, not tested here), at 1.0 to 1.7 s per sentence. The realtime voices (`marin` on `openai/gpt-realtime-2.1`) are the other gateway option.
 
-### What this means for lane G (voice)
+### Historical implementation recommendations from these probes
 
 - The "gateway `/v1/audio/speech` with streamed playback" speech output cannot start speaking before the whole file arrives. Sentence-level chunking is required, not optional, and each sentence still costs about a second. Request sentence N+1 while sentence N plays.
 - Ask for `response_format=pcm` (raw 24 kHz, 16-bit, mono, little-endian; the rate is **inferred** from OpenAI's documentation and the byte counts) and write it straight to an `AudioTrack`. Sniff the first four bytes: Gemini models can return a WAV file (`RIFF`) when asked for pcm.
@@ -166,7 +168,7 @@ Every model that answered the tool request returned `find_places` with valid JSO
 - `groq/openai/gpt-oss-120b` was the steadiest. In the pipeline runs its time from request to first sentence was 415 to 1198 ms in 17 of 18 runs; the other run stalled mid-sentence for about 9 s (first token on time, first sentence 8.9 s later).
 - `xai/grok-4.20-non-reasoning` is as fast when it is fast, but 7 of its 21 calls across all runs took 2.5 to 8.2 s to produce a first token. The gateway's own overhead in those calls was under 40 ms, so the wait was upstream.
 - `"reasoning_effort": "low"` (results in `04_chat_effort_low.json`, taken while the network was unsettled): `gpt-oss-120b` 438 and 598 ms to first token but an **empty reply with no tool call** on the tool request; `gpt-6-luna` 1455 and 1403 ms; `gpt-5.4-nano` 1051 and 778 ms. Leave reasoning effort at its default for `gpt-oss-120b`.
-- Gemini through this gateway was unreliable tonight: two of the four chat models tried never returned a normal answer.
+- Gemini through this gateway was unreliable in that November 4 run: two of the four chat models tried never returned a normal answer.
 - The gateway reported 2 to 40 ms of its own overhead per call (`x-litellm-overhead-duration-ms`; 48 of 49 calls, the other reported a negative value).
 
 ## 6. Realtime through the gateway
@@ -295,7 +297,7 @@ The first runs used `xai/grok-4.20-non-reasoning` for chat (`07_pipeline.json`).
 | Turn-based, gateway ears and chat, ElevenLabs voice | 1628 to 1897 ms | same | about 2.1 to 2.7 s |
 | Turn-based, all gateway | 2742 to 4262 ms | same | about 3.2 to 5.1 s |
 
-From the truck every figure will be higher: the phone reaches the gateway over a mobile connection through Tailscale, and each stage is at least one round trip. The size of that addition is **not measured**; a guess is 100 to 300 ms per stage on LTE (**inferred**). Playback start (audio focus, `AudioTrack` buffer) is also outside these numbers.
+Truck timings may differ substantially: the phone may reach the gateway over mobile data through Tailscale, with different connection reuse and routing. No guaranteed latency ordering follows from these PC samples. The size of that addition is **not measured**; a guess is 100 to 300 ms per stage on LTE (**inferred**). Playback start (audio focus, `AudioTrack` buffer) is also outside these numbers.
 
 ## 9. What failed, with the exact errors
 
@@ -312,6 +314,10 @@ From the truck every figure will be higher: the phone reaches the gateway over a
 | `groq/openai/gpt-oss-120b` with `"reasoning_effort": "low"` and tools | 200, but an empty reply and no tool call (one of one). |
 | `openai/tts-1`, one short request | 4732 ms to first byte against about 1000 ms otherwise. |
 | `groq/openai/gpt-oss-120b`, one pipeline run | Stream stalled about 9 s mid-sentence. |
+
+## Next steps
+
+Keep the historical sample data; do not treat it as current account/model availability or a production latency SLA. Any authorized minimal rerun should preserve old JSON, record exact model/options/network/cost and use project-local uv. Add actual human/phone/truck tests separately, including echo, interruption, focus and recovery. Test production sentence formatting across every split position; the probe splitter does not fix the bridge's independent decimal bug. Current Talk waits for full chat replies, so this streaming-probe pipeline is not a direct measurement of app behavior.
 
 ## 10. Coverage and limits
 

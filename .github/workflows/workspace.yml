@@ -1,0 +1,45 @@
+name: workspace
+
+on:
+  pull_request:
+    paths: ['scripts/**', '.gitignore', '.github/workflows/workspace.yml']
+  push:
+    branches: [main]
+    paths: ['scripts/**', '.gitignore', '.github/workflows/workspace.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-workspace:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $problems = @()
+          Get-ChildItem scripts -Filter '*.ps1' | ForEach-Object {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+            $problems += @($parseErrors)
+          }
+          if ($problems.Count) { $problems | Format-List; throw 'PowerShell parse errors' }
+      - name: Check workspace and exercise safe lifecycle
+        shell: pwsh
+        run: |
+          ./scripts/workspace.ps1 check
+          ./scripts/test-workspace.ps1
+      - name: Upload workspace test summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-test-summary
+          path: .local/tests/workspace-*/result.txt
+          include-hidden-files: true
+          if-no-files-found: ignore

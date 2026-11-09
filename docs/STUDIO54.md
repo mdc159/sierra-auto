@@ -1,10 +1,10 @@
 # Studio 54 sign-in
 
-**Added:** 2026-11-04 (lane I)
+**As-is:** 2026-11-08, main `210448b` (original lane I implementation November 4). Complete gateway and bridge overlays and phone import are implemented. Known defect: `Studio54Store` deletes preferences on any encrypted-store open exception; transient Keystore failures may lose credentials. Nondestructive recovery and vault-refresh identity races still need regressions. [STATUS.md](STATUS.md) separates source findings from phone evidence.
 **Code:** `app/src/main/java/com/mdc159/sierra/studio54/`, `Studio54Activity`
 **Server side:** the owner's private "Studio 54" server on a Tailscale network: an Infisical vault that holds every key, and a LiteLLM gateway in front of the model providers. Each device is a named Infisical machine identity ("agent") with its own project.
 
-The phone works like the computer launcher: it signs in to the vault once with its machine identity, then pulls the keys it needs at run time. Nobody types or copies a model key onto the phone.
+The phone works like the computer launcher: it signs in to the vault once with its machine identity, then pulls the keys it needs at run time. Vault-enrolled devices need not type provider keys; manual typed configuration remains supported. The phone still holds machine credentials and cached downstream secrets.
 
 ## What the phone holds
 
@@ -61,11 +61,11 @@ secrets.names()                                        // for a status screen; n
 secrets.lastFetched                                    // epoch millis, or null
 ```
 
-### How Talk uses it (phase 2)
+### How current Talk and the phone test use it
 
-`TalkScreen` builds its agent settings with `Studio54.agentConfig(carContext, ConfigStore.load(carContext))`. When the vault has both `OPENAI_BASE_URL` and `OPENAI_API_KEY`, they replace the base URL and key typed in the phone settings (`AgentOverlay.apply`). Everything else stays as typed: the **owner still chooses the model**, and the transcription settings are untouched (a blank transcription key falls back to the vault key, as it always fell back to the agent key). When the vault has nothing, or only one of the two, the typed settings are used unchanged.
+`TalkScreen` builds its agent settings with `Studio54.agentConfig(carContext, ConfigStore.load(carContext))`. When the vault has both `OPENAI_BASE_URL` and `OPENAI_API_KEY`, they replace the base URL and key typed in the phone settings (`AgentOverlay.apply`). A complete `SIERRA_BRIDGE_URL`/`SIERRA_BRIDGE_TOKEN` pair overlays the bridge independently. The owner still chooses profile/model; transcription fields stay typed, with blank key falling back to the **main gateway key**, never the selected bridge token. Incomplete pairs leave their typed pair unchanged.
 
-The "Test connection" button on the main phone screen tests the **typed** settings only. Use **Refresh now** on the Studio 54 screen to prove the vault, and a Talk exchange on the car screen to prove the gateway key.
+Main **Test connection** now saves typed choices, then tests the **effective selected route with vault overlay**, like Talk. **Connect to Hermes on Victoria** selects/saves bridge `hermes`, refreshes enrollment and tests it; it does not create credentials or enroll a missing project. **Refresh now** proves vault access only, not audio routing. OpenAI duplex base/key also overlay independently and the unchanged model defaults to gateway `openai/gpt-realtime-2.1-mini`; ElevenLabs settings are separate.
 
 ## Signing in
 
@@ -94,7 +94,7 @@ Hygiene for the PC side: the command line, and therefore the client secret, land
 
 The Activity is exported (it must be, for `adb shell am start`) but guarded with `android:permission="android.permission.DUMP"`. That permission is `signature|privileged|development`: the adb shell holds it, ordinary apps cannot obtain it, and Sierra's own settings screen starts the Activity with an explicit intent, which same-app checks always allow. So another app on the phone cannot push a sign-in pointing at its own vault. The confirmation screen is the second line of defence: if the host is not the owner's `*.ts.net` name, tap **Cancel**.
 
-If a Samsung build ever refuses the documented `am start` with a permission denial, the fallback is `android:exported="false"` on a debuggable build (then `adb shell am start --user 0 …` still works for debug APKs) and manual entry on release builds.
+If a build refuses the import with a permission denial, capture the exact build/permission result and use manual entry while parked. Do not weaken exported-component permissions or assume a debuggable build bypasses them; such changes require separate review.
 
 ### Signing out
 
@@ -102,13 +102,17 @@ If a Samsung build ever refuses the documented `am start` with a permission deni
 
 ## Revoking a lost phone
 
-The phone holds a client secret, so losing the phone means that secret is loose. On the server, **remove the phone's agent** (its machine identity) in Infisical, or at least revoke its universal-auth client secret. From that moment every login and renewal from the phone fails with 401, and the phone's cached copy expires on its own within 3 days. Also rotate the phone's gateway key on LiteLLM if the cache might still be live.
+The phone holds a client secret, so losing the phone means that secret is loose. On the server, **remove the phone's agent** (its machine identity) in Infisical, or at least revoke its universal-auth client secret. From that moment every login and renewal from the phone fails with 401, and the phone's cached copy expires on its own within 3 days. Also revoke/rotate the phone's downstream gateway and bridge credentials (and shared service keys if exposed) if cached values might still be live; identity revocation alone does not instantly invalidate cached provider tokens.
 
 Then, on the next phone: create a new agent, enroll it, push the sign-in with the command above.
 
 ## Recommendation on the shared keys project
 
-Grant the phone `S54_KEYS_PROJECT_ID` **only if it truly needs those keys**. Today the phone's own project already gives it the gateway address and its budgeted gateway key, which is everything Talk needs. The shared project holds service keys (`ELEVENLABS_API_KEY` and others) that are not budgeted per device; a lost phone with the shared project would expose all of them, not just one capped gateway key. Add the shared project when a voice lane actually reads `ELEVENLABS_API_KEY` from `SecretSource`, and consider a dedicated, smaller project for the phone instead of the full shared one.
+Grant the phone `S54_KEYS_PROJECT_ID` **only if it truly needs those keys**. Today the phone's own project already gives it the gateway address and its budgeted gateway key, which is everything Talk needs. The shared project holds service keys (`ELEVENLABS_API_KEY` and others) that are not budgeted per device; a lost phone with the shared project would expose all of them, not just one capped gateway key. Voice integration can read service secrets; grant only what the selected voice setup actually needs, preferably via a dedicated smaller project rather than the full shared one.
+
+## Next steps
+
+Replace destructive store-open reset with explicit, retryable recovery; test refresh racing sign-out or enrollment change before claiming identity isolation. Exercise warm/expired cache and independent gateway/bridge 401 paths with fakes, then verify the enrolled phone's actual network/audio chain while parked. Keep credential import/revocation separate from artifact retention; do not publish shell history or cached secrets.
 
 ## Dependencies
 

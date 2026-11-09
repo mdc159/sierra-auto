@@ -2,8 +2,9 @@
 # This is the fallback for a DHU that dhu.ps1 did not start and so has no
 # console to send commands to. Dot-source it; do not run it.
 #
-# Both calls address the DHU window only. Nothing else on the desktop is
-# captured, the mouse pointer does not move and the window is not raised.
+# Taps target the DHU window without moving the pointer or raising the window.
+# Capture first asks that window to draw itself; the screen-copy fallback reads
+# its desktop rectangle and can include another window that covers it.
 
 Add-Type -AssemblyName System.Drawing
 if (-not ('SierraDhuWindow' -as [type])) {
@@ -69,8 +70,8 @@ function Test-BitmapBlank {
 # Saves the DHU window's client area as a PNG. Returns 'printwindow' when the
 # window drew itself into the bitmap (this works when other windows cover it),
 # or 'screen' when that came back blank and the client rectangle was copied
-# from the screen instead (the window must then be visible). Only the DHU's own
-# rectangle is ever read.
+# from the screen instead (the window must then be visible and unobstructed).
+# Other windows covering that rectangle can appear in the saved image.
 function Save-DhuWindow {
     param([Parameter(Mandatory)][IntPtr]$Handle, [Parameter(Mandatory)][string]$Path)
     if ([SierraDhuWindow]::IsIconic($Handle)) { throw "The DHU window is minimised; restore it first." }

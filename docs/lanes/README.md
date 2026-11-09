@@ -1,35 +1,26 @@
-# Cloud session lanes (2026-11-04)
+# Historical lane scopes
 
-You are one of several cloud sessions working in parallel on mdc159/sierra-auto tonight (2026-11-04). A coordinator session on the owner's PC assigns lanes, builds every PR locally, tests it on the Android Auto emulator with the owner's real phone, and merges. Deadline: your PR must be CI-green by 11:00 PM PST. Push early and often so partial work is not lost.
+These briefs record the November 4, 2026 first/second-wave design scopes, reconciled against **main `210448b` on 2026-11-08**. They are not active assignments, proof of completion, current branch inventory or authority to run automation. Old session/deadline/push/merge mandates have been retired. Use [current plan](../PLAN.md), [verified status/defects](../STATUS.md) and [truck test plan](../TRUCK-TEST-PLAN.md) for current work.
 
-Sierra Auto is a personal, sideloaded Android Auto app (Kotlin, Android for Cars App Library 1.7.0, package com.mdc159.sierra) for a 2018 GMC Sierra Denali, running on a Galaxy A54 (Android 16, Android Auto 17.9). On main today: Places (map plus nearby places, hand-off to Google Maps), Talk (car mic, speech-to-text, OpenAI-compatible agent, spoken reply), History, phone settings (MainActivity, plain Android Views), and an OBD-II groundwork package (obd/, not wired to any screen).
-
-Read first: docs/PLAN.md and docs/android-auto-constraints.md. Any car screen must obey the constraints doc.
-
-Rules for every session:
-- Google's Maven is blocked in your sandbox, so do not run Gradle. Push your branch, open a PR right away (draft is fine), and use the GitHub Actions "build" workflow as your compiler and test runner: `gh run list`, `gh run view --log-failed`. Fix and push until it is green.
-- Stay in your lane. Edit only the files your lane lists. Shared files (AndroidManifest.xml, app/build.gradle.kts, MainActivity.kt) may only get small add-only edits that your lane names. Never reformat or reorder them.
-- Phone settings for your feature go in your own new Activity, reached by one new button row in MainActivity.
-- This repo is public. Never commit a key, token or keystore.
-- Merge origin/main into your branch before you finish. Do not merge your PR; leave it for the coordinator.
-- Finish with a PR comment that lists: what is covered by tests, what is unverified, and exact steps the coordinator should run on the phone or emulator to check it.
-- If you find a bug outside your lane, file a GitHub issue (label `bug`) with file:line and a failure scenario. Do not fix it yourself.
-
-Your lane is the single file in this folder that your prompt named. Do only that lane.
-
-| Lane | File | Branch |
+| Lane | Historical scope | Current summary |
 | --- | --- | --- |
-| A: independent reviewer | a-review.md | none (issues and PR comments only) |
-| B: Talk tools | b-talk-tools.md | talk-tools |
-| C: live truck data | c-obd-live.md | obd-live |
-| D: updates away from the PC | d-updates.md | updates |
-| E: screen tests and CI quality | e-screen-tests.md | screen-tests |
-| F: GM-specific truck data | f-gm-pids.md | gm-pids |
-| G: conversational voice | g-voice.md | voice |
-| H: agent bridge | h-agent-bridge.md | agent-bridge |
-| I: Studio 54 sign-in | i-studio54-signin.md | studio54-signin |
-| J: full-duplex voice | j-duplex-voice.md | duplex-voice |
-| K: review fixes (second wave) | k-review-fixes.md | review-fixes |
-| L: vehicle tools (second wave) | l-vehicle-tools.md | vehicle-tools |
-| M: agent profiles (second wave) | m-agent-profiles.md | agent-profiles |
-| N: docs and truck test plan (second wave) | n-docs-and-truck-plan.md | docs-truck-plan |
+| [A](a-review.md) | Independent review | New consolidated review separates source/reproduction/device evidence |
+| [B](b-talk-tools.md) | Talk tools | Tool loop and places/navigation/idea tools built; vehicle tools absent |
+| [C](c-obd-live.md) | Live Truck | Demo/classic/BLE/UI built; real adapter unverified, NO DATA/reconnect defects |
+| [D](d-updates.md) | Updates | Play internal delivered; non-Play updater remains experimental |
+| [E](e-screen-tests.md) | Screen tests/CI | Broad software coverage; host/harness evidence gaps remain |
+| [F](f-gm-pids.md) | GM research/reader | Catalog/decoder built, no live integration or truck accuracy proof |
+| [G](g-voice.md) | Turn-based voice | Wired into Talk; old realtime setting unwired |
+| [H](h-agent-bridge.md) | Python bridge | Adapters/delivery built; confirmed security/cleanup defects |
+| [I](i-studio54-signin.md) | Vault sign-in | Implemented overlays/cache; store recovery remains destructive |
+| [J](j-duplex-voice.md) | Duplex Conversation | Both service adapters and car wiring built; truck echo/Stop proof missing |
+| [K](k-review-fixes.md) | Review repairs | Mixed completion, not blanket fixed |
+| [L](l-vehicle-tools.md) | Voice vehicle integration | Core deliverables absent |
+| [M](m-agent-profiles.md) | Named voice profiles | Only two-way gateway/bridge selector built |
+| [N](n-docs-and-truck-plan.md) | Guides/acceptance | Missing guides now supplied in documentation consolidation |
+
+Current workspace: root checkout is main; retained installer experiment is `.worktrees/install-record`, not a shipped fix. Local reviews/runs/state/archive/downloads belong under canonical `.local`; toolchain and credential directory stay external. See [WORKSPACE.md](../WORKSPACE.md) for workspace commands. Historical integration scratch tooling is not an active unattended pipeline.
+
+## Next steps
+
+Use the current defect work order rather than restarting old lane automation. Land focused regressions/fixes under explicit owner authorization, then run parked-first host/audio/adapter acceptance and update the corresponding guide with actual evidence. No old lane deadline, branch label or assignment establishes completion.

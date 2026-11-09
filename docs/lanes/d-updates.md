@@ -1,9 +1,11 @@
-LANE D: updating the app away from the PC. Branch `updates`.
-Background, verified tonight: on the A54, an APK installed over USB with `adb install -i com.android.vending` (Play recorded as the installer) appears in Android Auto on the Desktop Head Unit. Google's testing page says the "Unknown sources" developer option does not apply to Car App Library apps, so an APK installed from the browser is expected not to appear (not yet tested). The owner wants to install new builds while travelling, with no PC.
-You own: docs/UPDATES.md, new files under update/, a new UpdateActivity, a new workflow .github/workflows/play.yml, and tests. Do not touch car/, agent/, obd/, places/, voice/, or the existing workflows.
-Shared-file edits allowed: AndroidManifest.xml (your Activity, REQUEST_INSTALL_PACKAGES, a FileProvider if needed), MainActivity.kt (one button row to open UpdateActivity), app/build.gradle.kts (add-only dependencies).
-Do:
-1. Research, with source links, what Android Auto actually checks before showing a Car App Library app: installer package name, install source, package source (PackageInstaller.SessionParams.setPackageSource), signature, or a Play licence check. Read the UnknownAuto project's source and any other credible analysis. Record what is confirmed and what is a guess.
-2. docs/UPDATES.md: compare the options and recommend one. Cover at least: (a) Play Console internal testing or internal app sharing published from CI; (b) a Shizuku-based install that records Play as the installer; (c) wireless debugging from the phone itself; (d) an in-app updater using PackageInstaller sessions, and whether an update installed that way keeps or loses the Play installer record. For each: one-time setup, cost, steps per update, and risk.
-3. Build the in-app updater: UpdateActivity checks the latest GitHub release of mdc159/sierra-auto, compares versionCode, downloads sierra-auto.apk, verifies that its signing certificate matches the installed app before installing, and installs through a PackageInstaller session. If your research supports a Shizuku path, add it behind a clear option and keep Shizuku an optional dependency. Show the recorded installer of the current install on that screen, so the coordinator can see whether it changed after an update.
-4. play.yml: a manually triggered workflow that uploads the signed release to a Play internal track. It must skip cleanly with a clear message when its secrets are missing. Document the one-time Play Console setup in docs/UPDATES.md. Do not change build.yml.
+# Lane D — historical off-PC-updates scope
+
+Historical branch/scope (2026-11-04): `updates`; research install records, signer-checked GitHub updater, optional Shizuku path, Play-internal workflow and tests. An ADB/DHU appearance was background evidence only. This is not a current installation instruction.
+
+## As-is — 2026-11-08, main `210448b`
+
+Play internal testing is operational (reviewed upload 100005); signed GitHub APKs remain. Play builds hide self-update UI and remove installer permissions. Non-Play PackageInstaller/Shizuku paths and install-record heuristic exist but do not prove host acceptance. Inspected phone had installer Play and initiator shell, not demonstrated Play/Play provenance.
+
+## Next steps
+
+Confirm genuine Play update provenance and real-host launch. Treat `.worktrees/install-record` / draft #44 as an old, selectively reassessed experiment, not shipped main or a proven fix. Keep release-name length/version/signing checks; do not infer future policy acceptance or silent-install guarantees. [UPDATES.md](../UPDATES.md).
