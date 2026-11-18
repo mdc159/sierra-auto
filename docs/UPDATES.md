@@ -1,5 +1,9 @@
 # Distribution, updates and install records
 
+## Workflow update — 2026-11-17
+
+See [development and staging workflow](DEVELOPMENT-WORKFLOW.md). Play internal testing now deploys explicitly from staging after validation; version_code is supplied explicitly above all uploaded/installed versions. GitHub APK releases are optional manual actions from main. The historical records below retain their original dates; they do not establish current phone or Console state.
+
 As of **2026-11-08, main `210448b`**. Package `com.mdc159.sierra`, POI Car App Library app. **Play internal testing is operational**, not a future recommendation; signed GitHub releases remain a separate development channel. This is not a public production listing or a guarantee of policy/host acceptance. No external policy/account/fee limits were rechecked for this docs update.
 
 ## 1. Verified release and device state
@@ -57,10 +61,10 @@ For rebuilding the setup on an authorized account (consult current Console instr
    Without release inputs local release builds use debug signing. Never upload that fallback. The workflow checks the bundle certificate and rejects `CN=Android Debug`.
 4. Create an internal tester list, enroll the owner's account and install through its opt-in/listing. Copy no tester account/credentials into public documentation.
 5. Enable the Android Developer API for a dedicated service account, grant only required app/testing permissions in Play Console, and store its JSON as repository secret **`PLAY_SERVICE_ACCOUNT_JSON`**. Keep the four existing CI signing secrets: `SIGNING_KEYSTORE_BASE64`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`.
-6. Actions → **play** → Run workflow. `status=completed` requests internal availability; `draft` leaves a draft. Upload success/green job alone does not prove a tester received the build. Missing secrets deliberately produce a green **skipped upload** with warning/summary: read the summary. Play workflow builds the bundle; it does not itself run the full Android unit/lint suite, so verify the selected source's build checks separately.
+6. Actions → **play** → Run workflow on **staging**, supplying an unused **version_code** above all uploaded and installed builds. `status=completed` requests internal availability; `draft` leaves a draft. Upload success/green job alone does not prove a tester received the build. Missing secrets fail the deployment. The Play workflow runs Android unit tests, debug/release lint, bridge tests and secret scanning before building/uploading the signed bundle. Verify the workflow SHA and actual upload step.
 7. After processing, update through Play and capture version, source record and real-host acceptance. Do not infer processing time or future policy acceptance from the earlier successful run.
 
-**Current versionCode implementation:** GitHub `build.yml` uses its run number `N`; Play uses `100000 + play.yml` run number. In the reviewed state 100005 is far above GitHub 110. This is an offset convention, **not an eternal mathematical guarantee that two independent counters cannot collide**. Monitor before any future numbering change or very large GitHub run count. A regular low-code GitHub build will not update 100005 in place; compatible certificates do not remove downgrade restrictions.
+**Version codes:** GitHub `build.yml` uses its run number `N`; Play now requires an explicit `version_code`. Historically Play used `100000 + play.yml` run number. In the reviewed state 100005 is far above GitHub 110. This is an offset convention, **not an eternal mathematical guarantee that two independent counters cannot collide**. Monitor before any future numbering change or very large GitHub run count. A regular low-code GitHub build will not update 100005 in place; compatible certificates do not remove downgrade restrictions.
 
 ## 5. Acceptance / maintenance next steps
 

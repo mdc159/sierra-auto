@@ -2,7 +2,26 @@
 
 ## As is
 
-Verified against main **`210448b`, 2026-11-08**. Set up and diagnose **while parked**. Software features below exist; current-build truck audio, real OBD and host acceptance still need [recorded testing](TRUCK-TEST-PLAN.md). See [known defects](STATUS.md) before depending on them.
+Updated **2026-11-09** for the phone conversation home, following the review of main `210448b`. Set up and diagnose **while parked**. Current-build truck audio, real OBD and host acceptance still need [recorded testing](TRUCK-TEST-PLAN.md). See [known defects](STATUS.md) before depending on them.
+
+## Talk on the phone
+
+Sierra now opens a conversation screen. **Talk** listens through the phone microphone,
+sends your words to the selected agent, speaks the reply, and listens for a follow-up.
+Say **stop** or tap **Stop** to finish. **Interrupt** stops a spoken reply so you can
+speak again. You can also type a message and tap **Send**; the same conversation
+context is used. The screen shows the transcript and Listening/Thinking/Speaking state.
+
+Use **Settings** for all the setup screens described below. The phone conversation
+uses the selected agent directly, including Hermes on Victoria. It does not use the
+separate realtime Conversation provider as a substitute for that agent. Keep Sierra
+in the foreground while talking; switching apps ends microphone capture. The current
+screen's context is in memory; reopening after process/activity recreation starts a
+new conversation. Completed exchanges are also saved to Sierra's History.
+
+For Victoria, keep **Tailscale** connected and use **Check connection** before talking.
+Internet access in Spotify does not prove that a private agent is reachable. See
+[phone connection and troubleshooting](PHONE-CONVERSATION.md).
 
 ## 1. Install and check identity
 
@@ -12,7 +31,7 @@ The review saw version 100005 but initiator `com.android.shell`: truck visibilit
 
 ## 2. Permissions and agent
 
-1. Open **Sierra** on the phone. **Grant permissions** handles microphone and location. Grant microphone for speech and location for nearby searches; approximate location may be less useful. Bluetooth and phone-mic notification permissions are separate steps below.
+1. Open **Sierra → Settings** on the phone. **Grant permissions** handles microphone and location. Grant microphone for speech and location for nearby searches; approximate location may be less useful. Bluetooth and phone-mic notification permissions are separate steps below.
 2. For an enrolled device, open **Studio 54 sign-in**, enter the device's own vault credentials, then **Sign in**. An operator can import them over USB only with on-screen confirmation. Keep Tailscale connected; **Refresh now** checks the vault. Do not paste credentials into reports. [Sign-in/cache/revocation](STUDIO54.md).
 3. Under **Who answers**, choose **A model (gateway settings below)** or **My agent, through the Sierra bridge**. A model uses **Base URL**, **API key**, **Model**; bridge uses **Bridge URL**, **Bridge token**, **Agent (bridge model name)** (default `hermes`). A complete vault URL/key pair overrides the typed pair; hints say **From Studio 54 vault**. Otherwise enter the configured endpoint's values manually.
 4. **Save**, then **Test connection**. This saves and tests the effective selected route, including vault overlay; it can make a real billable agent request. **Connect to Hermes on Victoria** saves bridge selection/model, refreshes the existing enrollment and tests it; it does not enroll a new phone or create server credentials. A missing bridge is an error, not a silent model fallback.
@@ -22,7 +41,7 @@ Only chat follows this selector: Talk and duplex `ask_agent`. Transcription and 
 ## 3. Voice and microphone
 
 - **Transcription (optional)** on the main page sets the speech endpoint/model. Blank transcription key uses the main agent/gateway key, not the selected bridge token. In Automatic input, a configured transcription route plus supported host uses the selected capture pipeline; otherwise Talk uses the system speech recognizer. Explicit Car/Phone selection needs transcription. The system-recognizer permission fallback has a known gap; grant mic permission on the phone first.
-- **Voice settings** selects Android, gateway or ElevenLabs output, transcription provider/model and **Conversation mode: keep listening after each reply**. **Test voice** tests phone output, not truck routing. The older **Realtime speech-to-speech through the gateway (off by default)** switch is saved but not connected to Talk; use the separate full-duplex settings instead.
+- **Voice settings** selects Android, gateway or ElevenLabs output, transcription provider/model and **Conversation mode: keep listening after each reply**. An enrolled Studio54 ElevenLabs key is used automatically; the key field can stay blank. Victoria's voice is Jana (`jXJ93ZaMvKJrPorQEQlr`), model `eleven_v3`. **Test voice** tests phone output, not truck routing. See [voice configuration and limits](PHONE-CONVERSATION.md#victorias-voice). The older **Realtime speech-to-speech through the gateway (off by default)** switch is saved but not connected to Talk; use the separate full-duplex settings instead.
 - **Full-duplex voice settings** configures OpenAI Realtime or ElevenLabs Agents, voice/model/agent, instructions, and Guarded/Full duplex. Start with Guarded. **Try it on this phone**, **Interrupt (tap)** and **Stop** permit a parked phone test. A status of “Listening” is handshake evidence only, not a completed exchange. ElevenLabs Agents need account-side client tools/overrides; [DUPLEX.md](DUPLEX.md) has the setup.
 - **Microphone & diagnostics** offers Automatic, Car and Phone input. Stop sessions before switching. Android ultimately controls the physical route; selecting Phone is not proof of which mic supplied samples.
 - For Phone input from Android Auto, while the phone activity is visible use **Enable phone microphone for Android Auto** and grant requested microphone/notification access. Its foreground notification has Stop; enable again after reboot or process termination. This is not a wake-word service.

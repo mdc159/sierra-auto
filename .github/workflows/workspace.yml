@@ -4,7 +4,7 @@ on:
   pull_request:
     paths: ['scripts/**', '.gitignore', '.github/workflows/workspace.yml']
   push:
-    branches: [main]
+    branches: [main, staging, 'dev/**']
     paths: ['scripts/**', '.gitignore', '.github/workflows/workspace.yml']
   workflow_dispatch:
 

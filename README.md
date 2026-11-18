@@ -7,14 +7,16 @@ optional Python bridge connects it to existing agents.
 
 ## As is
 
-Reviewed **2026-11-08**, application baseline **`210448b`**. This is an internal
+Phone conversation work updated **2026-11-09**, following the reviewed application
+baseline **`210448b`** and consolidated checkout **`507453d`**. This is an internal
 testing application with working build/distribution infrastructure. Reliable
 end-to-end operation in the truck has not yet been established by the current
-evidence. Workspace and documentation updates do not fix the application defects
-recorded in [project status](docs/STATUS.md).
+evidence. Current changes and remaining application defects are recorded in
+[project status](docs/STATUS.md).
 
 | Area | Implemented | Remaining acceptance or integration |
 | --- | --- | --- |
+| Phone | Conversation home, Talk/Stop, follow-up listening, transcript, typed messages, Settings and Tailscale shortcuts | Phone and truck acceptance are recorded separately in project status |
 | Android Auto | Home, Places, Talk, History, Truck/Codes, Mic test, Conversation | Current build on the actual head unit; host acceptance and audio routing |
 | Places | OpenStreetMap providers, host-drawn map, navigation handoff | Stale-location handling and reporting actual handoff failures |
 | Agent and voice | OpenAI-compatible chat/tools, transcription, spoken replies, follow-ups, separate duplex Conversation flow | Failure/cancellation paths, real microphone/echo/barge-in tests |
@@ -22,7 +24,20 @@ recorded in [project status](docs/STATUS.md).
 | Vehicle data | Demo/live standard OBD, classic Bluetooth/BLE transports, read allowlist, GM reader/catalog code | Real adapter/ECU evidence; GM live-screen integration; vehicle voice tools and alerts |
 | Distribution | Signed GitHub development APKs and Google Play internal testing | Correct Play install provenance and truck visibility on the enrolled phone |
 
-The last reviewed GitHub release was **v0.1.110**; the connected phone had the
+The November 9 phone update is **0.1.100009**, installed in place over USB with
+the same signing certificate. Its release build and 106 focused voice/phone/vault
+tests pass. The preceding 100008 full check passed 612 of 614 tests (2 skipped),
+with lint 0 errors/133 warnings. The phone microphone detector now accepts
+the A54's measured speech levels and preserves an unconfirmed opening utterance.
+On 100007 the actual spoken question “Victoria, can you hear me?” was transcribed and
+received Victoria's reply on the phone. Typed follow-up context also passes.
+Tailscale access to Victoria 8443 is restored. Phone voice output is configured
+to match Victoria: **Jana with Eleven v3**, using the phone's Studio54 credential.
+The phone's Jana/Eleven v3 sample completed playback successfully. Human comparison
+with Victoria and current-build truck acceptance remain separate checks.
+See [current status](docs/STATUS.md).
+
+At the November 8 review, the GitHub release was **v0.1.110**; the connected phone had the
 **0.1.100005 Play-variant build**. These use different version-code sequences.
 The phone opened successfully, but this review did not perform a live agent turn,
 record audio or test the truck. Android reported Play as installer and shell as
@@ -41,19 +56,23 @@ known defects and commands. A successful build is not truck acceptance.
    a public production listing. [GitHub APK releases](https://github.com/mdc159/sierra-auto/releases/latest)
    are available for development, with installation limitations documented in
    [updates](docs/UPDATES.md) and [testing](docs/TESTING.md).
-2. Open Sierra on the phone and grant microphone/location permissions as needed.
-   For the configured Hermes agent, connect Tailscale and use **Connect to Hermes
-   on Victoria** with the Studio54 settings. This configures the existing agent
-   route; it does not prove backend health. Other OpenAI-compatible endpoints can
-   be configured and checked with **Test connection**.
-3. Use [microphone diagnostics](docs/MICROPHONE-DIAGNOSTICS.md) to verify capture
+2. Open Sierra on the phone. The home screen lets you **Talk** or type directly to
+   the selected agent. **Stop** ends listening; **Interrupt** cuts off a spoken
+   voice reply. Opening another app stops the conversation.
+3. Open **Settings** for permissions, Studio54 sign-in, and **Connect to Hermes on
+   Victoria**. Keep Tailscale connected; the phone also needs permission in the
+   tailnet policy to reach Victoria's bridge port. **Check connection** on Home
+   checks the selected agent. See [phone networking](docs/PHONE-CONVERSATION.md).
+4. Use [microphone diagnostics](docs/MICROPHONE-DIAGNOSTICS.md) to verify capture
    before relying on Talk. Configure Bluetooth access separately for live OBD.
-4. Follow the [user guide](docs/USER-GUIDE.md) and [parked truck test plan](docs/TRUCK-TEST-PLAN.md).
+5. Follow the [user guide](docs/USER-GUIDE.md) and [parked truck test plan](docs/TRUCK-TEST-PLAN.md).
 
 Credentials stay in encrypted phone settings, Studio54 or existing machine secret
 storage. Do not put keys, tokens, keystores or private diagnostic captures in Git.
 
 ## Work in this repository
+
+Use [development → staging → Play internal testing → main](docs/DEVELOPMENT-WORKFLOW.md). Development and staging pushes validate source; publication is an explicit workflow action.
 
 **Canonical Windows root: `D:\Projects\sierra-auto`.** All Sierra Auto source
 checkouts, local evidence and experiments belong under this folder. Use the main
