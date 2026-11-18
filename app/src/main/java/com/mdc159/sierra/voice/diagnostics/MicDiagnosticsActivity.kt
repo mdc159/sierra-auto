@@ -169,7 +169,9 @@ class MicDiagnosticsActivity : ComponentActivity() {
                 }
                 if (transcribe && audio.isNotEmpty() && !levels.isDigitalSilence) {
                     val config = Studio54.agentConfig(this@MicDiagnosticsActivity, ConfigStore.load(this@MicDiagnosticsActivity))
-                    val transcriber = VoiceStack.transcriber(VoiceSettingsStore.load(this@MicDiagnosticsActivity), config)
+                    // The vault may hold the ElevenLabs key; resolve it so this test uses it.
+                    val voice = Studio54.voiceSettings(this@MicDiagnosticsActivity, VoiceSettingsStore.load(this@MicDiagnosticsActivity))
+                    val transcriber = VoiceStack.transcriber(voice, config)
                         ?: throw IllegalStateException("Transcription not configured")
                     VoiceDiagnostics.event(this@MicDiagnosticsActivity, "Phone transcription test", "request sent")
                     result.text = "Audio received. Transcribing…"

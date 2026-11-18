@@ -2,6 +2,7 @@ package com.mdc159.sierra.studio54
 
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.AgentException
+import com.mdc159.sierra.voice.convo.VoiceSettings
 import com.mdc159.sierra.voice.duplex.DuplexConfig
 import com.mdc159.sierra.voice.duplex.DuplexException
 import com.mdc159.sierra.voice.duplex.DuplexProvider
@@ -39,6 +40,13 @@ class Studio54HooksTest {
         assumeStoreCannotOpen()
         val typed = DuplexConfig(openAiApiKey = "typed-key")
         assertEquals(typed, Studio54.duplexConfig(context, typed))
+    }
+
+    @Test
+    fun voiceSettingsFallsBackToTheTypedSettingsWhenTheStoreCannotOpen() {
+        assumeStoreCannotOpen()
+        val typed = VoiceSettings(elevenLabsKey = "typed-key")
+        assertEquals(typed, Studio54.voiceSettings(context, typed))
     }
 
     @Test

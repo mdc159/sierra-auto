@@ -48,6 +48,7 @@ class VoiceSettingsActivity : Activity() {
     private lateinit var gatewayModel: EditText
     private lateinit var gatewayVoice: Spinner
     private lateinit var elevenKey: EditText
+    private lateinit var elevenVaultNote: TextView
     private lateinit var elevenVoice: EditText
     private lateinit var elevenModel: EditText
     private lateinit var sttProvider: Spinner
@@ -123,8 +124,12 @@ class VoiceSettingsActivity : Activity() {
         note("How Sierra listens and speaks on the truck. Gateway voice and transcription use the agent URL and key from the main screen.")
 
         heading("ElevenLabs (optional)")
-        note("Fastest voice and transcription measured so far. Leave blank to use the gateway only.")
+        note("Use a Studio 54 key or enter a key below. Choose the voice and transcription providers separately.")
         elevenKey = field("ElevenLabs API key", "xi-…", secret = true)
+        elevenVaultNote = TextView(this).apply {
+            text = "The ElevenLabs key comes from the Studio 54 vault; a typed key above is the fallback."
+        }
+        form.addView(elevenVaultNote)
 
         heading("Voice")
         provider = spinner("Provider", VoiceProvider.values().map { it.label })
@@ -174,6 +179,18 @@ class VoiceSettingsActivity : Activity() {
         testJob?.cancel()
         testVoice?.close()
         scope.cancel()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        showVaultHints()
+    }
+
+    /** When the vault supplies the ElevenLabs key (Studio54.voiceSettings), say so instead of the typed-key hint. */
+    private fun showVaultHints() {
+        val vault = Studio54.suppliesElevenLabs(this)
+        elevenVaultNote.visibility = if (vault) View.VISIBLE else View.GONE
+        elevenKey.hint = if (vault) "From Studio 54 vault" else "xi-…"
     }
 
     private fun showProviderFields() {
@@ -229,16 +246,20 @@ class VoiceSettingsActivity : Activity() {
         Toast.makeText(this, if (ok) "Saved." else "Couldn't open the encrypted settings store. Try again.", Toast.LENGTH_LONG).show()
     }
 
-    /** Saves, then speaks a sample with the chosen voice so the owner hears it before driving. */
+    /** Saves the typed settings, then speaks a sample with the resolved voice so the owner hears it before driving. */
     private fun testVoice() {
-        val settings = current()
-        VoiceSettingsStore.save(this, settings)
+        val typed = current()
+        VoiceSettingsStore.save(this, typed)
         // Signed in to Studio 54, the vault fills the gateway URL and key; the typed ones may be blank.
         val agent = Studio54.agentConfig(this, ConfigStore.load(this))
+        // The vault may also hold the ElevenLabs key. Resolve it before the eligibility check, but
+        // use it in memory only: the typed settings stay saved, and the key is never shown here.
+        val settings = Studio54.voiceSettings(this, typed)
         if (!settings.providerIsUsable(gatewayConfigured = agent.baseUrl.isNotBlank())) {
             testResult.text = when (settings.provider) {
                 VoiceProvider.GATEWAY -> "Enter the agent base URL on the main screen first."
-                VoiceProvider.ELEVENLABS -> "Enter the ElevenLabs key and voice ID first."
+                // A resolved key means only the voice ID is missing, whether it came from the vault or was typed.
+                VoiceProvider.ELEVENLABS -> if (settings.elevenLabsKey.isNotBlank()) "Enter the ElevenLabs voice ID first." else "Enter the ElevenLabs key and voice ID first."
                 VoiceProvider.ANDROID -> "Android voice is always available."
             }
             return

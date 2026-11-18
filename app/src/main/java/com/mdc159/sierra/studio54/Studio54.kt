@@ -6,6 +6,7 @@ import com.mdc159.sierra.agent.AgentProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import com.mdc159.sierra.voice.convo.VoiceSettings
 import com.mdc159.sierra.voice.duplex.DuplexConfig
 import com.mdc159.sierra.voice.duplex.DuplexException
 import com.mdc159.sierra.voice.duplex.DuplexProvider
@@ -110,6 +111,26 @@ object Studio54 {
     /** True when the vault supplies the agent base URL and key, so the typed ones are not used. */
     fun suppliesAgent(context: Context): Boolean = try {
         AgentOverlay.isActive(source(context))
+    } catch (e: Exception) {
+        false
+    }
+
+    /**
+     * The voice settings with the ElevenLabs key taken from the vault when signed in and known
+     * (see [VoiceOverlay.apply]); the typed key stays the fallback. Also makes sure the refresh
+     * timer runs. The resolved settings live in memory only: never saved or displayed.
+     */
+    fun voiceSettings(context: Context, typed: VoiceSettings): VoiceSettings = try {
+        start(context)
+        VoiceOverlay.apply(source(context), typed)
+    } catch (e: Exception) {
+        // The encrypted store is unavailable: the typed key carries on.
+        typed
+    }
+
+    /** True when the vault supplies the ElevenLabs key, so the typed one is not used. */
+    fun suppliesElevenLabs(context: Context): Boolean = try {
+        VoiceOverlay.isActive(source(context))
     } catch (e: Exception) {
         false
     }

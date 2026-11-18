@@ -228,4 +228,52 @@ class StreamedSpeechOutputTest {
         assertEquals(null, WavHeader.parse(ByteArray(44) { 1 }))
         assertEquals(null, WavHeader.parse(ByteArray(10)))
     }
+
+    @Test
+    fun oddHttpChunksPreserveSamplesAndNeverReachThePlayerUnaligned() = runBlocking {
+        val samples = ByteArray(16_500) { (it % 251).toByte() }
+        server.enqueue(MockResponse().setHeader("Content-Type", "audio/pcm")
+            .setChunkedBody(Buffer().write(samples), 2_747))
+        val strict = object : PcmPlayer by player {
+            override fun write(data: ByteArray, offset: Int, length: Int): Boolean {
+                assertEquals("AudioTrack cannot consume a trailing single byte", 0, length % 2)
+                return player.write(data, offset, length)
+            }
+        }
+        assertEquals(SpeakResult.Completed, output(newPlayer = { strict }).speak("Hello."))
+        assertArrayEquals(samples, player.bytes())
+        assertTrue(player.finished)
+        assertTrue(player.closed)
+    }
+
+    @Test
+    fun singleByteChunksAndSentenceBoundariesPreserveAllAudio() = runBlocking {
+        val first = ByteArray(100) { it.toByte() }
+        val second = ByteArray(82) { (200 - it).toByte() }
+        server.enqueue(MockResponse().setHeader("Content-Type", "audio/pcm")
+            .setChunkedBody(Buffer().write(first), 1))
+        server.enqueue(MockResponse().setHeader("Content-Type", "audio/pcm")
+            .setChunkedBody(Buffer().write(second), 3))
+        val strict = object : PcmPlayer by player {
+            override fun write(data: ByteArray, offset: Int, length: Int): Boolean {
+                assertEquals(0, length % 2)
+                return player.write(data, offset, length)
+            }
+        }
+        assertEquals(SpeakResult.Completed, output(newPlayer = { strict }).speak("First sentence. Second sentence."))
+        assertArrayEquals(first + second, player.bytes())
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun truncatedSampleFailsAndReleasesAudioInsteadOfHangingOrJoiningSentences() = runBlocking {
+        server.enqueue(MockResponse().setHeader("Content-Type", "audio/pcm")
+            .setChunkedBody(Buffer().write(pcm(101)), 3))
+        val result = output().speak("First sentence. Second sentence.")
+        assertEquals(SpeakResult.Failed("Voice server sent an incomplete PCM sample."), result)
+        assertEquals(1, server.requestCount)
+        assertFalse(player.finished)
+        assertTrue(player.closed)
+        assertFalse(focus.held)
+    }
 }

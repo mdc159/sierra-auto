@@ -14,7 +14,7 @@ enum class VoiceProvider(val label: String) {
     /** The owner's gateway, `/v1/audio/speech`, streamed. Uses the agent URL and key. */
     GATEWAY("Gateway voice (OpenAI-compatible)"),
 
-    /** ElevenLabs streaming. Needs the ElevenLabs key entered on the phone. */
+    /** ElevenLabs streaming. Uses a Studio54 key or a key entered on the phone. */
     ELEVENLABS("ElevenLabs"),
 }
 

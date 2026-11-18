@@ -55,7 +55,7 @@ class GatewayTranscriber(
         val response = try {
             http.newCall(builder.build()).execute()
         } catch (e: IOException) {
-            throw AgentException(Http.describe(e), e)
+            throw AgentException(Http.describe(e, url), e)
         } catch (e: IllegalArgumentException) {
             throw AgentException("Transcription URL is not valid.", e)
         }
@@ -63,7 +63,7 @@ class GatewayTranscriber(
             val text = try {
                 it.body?.string().orEmpty()
             } catch (e: IOException) {
-                throw AgentException(Http.describe(e), e)
+                throw AgentException(Http.describe(e, url), e)
             }
             if (!it.isSuccessful) {
                 throw AgentException("Transcription error ${it.code}: ${AgentClient.errorDetail(text)}".trimEnd(' ', ':'))

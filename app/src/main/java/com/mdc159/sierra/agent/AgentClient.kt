@@ -4,6 +4,12 @@ import com.mdc159.sierra.agent.tools.Tool
 import com.mdc159.sierra.agent.tools.ToolException
 import com.mdc159.sierra.agent.tools.ToolSchema
 import com.mdc159.sierra.net.Http
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
+import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -18,6 +24,9 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.UUID
 
 /** One function call the model asked for. [arguments] is the raw JSON object text. */
 data class ToolCall(val id: String, val name: String, val arguments: String)
@@ -67,7 +76,34 @@ class AgentClient(
     private val exchangeBudgetMs: Long = if (config.usesBridge) BRIDGE_EXCHANGE_BUDGET_MS else EXCHANGE_BUDGET_MS,
     /** Monotonic milliseconds; injectable so tests can spend the budget without waiting. */
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
+    /** Stable for one conversation. Only the bridge receives this identity. */
+    private val conversationId: String? = UUID.randomUUID().toString(),
 ) {
+    private val activeCalls = ConcurrentHashMap.newKeySet<Call>()
+    private val cancelled = AtomicBoolean(false)
+
+    /** Cancels this exchange, including a socket waiting for the bridge's first reply. */
+    fun cancel() {
+        cancelled.set(true)
+        activeCalls.forEach { it.cancel() }
+    }
+
+    /** Phone lifecycle cancellation must close the socket, not just interrupt its thread. */
+    suspend fun chatCancellable(messages: List<ChatMessage>): String = coroutineScope {
+        val pending = async(Dispatchers.IO) {
+            try {
+                chat(messages)
+            } catch (e: Exception) {
+                if (!isActive) throw CancellationException("Agent request cancelled", e)
+                throw e
+            }
+        }
+        try {
+            pending.await()
+        } finally {
+            if (!isActive) cancel()
+        }
+    }
 
     /** Chat through the bridge may wait long for the first byte; transcription keeps [client]'s bounds. */
     private val chatClient: OkHttpClient = if (config.usesBridge && client === Http.client) Http.slowClient else client
@@ -135,6 +171,9 @@ class AgentClient(
         val request = Request.Builder()
             .url(config.chatCompletionsUrl())
             .withAuth(config.chatKey)
+            .apply {
+                if (config.usesBridge && conversationId != null) header("X-Sierra-Conversation", conversationId)
+            }
             .post(body.toString().toRequestBody(JSON))
             .build()
         val json = execute(request, "Agent", timeoutMs, chatClient)
@@ -202,23 +241,25 @@ class AgentClient(
         if (key.isBlank()) this else header("Authorization", "Bearer $key")
 
     private fun execute(request: Request, what: String, timeoutMs: Long = 0, client: OkHttpClient = this.client): String {
-        val response: Response = try {
-            val call = client.newCall(request)
+        val call = client.newCall(request)
+        activeCalls.add(call)
+        try {
+            if (cancelled.get()) call.cancel()
             if (timeoutMs > 0) call.timeout().timeout(timeoutMs, TimeUnit.MILLISECONDS)
-            call.execute()
+            val response: Response = call.execute()
+            response.use {
+                val text = it.body?.string().orEmpty()
+                if (!it.isSuccessful) throw AgentException("$what error ${it.code}: ${errorDetail(text)}".trimEnd(' ', ':'), HttpStatus(it.code))
+                return text
+            }
+        } catch (e: AgentException) {
+            throw e
         } catch (e: IOException) {
-            throw AgentException(Http.describe(e), e)
+            throw AgentException(Http.describe(e, request.url.toString()), e)
         } catch (e: IllegalArgumentException) {
             throw AgentException("$what URL is not valid.", e)
-        }
-        response.use {
-            val text = try {
-                it.body?.string().orEmpty()
-            } catch (e: IOException) {
-                throw AgentException(Http.describe(e), e)
-            }
-            if (!it.isSuccessful) throw AgentException("$what error ${it.code}: ${errorDetail(text)}".trimEnd(' ', ':'), HttpStatus(it.code))
-            return text
+        } finally {
+            activeCalls.remove(call)
         }
     }
 

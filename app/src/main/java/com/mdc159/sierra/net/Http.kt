@@ -5,6 +5,7 @@ import java.io.InterruptedIOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
 
@@ -30,13 +31,25 @@ object Http {
         .build()
 
     /** Turns a network exception into a short message fit for a car screen. */
-    fun describe(e: Throwable): String = when (e) {
-        is SocketTimeoutException -> "Timed out. Check signal and try again."
-        is InterruptedIOException -> "Timed out. Check signal and try again."
-        is UnknownHostException -> "No connection, or the server name is wrong."
-        // OkHttp's message here is "Failed to connect to host/1.2.3.4:443", not car-screen text.
-        is ConnectException -> "Couldn't reach the server."
-        is SSLException -> "Secure connection failed."
-        else -> e.message?.takeIf { it.isNotBlank() }?.take(120) ?: "Network error."
+    fun describe(e: Throwable, endpoint: String? = null): String {
+        val privateServer = runCatching {
+            val host = URI(endpoint.orEmpty()).host?.lowercase().orEmpty()
+            val octets = host.split('.').map { it.toIntOrNull() }
+            host.endsWith(".ts.net") || host.removePrefix("[").startsWith("fd7a:115c:a1e0:") ||
+                (octets.size == 4 && octets[0] == 100 && octets[1]?.let { it in 64..127 } == true &&
+                    octets.all { it != null && it in 0..255 })
+        }.getOrDefault(false)
+        if (privateServer && (e is UnknownHostException || e is ConnectException || e is SocketTimeoutException)) {
+            return "Can't reach your private server. Open Tailscale, check it is connected, then retry."
+        }
+        return when (e) {
+            is SocketTimeoutException -> "Timed out. Check signal and try again."
+            is InterruptedIOException -> "Timed out. Check signal and try again."
+            is UnknownHostException -> "No connection, or the server name is wrong."
+            // OkHttp's message here is "Failed to connect to host/1.2.3.4:443", not car-screen text.
+            is ConnectException -> "Couldn't reach the server."
+            is SSLException -> "Secure connection failed."
+            else -> e.message?.takeIf { it.isNotBlank() }?.take(120) ?: "Network error."
+        }
     }
 }
