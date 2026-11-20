@@ -189,9 +189,9 @@ class DuplexSettingsActivity : ComponentActivity() {
     }
 
     /**
-     * Bench builds only: `--es bench start|say|interrupt|stop`, with `--es text "…"` for a
-     * typed turn (on `start` it is sent as soon as the session is live). Same code paths as
-     * the buttons; nothing here runs in a release build.
+     * Bench builds only: `--es bench start|say|interrupt|stop|instructions|config`, with
+     * `--es text "…"` for a typed turn (on `start` it is sent as soon as the session is live).
+     * Same code paths as the buttons; nothing here runs in a release build.
      */
     private fun handleBench(intent: Intent?) {
         if (!BuildConfig.BENCH_BUILD) return
@@ -213,8 +213,53 @@ class DuplexSettingsActivity : ComponentActivity() {
             }
             "interrupt" -> controller?.tapInterrupt() ?: DuplexLog.w("bench interrupt ignored: no session")
             "stop" -> if (controller != null) stopSession("bench") else DuplexLog.w("bench stop ignored: no session")
+            "instructions" -> benchInstructions()
+            "config" -> benchConfig(intent)
             else -> DuplexLog.w("bench command not recognised")
         }
+    }
+
+    /**
+     * Bench: loads the system prompt from `files/duplex-instructions.txt` in this app's private
+     * files dir (written with `adb shell run-as`), saves it and logs only its length.
+     */
+    private fun benchInstructions() {
+        val file = java.io.File(filesDir, BENCH_INSTRUCTIONS_FILE)
+        val text = try {
+            file.readText(Charsets.UTF_8).trim()
+        } catch (e: Exception) {
+            DuplexLog.w("bench instructions not loaded: ${e.javaClass.simpleName} reading files/$BENCH_INSTRUCTIONS_FILE")
+            return
+        }
+        if (text.isEmpty()) {
+            DuplexLog.w("bench instructions not loaded: files/$BENCH_INSTRUCTIONS_FILE is empty")
+            return
+        }
+        instructions.setText(text)
+        save()
+        val stored = DuplexConfigStore.load(this).instructions
+        DuplexLog.i("bench instructions saved chars=${text.length} storedChars=${stored.length} match=${stored == text} storeError=${DuplexConfigStore.openError != null}")
+    }
+
+    /**
+     * Bench: `--es provider openai|elevenlabs`, `--es mode full|guarded`, `--es voice NAME`;
+     * each extra is optional, the rest of the form is saved as it stands.
+     */
+    private fun benchConfig(intent: Intent) {
+        when (val v = intent.getStringExtra("provider")?.trim()?.lowercase()) {
+            null -> Unit
+            "openai", "elevenlabs" -> providerGroup.check(if (v == "openai") 1 else 2)
+            else -> DuplexLog.w("bench config: provider not recognised (openai|elevenlabs)")
+        }
+        when (val v = intent.getStringExtra("mode")?.trim()?.lowercase()) {
+            null -> Unit
+            "full", "guarded" -> modeGroup.check(if (v == "guarded") 1 else 2)
+            else -> DuplexLog.w("bench config: mode not recognised (full|guarded)")
+        }
+        intent.getStringExtra("voice")?.trim()?.takeIf { it.isNotEmpty() }?.let { openAiVoice.setText(it) }
+        save()
+        val c = DuplexConfigStore.load(this)
+        DuplexLog.i("bench config saved provider=${c.provider} mode=${c.mode} voice=${c.openAiVoice} model=${c.openAiModel} instructionsChars=${c.instructions.length} storeError=${DuplexConfigStore.openError != null}")
     }
 
     /** Sends the waiting typed turn through the session's own `sendText`, once it is live. */
@@ -438,5 +483,8 @@ class DuplexSettingsActivity : ComponentActivity() {
 
         /** Bench builds: the typed turn for `start` or `say`. */
         const val EXTRA_BENCH_TEXT = "text"
+
+        /** Bench builds: `bench instructions` reads this file from the app's files dir. */
+        const val BENCH_INSTRUCTIONS_FILE = "duplex-instructions.txt"
     }
 }

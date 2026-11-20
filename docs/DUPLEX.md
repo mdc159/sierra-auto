@@ -200,6 +200,19 @@ adb shell am start -n $A --es bench interrupt                    # same as the I
 adb shell am start -n $A --es bench stop                         # stop the session
 ```
 
+Staging the whole configuration without typing on the phone (bench app only; the prompt file stays in the app's private files dir and only its length is logged):
+
+```bash
+P=com.mdc159.sierra.blitz
+adb push prompt.txt /data/local/tmp/duplex-instructions.txt
+adb shell "run-as $P sh -c 'cat /data/local/tmp/duplex-instructions.txt > files/duplex-instructions.txt'"
+adb shell rm /data/local/tmp/duplex-instructions.txt
+adb shell am start -n $A --es bench instructions                                    # load it as the System prompt and save
+adb shell am start -n $A --es bench config --es provider openai --es mode full --es voice marin   # each extra optional; saves the form
+```
+
+`bench instructions` logs `bench instructions saved chars=N storedChars=N match=true`; `bench config` logs the saved provider, mode, voice, model and prompt length. Provider is `openai` or `elevenlabs`, mode `full` or `guarded`.
+
 `start` may carry `--es text '…'` too; the turn is sent as soon as the session is live. The typed turn goes through `DuplexController.sendText` → `DuplexSession.sendText` (OpenAI: a user `conversation.item.create` then `response.create`), so the reply arrives as audio exactly as after a spoken turn; the microphone stays open meanwhile. The phone must be unlocked with the screen on; the bench app keeps the screen on while this screen is showing, and leaving the screen ends the session.
 
 What `SierraDuplex` shows, in order for a good typed turn: `bench command=…`, `screen: try it …`, `duplex start`, `session connecting … host= path=`, `session socket open http=101`, `rx session.created`, `rx session.updated`, `session configured`, `duplex speaker started`, `duplex mic started`, `screen: connected`, `openai tx typed user turn`, `rx response.created`, `rx response.output_audio.delta xN in a row`, `duplex playback start`, `said: …`, `rx response.done`, `openai response done … status=completed`, `duplex playback stop`. Every server event type is logged (a run of one type is logged once with its length); `duplex mic ms=… meanRms=… framesSent= gated=` appears every five seconds; barge-in shows as `openai barge-in`, `duplex barge-in: playback cut`, `openai interrupt: tx conversation.item.truncate`; tools as `tool start` / `tool end name= ok= ms=`; a refused socket as `session socket failure … http=401`; Stop as `duplex stopped`, `duplex teardown`, `session close`, `session ended`, `duplex stop complete`. Transcript text is logged (`heard:`, `said:`, typed turns); keys, auth headers, URL query strings and audio never are. `adb logcat -s SierraDuplex SierraMic` adds the car screen's controller lines, which still go to `SierraMic`.
