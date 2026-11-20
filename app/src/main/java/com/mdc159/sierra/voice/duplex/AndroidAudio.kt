@@ -361,6 +361,9 @@ class AudioTrackSink(private val attributes: AudioAttributes = speechAttributes)
         }
     }
 
+    override val underrunCount: Int
+        get() = track?.let { runCatching { it.underrunCount }.getOrNull() } ?: -1
+
     override fun discard() {
         track?.let {
             runCatching {

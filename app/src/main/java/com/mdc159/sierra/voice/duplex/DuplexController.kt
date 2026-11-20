@@ -29,7 +29,8 @@ class DuplexController(
     private val frameMs: Int = 40,
     /** Speaker rate. The service rate is used when null (no output resampling). */
     private val speakerRate: Int? = null,
-    private val jitterPrefillMs: Long = 80,
+    /** Audio to queue before a reply starts playing; grows after an underrun (see [JitterBuffer]). */
+    private val jitterPrefillMs: Long = 300,
     /** Diagnostic lines (mic levels and end reasons, never audio); the car screen sends them to logcat. */
     private val log: (String) -> Unit = {},
 ) {
@@ -47,6 +48,21 @@ class DuplexController(
 
     @Volatile
     private var outResampler: Resampler? = null
+
+    /** Loudest 40 ms mic frame over the last second, for the barge-in log. */
+    @Volatile
+    private var recentMicPeakRms = 0.0
+
+    // Arrival statistics of the current reply's audio, touched only on the session's event thread.
+    private var replyDeltas = 0
+    private var replyAudioMs = 0L
+    private var replyFirstAt = 0L
+    private var replyLastAt = 0L
+    private var replyLastDeltaMs = 0L
+    private var replyMaxGapMs = 0L
+    private var replyLateGaps = 0
+    private var replyUnderrunBase = 0
+    private var replyTrackUnderrunBase = 0
 
     val isRunning: Boolean get() = running.get() && !stopped.get()
 
@@ -76,7 +92,7 @@ class DuplexController(
                 jitter = JitterBuffer(outRate, jitterPrefillMs)
                 outResampler = Resampler(session.outputSampleRate, outRate)
                 sink.start(outRate)
-                log("duplex speaker started rate=$outRate serviceRate=${session.outputSampleRate} prefillMs=$jitterPrefillMs")
+                log("duplex speaker started rate=$outRate serviceRate=${session.outputSampleRate} prefillMs=$jitterPrefillMs maxPrefillMs=${jitter?.maxPrefillMs}")
                 mic.start()
                 log("duplex mic started rate=${mic.sampleRate} serviceRate=${session.inputSampleRate} frameMs=$frameMs")
                 playThread = Thread(::playLoop, "duplex-play").apply { isDaemon = true; start() }
@@ -144,17 +160,20 @@ class DuplexController(
         when (event) {
             is DuplexEvent.AssistantAudio -> {
                 val resampled = outResampler?.process(event.pcm) ?: event.pcm
+                noteDelta(Resampler.durationMs(event.pcm.size, session.outputSampleRate))
                 jitter?.offer(resampled)
             }
             is DuplexEvent.UserStartedSpeaking -> {
                 // The service already cancelled its reply; match it locally and tell it where we were.
                 val queued = jitter?.queuedMs ?: 0
+                logReplyAudio("barge-in")
                 val played = cutPlayback()
-                log("duplex barge-in: playback cut playedMs=$played droppedQueuedMs=$queued gated=${gate.isGated}")
+                log("duplex barge-in: playback cut playedMs=$played droppedQueuedMs=$queued gated=${gate.isGated} warmup=${gate.inWarmup} micPeakRms1s=${recentMicPeakRms.toInt()}")
                 session.interrupt(played)
             }
             is DuplexEvent.AssistantDone -> {
                 jitter?.flush()
+                logReplyAudio(if (event.cancelled) "cancelled" else "done")
                 if (event.cancelled) cutPlayback()
                 log("duplex reply done cancelled=${event.cancelled} queuedMs=${jitter?.queuedMs ?: 0}")
             }
@@ -173,6 +192,43 @@ class DuplexController(
         listener.onEvent(event)
     }
 
+    /** Records one reply-audio arrival. A gap longer than the previous delta's audio is "late". */
+    private fun noteDelta(audioMs: Long) {
+        val now = System.nanoTime() / 1_000_000
+        if (replyDeltas == 0) {
+            replyFirstAt = now
+            replyUnderrunBase = jitter?.underruns ?: 0
+            replyTrackUnderrunBase = sink.underrunCount
+        } else {
+            val gap = now - replyLastAt
+            if (gap > replyMaxGapMs) replyMaxGapMs = gap
+            if (gap > replyLastDeltaMs) replyLateGaps++
+        }
+        replyDeltas++
+        replyAudioMs += audioMs
+        replyLastAt = now
+        replyLastDeltaMs = audioMs
+    }
+
+    /**
+     * One line per reply: how its audio arrived (spanMs below audioMs means faster than real
+     * time) and how often playback ran dry waiting for it.
+     */
+    private fun logReplyAudio(end: String) {
+        if (replyDeltas == 0) return
+        val buffer = jitter
+        val track = sink.underrunCount
+        log(
+            "duplex reply audio end=$end deltas=$replyDeltas audioMs=$replyAudioMs spanMs=${replyLastAt - replyFirstAt} " +
+                "maxGapMs=$replyMaxGapMs lateGaps=$replyLateGaps underruns=${(buffer?.underruns ?: 0) - replyUnderrunBase} " +
+                "targetMs=${buffer?.targetMs ?: 0} trackUnderrunFrames=${if (track < 0 || replyTrackUnderrunBase < 0) "?" else track - replyTrackUnderrunBase}",
+        )
+        replyDeltas = 0
+        replyAudioMs = 0
+        replyMaxGapMs = 0
+        replyLateGaps = 0
+    }
+
     private fun micLoop() {
         val micRate = mic.sampleRate
         val frame = ByteArray(Resampler.bytesForMs(frameMs.toLong(), micRate).coerceAtLeast(2))
@@ -181,6 +237,8 @@ class DuplexController(
         var levels = MicLevels(micRate)
         var frames = 0
         var gatedFrames = 0
+        val recent = DoubleArray(maxOf(1, 1_000 / frameMs))
+        var recentIndex = 0
         while (!stopped.get()) {
             val n = try {
                 mic.read(frame)
@@ -196,6 +254,9 @@ class DuplexController(
             }
             if (n == 0) continue
             levels.offer(frame, n)
+            recent[recentIndex] = frameRms(frame, n)
+            recentIndex = (recentIndex + 1) % recent.size
+            recentMicPeakRms = recent.max()
             if (levels.durationMs >= LEVEL_LOG_MS) {
                 log("duplex mic ${levels.summary()} framesSent=$frames gated=$gatedFrames")
                 levels = MicLevels(micRate)
@@ -214,24 +275,50 @@ class DuplexController(
         val buffer = jitter ?: return
         val chunk = ByteArray(Resampler.bytesForMs(20, buffer.sampleRate).coerceAtLeast(2))
         // One "playback start" per stretch of reply audio, one "playback stop" when it runs dry.
+        // An underrun (ran dry mid-reply) logs "playback underrun" instead, and playback
+        // resumes once the buffer has rebuilt its (larger) target.
         var playing = false
         var playedBytes = 0L
+        var seenUnderruns = buffer.underruns
+        var rebuffering = false
+        var nextDepthLogBytes = 0L
+        val depthLogBytes = Resampler.bytesForMs(DEPTH_LOG_MS, buffer.sampleRate).toLong()
         while (!stopped.get()) {
             val n = buffer.read(chunk, timeoutMs = 50)
             if (n < 0) break
             if (n == 0) {
-                if (playing && buffer.isEmpty) {
-                    playing = false
+                // After an underrun the reply may simply have ended (its done arrived late), or been cut.
+                if (rebuffering && buffer.isEmpty && buffer.targetMs == buffer.prefillMs) {
+                    rebuffering = false
                     log("duplex playback stop playedMs=${Resampler.durationMs(playedBytes.toInt(), buffer.sampleRate)}")
                     playedBytes = 0
+                }
+                if (playing && buffer.isEmpty) {
+                    playing = false
+                    val playedMs = Resampler.durationMs(playedBytes.toInt(), buffer.sampleRate)
+                    val underruns = buffer.underruns
+                    if (underruns > seenUnderruns) {
+                        log("duplex playback underrun total=$underruns playedMs=$playedMs rebufferTargetMs=${buffer.targetMs}")
+                        rebuffering = true
+                    } else {
+                        log("duplex playback stop playedMs=$playedMs")
+                        playedBytes = 0
+                    }
+                    seenUnderruns = underruns
                 }
                 continue
             }
             if (!playing) {
                 playing = true
-                log("duplex playback start queuedMs=${buffer.queuedMs}")
+                rebuffering = false
+                log("duplex playback start queuedMs=${buffer.queuedMs} targetMs=${buffer.targetMs}")
+                nextDepthLogBytes = playedBytes + depthLogBytes
             }
             playedBytes += n
+            if (playedBytes >= nextDepthLogBytes) {
+                log("duplex playback depth playedMs=${Resampler.durationMs(playedBytes.toInt(), buffer.sampleRate)} queuedMs=${buffer.queuedMs} trackUnderrunFrames=${sink.underrunCount}")
+                nextDepthLogBytes = playedBytes + depthLogBytes
+            }
             val warm = gate.inWarmup
             gate.onPlayback(chunk, n, Resampler.durationMs(n, buffer.sampleRate))
             if (warm && !gate.inWarmup) log("duplex full-duplex warm-up over: mic open during playback")
@@ -248,5 +335,18 @@ class DuplexController(
 
     private companion object {
         const val LEVEL_LOG_MS = 5_000L
+        const val DEPTH_LOG_MS = 5_000L
+
+        fun frameRms(buf: ByteArray, length: Int): Double {
+            var sum = 0.0
+            var i = 0
+            while (i + 1 < length) {
+                val s = ((buf[i + 1].toInt() shl 8) or (buf[i].toInt() and 0xFF)).toShort().toDouble()
+                sum += s * s
+                i += 2
+            }
+            val samples = length / 2
+            return if (samples == 0) 0.0 else kotlin.math.sqrt(sum / samples)
+        }
     }
 }

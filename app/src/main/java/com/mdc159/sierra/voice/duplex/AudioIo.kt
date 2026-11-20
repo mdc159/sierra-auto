@@ -27,6 +27,9 @@ interface PcmSink {
     fun discard()
 
     fun stop()
+
+    /** Device-level underruns (frames the device found missing), or -1 when unknown. */
+    val underrunCount: Int get() = -1
 }
 
 /**
