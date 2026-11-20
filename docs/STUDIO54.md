@@ -46,7 +46,7 @@ The list endpoint is the one the official SDKs call today. The server marks it d
 
 - **At start.** `Studio54.start(context)` reads the vault once and starts a 30-minute timer. It is called when Android Auto creates the car session (`SierraSession.onCreateScreen`) and when the Studio 54 screen opens.
 - **On a timer.** Every 30 minutes while the process lives.
-- **On 401 from the gateway.** When a Talk exchange fails with "error 401" while the vault supplies the key, `Studio54.onAgentError` reads the vault again (at most once a minute) because the agent's gateway key may have been rotated.
+- **On 401 from a vault-backed route.** `Studio54.onAgentError` checks the failing request's profile: chat may use the bridge, while transcription, gateway speech and realtime use the gateway. It refreshes only when the vault supplies that pair, at most once a minute. Typed-only credentials do not trigger a refresh.
 - **Refresh now.** The button on the screen.
 
 When the vault is unreachable (the phone is off the Tailscale network) the last good read is served from the encrypted cache for up to **3 days** (`VaultSecretSource.DEFAULT_CACHE_MAX_AGE_MILLIS`). After that the names disappear and the Talk screen falls back to whatever is typed in the phone settings. The status screen says "serving cached copy" while this is happening.

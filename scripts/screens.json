@@ -1,0 +1,8 @@
+{
+  "about": "Tap points for smoke.ps1, in car-screen pixels with (0, 0) at the top left. They fit the DHU's default 800x480 screen and the Home layout on main. Update them when a screen's layout changes; pick new ones from a screenshot made with shot.ps1. sierraIcon is Sierra's place in the Android Auto app grid, which depends on the other car apps on the phone.",
+  "launcherButton": [44, 440],
+  "sierraIcon": [165, 375],
+  "back": [40, 44],
+  "talk": [180, 165],
+  "places": [398, 165]
+}

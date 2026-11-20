@@ -50,17 +50,27 @@ interface ToolListener {
  * Tool calling follows the `tools` / `tool_calls` protocol: the model may answer a chat
  * request with function calls; the client runs them and sends the results back, for at
  * most [maxRounds] model requests, each bounded by [roundTimeoutMs]. A tool run is
- * bounded by [toolTimeoutMs]. The last round never offers tools, so the driver always
- * gets a spoken answer. If the endpoint rejects the `tools` field, the request is
- * retried as plain chat and tools stay off for the rest of this client's life.
+ * bounded by [toolTimeoutMs]. On top of that, one whole exchange may take at most
+ * [exchangeBudgetMs] from its first request: every round and tool is trimmed to the time
+ * left, and when it is spent the exchange ends with "Took too long", because a driver
+ * will not wait through four rounds and three tools at their individual limits. The last
+ * round never offers tools, so the driver always gets a spoken answer. If the endpoint
+ * rejects the `tools` field, the request is retried as plain chat and tools stay off for
+ * the rest of this client's life.
  */
 class AgentClient(
     private val config: AgentConfig,
     private val client: OkHttpClient = Http.client,
     private val maxRounds: Int = MAX_ROUNDS,
-    private val roundTimeoutMs: Long = ROUND_TIMEOUT_MS,
+    private val roundTimeoutMs: Long = if (config.usesBridge) BRIDGE_ROUND_TIMEOUT_MS else ROUND_TIMEOUT_MS,
     private val toolTimeoutMs: Long = TOOL_TIMEOUT_MS,
+    private val exchangeBudgetMs: Long = if (config.usesBridge) BRIDGE_EXCHANGE_BUDGET_MS else EXCHANGE_BUDGET_MS,
+    /** Monotonic milliseconds; injectable so tests can spend the budget without waiting. */
+    private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
+
+    /** Chat through the bridge may wait long for the first byte; transcription keeps [client]'s bounds. */
+    private val chatClient: OkHttpClient = if (config.usesBridge && client === Http.client) Http.slowClient else client
 
     @Volatile
     private var toolsSupported = true
@@ -75,20 +85,22 @@ class AgentClient(
      * asks for along the way. [listener] hears when each tool starts and ends.
      */
     fun chat(messages: List<ChatMessage>, tools: List<Tool>, listener: ToolListener?): String {
+        if (config.usesBridge && !config.isConfigured) throw AgentException("The bridge agent is not configured. Open Sierra on the phone and connect to Hermes or set up a bridge.")
         val history = messages.toMutableList()
         val byName = tools.associateBy { it.name }
         var offerTools = tools.isNotEmpty() && toolsSupported
         val rounds = maxRounds.coerceAtLeast(1)
+        val deadline = Deadline(clock, exchangeBudgetMs)
         for (round in 1..rounds) {
             // The final round is plain chat so the loop always ends in words for the driver.
             val withTools = offerTools && round < rounds
             val reply = try {
-                request(history, if (withTools) tools else emptyList())
+                request(history, if (withTools) tools else emptyList(), deadline.slice(roundTimeoutMs))
             } catch (e: AgentException) {
                 if (!withTools || !rejectsTools(e)) throw e
                 toolsSupported = false
                 offerTools = false
-                request(history, emptyList())
+                request(history, emptyList(), deadline.slice(roundTimeoutMs))
             }
             if (reply.toolCalls.isEmpty() || !withTools) {
                 val content = reply.content.trim()
@@ -97,23 +109,35 @@ class AgentClient(
             }
             history += reply
             for (call in reply.toolCalls) {
-                history += ChatMessage("tool", runTool(byName[call.name], call, listener), toolCallId = call.id)
+                val result = runTool(byName[call.name], call, listener, deadline.slice(toolTimeoutMs))
+                history += ChatMessage("tool", result, toolCallId = call.id)
             }
         }
         throw AgentException("The agent didn't finish.") // unreachable: the last round returns or throws
     }
 
-    private fun request(messages: List<ChatMessage>, tools: List<Tool>): ChatMessage {
+    /** The time left in one exchange. [slice] trims a step's own timeout to what remains. */
+    private class Deadline(private val clock: () -> Long, budgetMs: Long) {
+        private val endsAt = clock() + budgetMs
+
+        fun slice(stepTimeoutMs: Long): Long {
+            val remaining = endsAt - clock()
+            if (remaining <= 0) throw AgentException(TOO_LONG)
+            return if (stepTimeoutMs > 0) minOf(stepTimeoutMs, remaining) else remaining
+        }
+    }
+
+    private fun request(messages: List<ChatMessage>, tools: List<Tool>, timeoutMs: Long): ChatMessage {
         val body = JSONObject()
-            .put("model", config.model)
+            .put("model", config.chatModel)
             .put("messages", JSONArray().apply { messages.forEach { put(encode(it)) } })
         if (tools.isNotEmpty()) body.put("tools", JSONArray().apply { tools.forEach { put(it.spec()) } })
         val request = Request.Builder()
             .url(config.chatCompletionsUrl())
-            .withAuth(config.apiKey)
+            .withAuth(config.chatKey)
             .post(body.toString().toRequestBody(JSON))
             .build()
-        val json = execute(request, "Agent", roundTimeoutMs)
+        val json = execute(request, "Agent", timeoutMs, chatClient)
         try {
             val message = JSONObject(json).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
             return decode(message)
@@ -123,7 +147,7 @@ class AgentClient(
     }
 
     /** Runs one tool off this thread so a hung tool cannot hang the exchange. Never throws for tool failures. */
-    private fun runTool(tool: Tool?, call: ToolCall, listener: ToolListener?): String {
+    private fun runTool(tool: Tool?, call: ToolCall, listener: ToolListener?, timeoutMs: Long): String {
         if (tool == null) return ToolSchema.error("Unknown tool ${call.name}. Answer without it.")
         val args = parseArguments(call.arguments)
             ?: return ToolSchema.error("The arguments for ${call.name} were not a JSON object.")
@@ -132,7 +156,7 @@ class AgentClient(
         try {
             val future = executor.submit<String> { tool.run(args) }
             return try {
-                future.get(toolTimeoutMs, TimeUnit.MILLISECONDS)
+                future.get(timeoutMs, TimeUnit.MILLISECONDS)
             } catch (e: TimeoutException) {
                 future.cancel(true)
                 ToolSchema.error("${call.name} timed out. Tell the driver it took too long.")
@@ -177,7 +201,7 @@ class AgentClient(
     private fun Request.Builder.withAuth(key: String): Request.Builder =
         if (key.isBlank()) this else header("Authorization", "Bearer $key")
 
-    private fun execute(request: Request, what: String, timeoutMs: Long = 0): String {
+    private fun execute(request: Request, what: String, timeoutMs: Long = 0, client: OkHttpClient = this.client): String {
         val response: Response = try {
             val call = client.newCall(request)
             if (timeoutMs > 0) call.timeout().timeout(timeoutMs, TimeUnit.MILLISECONDS)
@@ -205,6 +229,16 @@ class AgentClient(
         const val MAX_ROUNDS = 4
         const val ROUND_TIMEOUT_MS = 30_000L
         const val TOOL_TIMEOUT_MS = 30_000L
+        const val EXCHANGE_BUDGET_MS = 60_000L
+
+        /**
+         * The bridge profile: an agent such as Hermes may use its own tools before answering.
+         * Set the bridge's own `timeout_seconds` below the round limit (110 s on victoria), so
+         * the bridge answers with its 504 before the phone gives up.
+         */
+        const val BRIDGE_ROUND_TIMEOUT_MS = 120_000L
+        const val BRIDGE_EXCHANGE_BUDGET_MS = 140_000L
+        const val TOO_LONG = "Took too long. Try again."
         private val JSON = "application/json; charset=utf-8".toMediaType()
         private val WAV = "audio/wav".toMediaType()
 

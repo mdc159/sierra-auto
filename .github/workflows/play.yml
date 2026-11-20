@@ -103,7 +103,7 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          ./gradlew --no-daemon bundleRelease -PversionCode="$PLAY_VERSION_CODE"
+          ./gradlew --no-daemon bundleRelease -PversionCode="$PLAY_VERSION_CODE" -Pplay=true
           cp app/build/outputs/bundle/release/app-release.aab sierra-auto.aab
           # Play needs an App Bundle for every track of an app created after August 2021.
           # Prove the bundle carries the release certificate, not the debug one.

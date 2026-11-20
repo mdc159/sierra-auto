@@ -117,10 +117,11 @@ jobs:
             app/build/test-results/
           if-no-files-found: ignore
 
-  # Only a push to main reaches this job. The steps below are the original release steps,
-  # unchanged; they just run under their own write-scoped token after build is green.
+  # Only a push to main reaches this job, and only after every gate (build, lint and the
+  # secret scan) is green. The steps below are the original release steps, unchanged; they
+  # just run under their own write-scoped token.
   release:
-    needs: build
+    needs: [build, lint, secret-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -1,0 +1,15 @@
+LANE L: talk to the truck. Branch `vehicle-tools`.
+Second wave, started 7:20 PM PST. All ten first-wave lanes are merged; work from current main. An integrator on the owner's PC builds and merges ready PRs automatically, so post your closing comment when you are done and it will be picked up. The owner is away: do not ask the owner questions; decide, record the decision in the PR, and continue. Commit with the git identity already configured in your environment, and do not put any email address on a command line.
+
+The owner's original goal was an agent on the dash that can run diagnostics while driving. The pieces now exist separately: live OBD-II data with a demo mode and a Truck screen (obd/live, obd/bt, car/Truck*.kt), GM-specific readings such as transmission temperature (obd/gm, docs/GM-PIDS.md), and agent tools for the Talk screen and the full-duplex voice (agent/tools/, voice/duplex/ tool registry). Join them.
+
+You own for this wave: everything under obd/, car/Truck*.kt, new tool files under agent/tools/ for vehicle data, docs/OBD2-PLAN.md and docs/GM-PIDS.md, and their tests. You may add one registration line to the existing tool registry and to the duplex tool adapter. Lane K owns car/TalkScreen.kt, the files directly under voice/, agent/AgentClient.kt and agent/ConfigStore.kt; lane M owns agent/profiles/; lane N owns README.md and the other docs. Do not edit those.
+
+Build:
+1. A `read_vehicle` tool the agent can call: current values on request ("what's my coolant temperature", "how's the battery"), a short health summary, and stored trouble codes with a plain-language meaning for each. It must work in demo mode, say clearly when no adapter is connected, never send any command outside the existing read-only safety allowlist, and never clear codes.
+2. Offer the same tool to the full-duplex voice through its tool registry.
+3. GM-specific readings on the Truck screen (transmission temperature first), shown only when the adapter answers them, and marked as unverified on this truck until the owner confirms them. Demo mode should simulate them so the screen can be checked on the emulator.
+4. Fix issue #21 (a "no data" reply is reported as "no codes", so the Codes screen can say the truck is clean when the engine computer did not answer) and issue #20 (the init sequence writes the adapter's non-volatile memory on every connect, against the stated safety rule).
+5. Fix issue #32 (oil-life data identifier) and reconcile docs/OBD2-PLAN.md with docs/HARDWARE.md as listed in issue #35. The adapter the owner will most likely buy is the OBDLink LX: classic Bluetooth, pairing by button, and a warm reset after sleep, so the init sequence must run again on every reconnect. Make the reconnect path do that and test it.
+6. A threshold alert: when a watched value crosses a limit (for example coolant or transmission temperature), the car screen shows it and, if a voice session is active, it is spoken once. Limits are configurable on the phone, with conservative defaults marked unverified.
+7. Unit tests for all of it with the existing fake and demo transports.

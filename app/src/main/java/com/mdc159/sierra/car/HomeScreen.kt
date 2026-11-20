@@ -12,12 +12,16 @@ import androidx.car.app.model.Template
 import androidx.core.graphics.drawable.IconCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.mdc159.sierra.R
 import com.mdc159.sierra.agent.ConfigStore
 import com.mdc159.sierra.obd.live.ObdSettingsStore
+import com.mdc159.sierra.studio54.Studio54
 
 /**
- * Landing hub: Talk, Places, Truck and History as a four-item grid. GridTemplate is
+ * Landing hub: Talk, Places, Truck, History, Mic test and Conversation. GridTemplate is
  * allowed while driving and the host's grid limit is never below six items. Setup
  * guidance lives in the items' secondary text so the grid stays the only content.
  */
@@ -30,6 +34,9 @@ class HomeScreen(
     class Entry(val title: String, val text: String, val icon: CarIcon, val onClick: () -> Unit)
 
     init {
+        lifecycleScope.launch {
+            Studio54.refreshEvents.collect { if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) invalidate() }
+        }
         // Settings may change on the phone while the car screen is up.
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) = invalidate()
@@ -37,7 +44,10 @@ class HomeScreen(
     }
 
     override fun onGetTemplate(): Template {
-        val configured = runCatching { ConfigStore.load(carContext).isConfigured }.getOrDefault(false)
+        // What Talk will use: with Studio 54 the vault fills the base URL and key, so the typed
+        // settings alone can look empty on a phone that is fully set up.
+        val configured = runCatching { Studio54.agentConfig(carContext, ConfigStore.load(carContext)).isConfigured }
+            .getOrDefault(false)
         val demoTruck = runCatching { ObdSettingsStore.load(carContext).isDemo }.getOrDefault(true)
         return template(
             entries(
@@ -51,6 +61,9 @@ class HomeScreen(
                 placesIcon = icon(R.drawable.ic_place),
                 truckIcon = icon(R.drawable.ic_truck),
                 historyIcon = icon(R.drawable.ic_history),
+            ) + listOf(
+                Entry("Mic test", "Five-second audio check", icon(R.drawable.ic_mic)) { screenManager.push(MicTestScreen(carContext)) },
+                Entry("Conversation", "Talk and interrupt", icon(R.drawable.ic_mic)) { screenManager.push(ConversationScreen(carContext)) },
             ),
             limit = CarLimits.listLimit(carContext, ConstraintManager.CONTENT_LIMIT_TYPE_GRID),
         )

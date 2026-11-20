@@ -2,15 +2,15 @@
 
 A personal Android Auto app that puts my own agent on the screen of my 2018 GMC Sierra Denali.
 
-It is sideloaded, not published to the Play Store. Each GitHub Release has an APK you can install from the phone. To use it, turn on Android Auto developer mode and enable "Unknown sources". See `docs/android-auto-constraints.md` §0: Google says that option may not cover Car App Library apps.
+The enrolled phone updates through **Google Play internal testing**. GitHub APK releases remain available for development; use the Play build for the truck. See [microphone diagnostics and Hermes setup](docs/MICROPHONE-DIAGNOSTICS.md) for cable-free testing and the Victoria agent connection.
 
 See [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Install
 
-1. On the phone, open the latest release, download `sierra-auto.apk` and install it: <https://github.com/mdc159/sierra-auto/releases/latest>. Every build is signed with the same key and has a higher `versionCode`, so each one installs over the last.
+1. On the enrolled phone, update **Sierra** in Google Play. New testers need the existing internal-testing opt-in link from the developer account; this is not a public production listing. Development APKs are available separately at <https://github.com/mdc159/sierra-auto/releases/latest>.
 2. Open **Sierra** on the phone. Grant location and microphone permission.
-3. Enter the agent settings and tap **Test connection**:
+3. For the configured Victoria agent, keep Tailscale connected and tap **Connect to Hermes on Victoria**. Studio54 supplies the credentials. To use another endpoint, enter the settings and tap **Test connection**:
    - **Base URL**: any OpenAI-compatible endpoint. `https://host`, `https://host/v1` and the full `/chat/completions` URL all work.
    - **API key** and **Model**.
    - **Transcription URL** (optional): an OpenAI-compatible `/v1/audio/transcriptions` endpoint. When it is set, Sierra records with the car microphone. When it is blank, Sierra uses the phone's speech recognizer.
@@ -23,7 +23,7 @@ See [`docs/PLAN.md`](docs/PLAN.md).
 
 ## On the truck screen
 
-- **Talk**: speak, and Sierra transcribes the question, asks the agent, shows a short reply and reads it aloud. Use **Ask again** for a follow-up; Sierra keeps the last few turns. The agent has tools, so speaking does things: "find gas nearby" searches the Places sources and reads back the nearest; "take me to the Shell" hands off to Google Maps; "file an idea: …" opens a GitHub issue labelled `idea` (needs a token, see **Idea settings** on the phone). While a tool runs, the screen says what it is doing ("Finding fuel nearby…"). Endpoints that do not support OpenAI tool calling still work as plain chat.
+- **Talk**: speak, and Sierra transcribes the question, asks the agent, shows a short reply and reads it aloud. Use **Ask again** for a follow-up; Sierra keeps the last few turns. The agent has tools, so speaking does things: "find gas nearby" searches the Places sources and reads back the nearest; "take me to the Shell" hands off to Google Maps; "file an idea: …" opens a GitHub issue labelled `idea-voice` (needs a token, see **Idea settings** on the phone; add the `idea` label yourself to hand it to the cloud agent). While a tool runs, the screen says what it is doing ("Finding fuel nearby…"). Endpoints that do not support OpenAI tool calling still work as plain chat.
 - **Places**: Fuel, Food, Rest areas and Parking near you on a host-drawn map. Pick one, then **Navigate** hands off to Google Maps. Results come from OpenStreetMap (Nominatim, with Overpass as a fallback).
 - **History**: recent questions and answers. Tap one to hear it again.
 

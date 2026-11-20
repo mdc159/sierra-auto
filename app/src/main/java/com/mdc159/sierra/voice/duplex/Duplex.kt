@@ -47,8 +47,15 @@ class ConfiguredAgentBridge(context: Context) : AgentBridge {
         // Same settings Talk uses: signed in to Studio 54, the gateway address and key come from the vault.
         val config = Studio54.agentConfig(app, ConfigStore.load(app))
         if (!config.isConfigured) throw IllegalStateException("The owner's agent is not set up on the phone.")
-        return AgentClient(config).chat(
-            listOf(ChatMessage("system", Conversation.SYSTEM_PROMPT), ChatMessage("user", question)),
-        )
+        com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics.event(app, "ask_agent", "request sent; target=${config.targetLabel}")
+        return try {
+            AgentClient(config).chat(listOf(ChatMessage("system", Conversation.SYSTEM_PROMPT), ChatMessage("user", question))).also {
+                com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics.event(app, "ask_agent", "reply received; characters=${it.length}")
+            }
+        } catch (e: Exception) {
+            com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics.failure(app, "ask_agent failed", e)
+            Studio54.onAgentError(app, e, config.profile)
+            throw e
+        }
     }
 }

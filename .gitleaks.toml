@@ -33,8 +33,3 @@ regexes = [
   '''SIGNING_[A-Z_]+\s*[:=]\s*\$\{\{''',
 ]
 
-[allowlist]
-description = "Files that legitimately mention the rules above"
-paths = [
-  '''^\.gitleaks\.toml$''',
-]
