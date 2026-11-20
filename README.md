@@ -109,6 +109,29 @@ evidence and a recovery commit reference, and never force-removes work. Read
 before creating a checkout or running old scripts. `.local` and `.worktrees` are
 not uploaded by Git; the local recovery archive is not an off-machine backup.
 
+### Project agent skills
+
+`AGENTS.md` is the shared project instruction file; Claude Code imports it from
+`CLAUDE.md`. The editable workflows live in `.agents/skills/<name>/SKILL.md`.
+Codex and omp discover those files directly. Claude Code and omp also read the
+thin slash-command adapters in `.claude/commands/`.
+
+| Workflow | Claude Code and omp | Codex |
+| --- | --- | --- |
+| Prime this checkout | `/prime` or `/prime-sierra-auto voice` | `$prime` or `$prime-sierra-auto voice` |
+| Choose relevant docs | `/conditional_docs voice` | `$conditional-docs voice` |
+| Delegate in Herdr Core | `/hc-fleet <task>` | `$hc-fleet <task>` |
+
+In Codex, select a skill from `/skills` or type `$` to mention it. In omp,
+`/skill:<name>` also invokes the shared skill directly. Start a fresh session
+from the checkout root to pick up changes.
+
+Add reusable workflows to `.agents/skills/` and, for a Claude slash entry, add
+a `.claude/commands/` adapter that reads the shared file and passes along its
+arguments. Edit the workflow in one place; keep permissions, hooks, login
+state and personal settings in their own harness. The setup travels with the
+checkout, not with an account or session.
+
 ## Build and check
 
 Use PowerShell 7, Git, JDK 17 and Android SDK platform 36. The shared toolchain on
