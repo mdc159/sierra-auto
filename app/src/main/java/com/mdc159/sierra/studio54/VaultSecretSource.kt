@@ -78,10 +78,11 @@ class VaultSecretSource(
     }
 
     /**
-     * Reads the vault now. Blocking: call it off the main thread. On failure the cached
+     * Reads the vault now; call it off the main thread. Cancelling the caller aborts the
+     * underlying HTTP calls instead of waiting out OkHttp's timeouts. On failure the cached
      * secrets (if any and fresh enough) keep being served.
      */
-    fun refresh(): RefreshResult {
+    suspend fun refresh(): RefreshResult {
         val creds = synchronized(lock) { credentials } ?: return RefreshResult.NotSignedIn
         return try {
             val c = synchronized(lock) { client ?: clientFactory(creds).also { client = it } }
