@@ -216,6 +216,14 @@ class PhoneActivity : ComponentActivity() {
         }
         row(settingsButton, tailscaleButton)
 
+        // The live two-way conversation and its phone-side test.
+        content.addView(Button(this).apply {
+            text = "Full-duplex voice"
+            setOnClickListener {
+                startActivity(Intent(this@PhoneActivity, com.mdc159.sierra.voice.duplex.DuplexSettingsActivity::class.java))
+            }
+        })
+
         input = EditText(this).apply {
             hint = "Type a message instead of talking"
             isSingleLine = true

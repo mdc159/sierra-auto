@@ -1,11 +1,13 @@
 package com.mdc159.sierra.voice.duplex
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -17,6 +19,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.mdc159.sierra.BuildConfig
 import com.mdc159.sierra.studio54.AgentOverlay
 import com.mdc159.sierra.studio54.Studio54
 
@@ -24,6 +27,10 @@ import com.mdc159.sierra.studio54.Studio54
  * Phone-side settings for the full-duplex conversation, plus "Try it on this phone",
  * which runs a live session with the phone's microphone and speaker so the owner can
  * test tonight without the truck.
+ *
+ * Bench builds only (`BuildConfig.BENCH_BUILD`, the debug app): the screen can be driven
+ * from adb with the `bench` intent extra, see "Driving the phone test from adb" in
+ * docs/DUPLEX.md. Release builds ignore the extra and do not export this activity.
  */
 class DuplexSettingsActivity : ComponentActivity() {
 
@@ -47,11 +54,22 @@ class DuplexSettingsActivity : ComponentActivity() {
     private lateinit var transcript: TextView
 
     private var controller: DuplexController? = null
+
+    /** True once the current session finished connecting (typed turns can be sent). */
+    private var live = false
+
+    /** Bench: a typed turn that arrived before the session was live. */
+    private var pendingText: String? = null
     private val lines = ArrayDeque<String>()
 
     private val micPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) tryIt() else setStatus("Microphone permission is required.")
+            if (granted) {
+                tryIt()
+            } else {
+                DuplexLog.w("screen: microphone permission refused")
+                setStatus("Microphone permission is required.")
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -150,6 +168,60 @@ class DuplexSettingsActivity : ComponentActivity() {
 
         setContentView(ScrollView(this).apply { addView(form) })
         load()
+        if (BuildConfig.BENCH_BUILD) {
+            // The session ends when the screen goes off (onStop); keep it on while benching.
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            // Not after a rotation: that would replay the command the screen was opened with.
+            if (savedInstanceState == null) handleBench(intent)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleBench(intent)
+    }
+
+    /**
+     * Bench builds only: `--es bench start|say|interrupt|stop`, with `--es text "…"` for a
+     * typed turn (on `start` it is sent as soon as the session is live). Same code paths as
+     * the buttons; nothing here runs in a release build.
+     */
+    private fun handleBench(intent: Intent?) {
+        if (!BuildConfig.BENCH_BUILD) return
+        val command = intent?.getStringExtra(EXTRA_BENCH)?.trim()?.lowercase() ?: return
+        val text = intent.getStringExtra(EXTRA_BENCH_TEXT).orEmpty().trim()
+        DuplexLog.i("bench command=$command textChars=${text.length} session=${controller != null} live=$live")
+        when (command) {
+            "start" -> {
+                if (text.isNotEmpty()) pendingText = text
+                if (controller == null) ensureMicThen { tryIt() } else flushPendingText()
+            }
+            "say" -> when {
+                text.isEmpty() -> DuplexLog.w("bench say ignored: no text extra")
+                controller == null -> DuplexLog.w("bench say ignored: no session; send bench start first")
+                else -> {
+                    pendingText = text
+                    flushPendingText()
+                }
+            }
+            "interrupt" -> controller?.tapInterrupt() ?: DuplexLog.w("bench interrupt ignored: no session")
+            "stop" -> controller?.stop() ?: DuplexLog.w("bench stop ignored: no session")
+            else -> DuplexLog.w("bench command not recognised")
+        }
+    }
+
+    /** Sends the waiting typed turn through the session's own `sendText`, once it is live. */
+    private fun flushPendingText() {
+        val c = controller ?: return
+        if (!live) {
+            DuplexLog.i("bench typed turn held until the session is live")
+            return
+        }
+        val text = pendingText ?: return
+        pendingText = null
+        DuplexLog.i("screen: typed turn: $text")
+        addLine("You (typed): $text")
+        c.sendText(text)
     }
 
     override fun onResume() {
@@ -223,6 +295,7 @@ class DuplexSettingsActivity : ComponentActivity() {
     private fun tryIt() {
         if (controller != null) return
         val config = Studio54.duplexConfig(this, current())
+        DuplexLog.i("screen: try it; provider=${config.provider} mode=${config.mode} model=${config.openAiModel} vault=${Studio54.suppliesAgent(this)} keyPresent=${config.openAiApiKey.isNotBlank()} configured=${config.isConfigured}")
         if (!config.isConfigured) {
             setStatus(
                 if (config.provider == DuplexProvider.ELEVENLABS) "Enter an ElevenLabs agent ID first."
@@ -244,9 +317,11 @@ class DuplexSettingsActivity : ComponentActivity() {
             mode = config.mode,
             guardRatio = config.guardRatio,
             listener = { event ->
+                logEvent(event)
                 if (event is DuplexEvent.Error) Studio54.onDuplexError(this, config.provider, event.message)
                 runOnUiThread { onEvent(event) }
             },
+            log = DuplexLog::i,
         )
         controller = c
         Thread({
@@ -256,8 +331,11 @@ class DuplexSettingsActivity : ComponentActivity() {
                     if (controller !== c || !c.isRunning) return@runOnUiThread
                     setStatus("Listening. Say something; talk over Sierra to interrupt.")
                     interruptButton.isEnabled = true
+                    live = true
+                    flushPendingText()
                 }
             } catch (e: DuplexException) {
+                DuplexLog.w("screen: couldn't start: ${DuplexLog.redact(e.message)}")
                 Studio54.onDuplexError(this@DuplexSettingsActivity, config.provider, e.message)
                 runOnUiThread {
                     if (controller !== c) return@runOnUiThread
@@ -288,8 +366,24 @@ class DuplexSettingsActivity : ComponentActivity() {
         }
     }
 
+    /** The conversation as text, for logcat. Called on service threads. */
+    private fun logEvent(event: DuplexEvent) {
+        when (event) {
+            is DuplexEvent.UserTranscript -> if (event.final) DuplexLog.i("heard: ${event.text}")
+            is DuplexEvent.AssistantTranscript -> if (event.final) DuplexLog.i("said: ${event.text}")
+            is DuplexEvent.ToolCall -> DuplexLog.i("screen: tool call ${event.name} args=${DuplexLog.redact(event.argumentsJson, 160)}")
+            is DuplexEvent.ToolResult -> DuplexLog.i("screen: tool result ${event.name} error=${event.isError} chars=${event.result.length}")
+            is DuplexEvent.Error -> DuplexLog.w("screen: error fatal=${event.fatal}: ${DuplexLog.redact(event.message)}")
+            is DuplexEvent.Ended -> DuplexLog.i("screen: ended: ${DuplexLog.redact(event.reason)}")
+            is DuplexEvent.Connected -> DuplexLog.i("screen: connected")
+            else -> Unit
+        }
+    }
+
     private fun finished() {
         controller = null
+        live = false
+        pendingText = null
         tryButton.isEnabled = true
         interruptButton.isEnabled = false
         stopButton.isEnabled = false
@@ -303,5 +397,13 @@ class DuplexSettingsActivity : ComponentActivity() {
         lines.addLast(line)
         while (lines.size > 40) lines.removeFirst()
         transcript.text = lines.joinToString("\n")
+    }
+
+    private companion object {
+        /** Bench builds: the command (`start`, `say`, `interrupt`, `stop`). */
+        const val EXTRA_BENCH = "bench"
+
+        /** Bench builds: the typed turn for `start` or `say`. */
+        const val EXTRA_BENCH_TEXT = "text"
     }
 }

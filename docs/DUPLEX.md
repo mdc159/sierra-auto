@@ -182,6 +182,28 @@ Prerequisites: the duplex settings saved on the phone, an OpenAI key (or the gat
 
 **What to record in local acceptance evidence:** provider, mode, ratio, volume setting, false interruptions per minute, time-to-first-audio, whether voice barge-in worked, and the ElevenLabs `conversationId` or the OpenAI response ids if something odd happened (both are in the logs via the transcript panel).
 
+### Driving the phone test from adb (bench app only)
+
+**As-is:** 2026-11-20, branch `dev/blitz`. Implemented and built; **not yet run on a phone**. Debug builds only (`com.mdc159.sierra.blitz`, `BuildConfig.BENCH_BUILD`): `app/src/debug/AndroidManifest.xml` exports `DuplexSettingsActivity` behind `android.permission.DUMP` (the adb shell holds it, ordinary apps do not), and the screen reads a `bench` extra. Release builds keep the screen unexported and ignore the extra. The bench app has its own settings and Studio 54 sign-in, separate from the Play app's, and its mode defaults to Full duplex until a mode is saved.
+
+```bash
+A=com.mdc159.sierra.blitz/com.mdc159.sierra.voice.duplex.DuplexSettingsActivity
+
+adb shell pm grant com.mdc159.sierra.blitz android.permission.RECORD_AUDIO   # once, instead of the dialog
+adb logcat -c && adb logcat -v time -s SierraDuplex                          # watch, in a second terminal
+
+adb shell am start -n $A                                         # open the test screen
+adb shell am start -n $A --es bench start                        # start a session (same as "Try it on this phone", without Save)
+adb shell "am start -n $A --es bench say --es text 'What is the oil change interval on a 2018 Sierra?'"   # typed user turn, answered in audio
+adb shell "am start -n $A --es bench say --es text 'Ask my agent what is on my calendar today.'"          # exercises ask_agent
+adb shell am start -n $A --es bench interrupt                    # same as the Interrupt button
+adb shell am start -n $A --es bench stop                         # stop the session
+```
+
+`start` may carry `--es text '…'` too; the turn is sent as soon as the session is live. The typed turn goes through `DuplexController.sendText` → `DuplexSession.sendText` (OpenAI: a user `conversation.item.create` then `response.create`), so the reply arrives as audio exactly as after a spoken turn; the microphone stays open meanwhile. The phone must be unlocked with the screen on; the bench app keeps the screen on while this screen is showing, and leaving the screen ends the session.
+
+What `SierraDuplex` shows, in order for a good typed turn: `bench command=…`, `screen: try it …`, `duplex start`, `session connecting … host= path=`, `session socket open http=101`, `rx session.created`, `rx session.updated`, `session configured`, `duplex speaker started`, `duplex mic started`, `screen: connected`, `openai tx typed user turn`, `rx response.created`, `rx response.output_audio.delta xN in a row`, `duplex playback start`, `said: …`, `rx response.done`, `openai response done … status=completed`, `duplex playback stop`. Every server event type is logged (a run of one type is logged once with its length); `duplex mic ms=… meanRms=… framesSent= gated=` appears every five seconds; barge-in shows as `openai barge-in`, `duplex barge-in: playback cut`, `openai interrupt: tx conversation.item.truncate`; tools as `tool start` / `tool end name= ok= ms=`; a refused socket as `session socket failure … http=401`; Stop as `duplex stopped`, `duplex teardown`, `session close`, `session ended`, `duplex stop complete`. Transcript text is logged (`heard:`, `said:`, typed turns); keys, auth headers, URL query strings and audio never are. `adb logcat -s SierraDuplex SierraMic` adds the car screen's controller lines, which still go to `SierraMic`.
+
 ---
 
 ## 7. Implemented car wiring

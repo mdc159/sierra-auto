@@ -28,6 +28,19 @@ class ToolRegistry(tools: List<DuplexTool> = emptyList()) {
      * becomes an error result so the model can tell the driver.
      */
     fun run(name: String, argumentsJson: String): ToolOutcome {
+        val startedAt = System.currentTimeMillis()
+        DuplexLog.i("tool start name=$name argChars=${argumentsJson.length}")
+        val outcome = invoke(name, argumentsJson)
+        val took = System.currentTimeMillis() - startedAt
+        if (outcome.isError) {
+            DuplexLog.w("tool end name=$name ok=false ms=$took error=${DuplexLog.redact(outcome.result)}")
+        } else {
+            DuplexLog.i("tool end name=$name ok=true ms=$took resultChars=${outcome.result.length}")
+        }
+        return outcome
+    }
+
+    private fun invoke(name: String, argumentsJson: String): ToolOutcome {
         val tool = byName[name] ?: return ToolOutcome("Unknown tool: $name", isError = true)
         val args = try {
             if (argumentsJson.isBlank()) JSONObject() else JSONObject(argumentsJson)
