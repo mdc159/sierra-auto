@@ -70,7 +70,7 @@ scripts\dhu.ps1 stop
 
 Or all at once: `scripts\smoke.ps1`.
 
-Screenshots, logs and built APKs go to canonical `.local/runs` (ignored, inside the project). Reviews live in `.local/reviews`, retained evidence in `.local/archive`. The consolidated linked tree is `.worktrees/install-record`; it is an unshipped installer experiment, not an active release tree. `workspace.ps1 remove` refuses changed/untracked or unfamiliar ignored files, preserves build reports/test-results/APKs under `.local/runs/worktree-NAME-DATE-ID` with a manifest and recovery ref `refs/sierra/worktrees/NAME/TIMESTAMP-ID`, and never force-deletes. Follow [WORKSPACE.md](WORKSPACE.md) for commands; do not restart archived integration scripts.
+Screenshots, logs and built APKs go to canonical `.local/runs` (ignored, inside the project). Reviews live in `.local/reviews`, retained evidence in `.local/archive`. No linked worktree is retained; the unshipped installer experiment is preserved as tag `archive/install-record`. `workspace.ps1 remove` refuses changed/untracked or unfamiliar ignored files, preserves build reports/test-results/APKs under `.local/runs/worktree-NAME-DATE-ID` with a manifest and recovery ref `refs/sierra/worktrees/NAME/TIMESTAMP-ID`, and never force-deletes. Follow [WORKSPACE.md](WORKSPACE.md) for commands; do not restart archived integration scripts.
 
 ## DHU console commands
 

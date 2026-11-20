@@ -85,8 +85,7 @@ bridge/                 Python HTTP bridge, adapters, deployment examples and te
 docs/                   Current status, operating guides, reference and next steps
 scripts/                Windows device/build/workspace commands
 tools/voice-probe/       Voice-provider diagnostic utility
-.worktrees/             Ignored, temporary linked worktrees
-  install-record/       Preserved unmerged installer experiment
+.worktrees/             Ignored, temporary linked worktrees (none retained)
 .local/                 Ignored, local-only evidence and state
   reviews/              Code review and device inspection evidence
   runs/                 Build/device results and retired-worktree evidence

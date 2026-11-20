@@ -33,4 +33,4 @@ The current checkpoint is prepared on `dev/phone-voice-checkpoint`. Staging star
 
 GitHub branch protection was enabled and verified for staging and main on 2026-11-17: PRs are required, branches must be up to date, and promotion, secret-scan, lint and build must pass. Enforcement includes administrators; force pushes and branch deletion are disabled. The required external approval count is zero so the owner can merge after reviewing the evidence. These settings do not substitute for phone/truck acceptance. Known application defects and physical acceptance gaps remain recorded in STATUS.md.
 
-The old `install-record` experiment is not required for Google Play. Retain it and `pr27-phase1-merge` until a separate ancestry/patch-equivalence review determines which changes, if any, remain useful.
+The old `install-record` experiment is not required for Google Play. On 2026-11-20 both it and `pr27-phase1-merge` were removed as branches and preserved as tags `archive/install-record` and `archive/pr27-phase1-merge`; the latter's two fixes were already present in source.

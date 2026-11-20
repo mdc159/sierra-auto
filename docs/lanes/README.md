@@ -19,7 +19,7 @@ These briefs record the November 4, 2026 first/second-wave design scopes, reconc
 | [M](m-agent-profiles.md) | Named voice profiles | Only two-way gateway/bridge selector built |
 | [N](n-docs-and-truck-plan.md) | Guides/acceptance | Missing guides now supplied in documentation consolidation |
 
-Current workspace: root checkout is main; retained installer experiment is `.worktrees/install-record`, not a shipped fix. Local reviews/runs/state/archive/downloads belong under canonical `.local`; toolchain and credential directory stay external. See [WORKSPACE.md](../WORKSPACE.md) for workspace commands. Historical integration scratch tooling is not an active unattended pipeline.
+Current workspace: root checkout is main; the installer experiment is preserved as tag `archive/install-record`, not a shipped fix. Local reviews/runs/state/archive/downloads belong under canonical `.local`; toolchain and credential directory stay external. See [WORKSPACE.md](../WORKSPACE.md) for workspace commands. Historical integration scratch tooling is not an active unattended pipeline.
 
 ## Next steps
 

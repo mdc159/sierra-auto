@@ -36,7 +36,7 @@
   Do not replace this with `Remove-Item -Recurse`, `git clean -fdx` or forced Git
   removal. Never remove another active task's worktree.
 - Do not merge unfinished feature branches just to consolidate directories.
-  `.worktrees/install-record` is an unmerged experiment, not the current app.
+  The unmerged installer experiment is preserved only as tag `archive/install-record`.
 - At handoff, report current branch/revision, relevant tests, remaining worktrees,
   evidence locations and known gaps. Remove temporary worktrees you finished
   with; explicitly identify any retained for ongoing work.

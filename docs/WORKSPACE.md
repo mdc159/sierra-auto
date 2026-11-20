@@ -6,6 +6,10 @@
 application baseline `210448b`; workspace/documentation changes are applied on
 top of that baseline. Source was fast-forwarded from the older local checkout.
 
+**Update 2026-11-20:** the `install-record` worktree and branch were removed in a
+branch cleanup; the experiment is preserved as tag `archive/install-record`
+(draft PR #44 closed). The paragraph below records the 2026-11-08 state.
+
 The sole retained linked worktree is `.worktrees/install-record`, branch
 `install-record`, commit `f52dcdc`. It contains an unmerged installer experiment.
 Its source and ignored local files were preserved byte-for-byte (Git updated its

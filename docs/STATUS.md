@@ -241,6 +241,6 @@ Earlier evidence has narrower scope: 2026-11-04 desktop voice probes, 2026-11-06
 2. Repair bridge exit/disconnect and misleading diagnostic/navigation results; make Windows tests portable; expand voice lifecycle/failure tests.
 3. Confirm Play provenance, then execute the parked-first [truck acceptance plan](TRUCK-TEST-PLAN.md), retaining redacted evidence under `.local/runs/`.
 4. Validate one real adapter with standard PIDs and key-off/reconnect before adding GM UI, voice vehicle tools or alerts. Unknown is never healthy.
-5. Reconcile issues by evidence, not lane assignment; selectively reassess draft installer work in `.worktrees/install-record`. Historical integration scratch scripts/logs are archival, not an authorized unattended release pipeline.
+5. Reconcile issues by evidence, not lane assignment; selectively reassess draft installer work preserved as tag `archive/install-record`. Historical integration scratch scripts/logs are archival, not an authorized unattended release pipeline.
 
 See [user guide](USER-GUIDE.md), [architecture](ARCHITECTURE.md), [testing](TESTING.md) and historical [lane scopes](lanes/README.md).

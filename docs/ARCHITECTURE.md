@@ -67,7 +67,7 @@ OBD reads never supply agent truth today. Demo values are synthetic, NO DATA can
 
 Android: Kotlin/JDK 17, compile/target SDK 36, min SDK 29, Car App Library/projected 1.7.0; Robolectric/FakeHost and mock servers exercise software, not release-host trust or real acoustics. Python bridge requires 3.11+, uv and project-local `.venv`.
 
-Canonical checkout is `D:\Projects\sierra-auto` on main. Consolidation (separate from application baseline) uses `.worktrees/install-record` and `.local/{reviews,runs,state,archive,downloads}`. Script paths resolve through Git common-dir to the canonical root even from linked trees. Runs default to `.local/runs`, DHU state to `.local/state/dhu`, downloads to `.local/downloads/releases`; `SIERRA_RUNS`/`SIERRA_STATE` overrides must remain under canonical `.local`. Toolchain and credential directory remain external. See [TESTING.md](TESTING.md) and [WORKSPACE.md](WORKSPACE.md) for operational details.
+Canonical checkout is `D:\Projects\sierra-auto` on main. Local evidence (separate from application baseline) uses `.local/{reviews,runs,state,archive,downloads}`. Script paths resolve through Git common-dir to the canonical root even from linked trees. Runs default to `.local/runs`, DHU state to `.local/state/dhu`, downloads to `.local/downloads/releases`; `SIERRA_RUNS`/`SIERRA_STATE` overrides must remain under canonical `.local`. Toolchain and credential directory remain external. See [TESTING.md](TESTING.md) and [WORKSPACE.md](WORKSPACE.md) for operational details.
 
 ## Next steps
 
