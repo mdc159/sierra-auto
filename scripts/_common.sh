@@ -4,6 +4,9 @@
 # Paths come from the environment so nothing machine-specific is hard-coded:
 #   SIERRA_TOOLCHAIN  folder holding android-sdk (legacy layout support)
 #   SIERRA_SERIAL     adb serial of the phone (default: the only device attached)
+#   SIERRA_PACKAGE    package the device scripts target (default com.mdc159.sierra,
+#                     the Play/release app). Debug builds install beside it as
+#                     the bench app: SIERRA_PACKAGE=com.mdc159.sierra.blitz
 #   SIERRA_RUNS       where screenshots, logs and built APKs go
 #                     (default <canonical repo>/.local/runs)
 #   SIERRA_STATE      where the DHU session state lives
@@ -21,8 +24,16 @@
 # shellcheck source=/dev/null
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/_workspace.sh"
 
-SIERRA_PACKAGE='com.mdc159.sierra'
-SIERRA_SERVICE='com.mdc159.sierra/com.mdc159.sierra.car.SierraCarAppService'
+SIERRA_PACKAGE="${SIERRA_PACKAGE:-com.mdc159.sierra}"
+if [[ ! "$SIERRA_PACKAGE" =~ ^com\.mdc159\.sierra(\.[a-z][a-z0-9_]*)*$ ]]; then
+    printf 'SIERRA_PACKAGE must be com.mdc159.sierra or a suffixed variant of it, not %s\n' "$SIERRA_PACKAGE" >&2
+    exit 2
+fi
+# Class names keep the Kotlin namespace whatever the package id.
+SIERRA_SERVICE="$SIERRA_PACKAGE/com.mdc159.sierra.car.SierraCarAppService"
+# Regex for exactly this package: the release and bench ids share a prefix, so
+# a match must not continue into a longer package name.
+SIERRA_PACKAGE_RE="${SIERRA_PACKAGE//./[.]}([^A-Za-z0-9_.]|\$)"
 GEARHEAD_PACKAGE='com.google.android.projection.gearhead'
 GEARHEAD_LAUNCHER_SERVICE='GhAppLauncherService'
 PLAY_INSTALLER='com.android.vending'
@@ -232,7 +243,7 @@ sierra_get_car_state() {
                 CAR_SIERRA_DENIED_LINES+="$value"$'\n'
                 ;;
         esac
-    done < <(awk '
+    done < <(awk -v pkg="$SIERRA_PACKAGE_RE" '
         BEGIN { connected = "false"; fg = ""; launcher = ""; unk = ""; info = ""; denied = 0 }
         /Dumping history of connection state for Car Module \(human readable timestamps\):/ {
             inhist = 1; seen = 0; last = ""; next
@@ -267,7 +278,7 @@ sierra_get_car_state() {
             next
         }
         /Current app ProjectionApp\(appKey=AppKey\(componentName=ComponentInfo\{[^}]*GhAppLauncherService\}/ { launcher = "true" }
-        /Package DENIED/ && /com\.mdc159\.sierra/ { denied++; printf "deniedLine=%s\n", $0 }
+        /Package DENIED/ && $0 ~ pkg { denied++; printf "deniedLine=%s\n", $0 }
         END {
             if (seen && last == "CONNECTED") connected = "true"
             printf "connected=%s\n", connected

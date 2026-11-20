@@ -26,6 +26,8 @@ android {
         versionName = "0.1.$appVersionCode"
         // True only for play.yml builds (-Pplay=true): the app then leaves updates to Play.
         buildConfigField("boolean", "PLAY_BUILD", (findProperty("play") == "true").toString())
+        // True only for debug builds, which install beside the Play app as a separate bench app.
+        buildConfigField("boolean", "BENCH_BUILD", "false")
     }
 
     buildFeatures {
@@ -44,6 +46,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Bench app: its own package id, so a debug build installs beside the Play-installed
+            // release instead of demanding an uninstall (different signer, lower versionCode).
+            // The label comes from src/debug/res. The Kotlin namespace is unchanged.
+            applicationIdSuffix = ".blitz"
+            versionNameSuffix = "-blitz"
+            buildConfigField("boolean", "BENCH_BUILD", "true")
+        }
         release {
             isMinifyEnabled = false
             signingConfig = if (hasReleaseKey) {

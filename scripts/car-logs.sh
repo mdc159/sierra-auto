@@ -93,7 +93,7 @@ if [[ $HOST_DUMP -eq 1 ]]; then
     printf '%s\n' "$host_lines" > "$OUT"
     sierra_get_car_state "$SERIAL"
     sierra_note "Connected: $CAR_CONNECTED. On screen: ${CAR_FOREGROUND:-unknown}. Unknown sources: ${CAR_UNKNOWN_SOURCES:-unknown}."
-    validator_lines="$(printf '%s\n' "$host_lines" | grep 'CAR\.VALIDATOR' | grep -c 'mdc159' || true)"
+    validator_lines="$(printf '%s\n' "$host_lines" | grep 'CAR\.VALIDATOR' | grep -cE "$SIERRA_PACKAGE_RE" || true)"
     sierra_note "Validator lines naming Sierra: $validator_lines"
     sierra_note 'The full dump lists other apps on the phone. Do not post it whole.'
     printf '%s\n' "$OUT"
@@ -118,17 +118,17 @@ elif [[ $DUMP -eq 0 ]]; then
 fi
 
 filter() {
-    awk -v spid="$sierra_pid" '
+    awk -v spid="$sierra_pid" -v pkg="$SIERRA_PACKAGE_RE" -v startproc="^Start proc [0-9]+:${SIERRA_PACKAGE//./[.]}/" '
         function drop_line(l) {
             return l ~ /Package DENIED; (Uses for [[:alnum:]_]+ not defined|package is disabled)/ \
                 || l ~ /ActivityThread: Package \[/ \
                 || l ~ /[[:space:]](adbd|artd)[[:space:]]*:/
         }
         function keep_line(l) {
-            return l ~ /CAR\.VALIDATOR|GH\.AppNotifier|GH\.ConnLoggerV2|CarApp\.|HostConfig|com\.mdc159\.sierra|AndroidRuntime|FATAL EXCEPTION/
+            return l ~ /CAR\.VALIDATOR|GH\.AppNotifier|GH\.ConnLoggerV2|CarApp\.|HostConfig|AndroidRuntime|FATAL EXCEPTION/ || l ~ pkg
         }
         {
-            if ($0 ~ /^Start proc [0-9]+:com\.mdc159\.sierra\//) {
+            if ($0 ~ startproc) {
                 split($0, a, " ")
                 split(a[3], b, ":")
                 spid = b[1]

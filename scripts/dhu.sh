@@ -142,7 +142,7 @@ wait_sierra_offered() {
     fi
     local services
     services="$(sierra_invoke_adb -a "$serial" shell cmd package query-services --brief -a androidx.car.app.CarAppService)" || true
-    if ! grep -q "$SIERRA_PACKAGE" <<< "$services"; then
+    if ! grep -qF "$SIERRA_PACKAGE/" <<< "$services"; then
         sierra_die 'Sierra is installed but exposes no androidx.car.app.CarAppService, so Android Auto has nothing to offer.'
     fi
     if [[ "$CAR_SIERRA_DENIED_COUNT" -gt 0 ]]; then
