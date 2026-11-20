@@ -2,6 +2,8 @@ package com.mdc159.sierra.net
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -17,6 +19,9 @@ import java.io.InterruptedIOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLHandshakeException
 
 class HttpTest {
@@ -175,6 +180,45 @@ class HttpTest {
             assertTrue("executeCancellable returned after ${elapsedMs}ms", elapsedMs < 2_500)
             assertTrue("the connection stayed open", stalled.clientClosedWithin(2_000))
         } finally {
+            stalled.shutdown()
+        }
+    }
+
+    /**
+     * Cancellation must reach `Call.cancel()` even when the body read occupies the only
+     * thread of its dispatcher (a single-thread or saturated pool, or the same dispatcher
+     * as the caller). A guard dispatched on that pool would queue behind the blocked read.
+     */
+    @Test
+    fun cancellingReachesTheCallWhenTheBodyReadHoldsTheOnlyThread() {
+        val stalled = StalledBodyServer().start()
+        val single = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+        try {
+            val startedAt = System.nanoTime()
+            runBlocking {
+                val call = Http.client.newCall(Request.Builder().url(stalled.url).build())
+                val readEntered = CountDownLatch(1)
+                val job = launch(single) {
+                    try {
+                        call.executeCancellable(single) {
+                            readEntered.countDown()
+                            it.body!!.string()
+                        }
+                    } catch (e: CancellationException) {
+                        // the expected outcome: the caller's own cancellation
+                    }
+                }
+                assertTrue("body read never started", readEntered.await(5, TimeUnit.SECONDS))
+                Thread.sleep(100) // the single thread is now blocked in the body read
+                job.cancel() // from another thread
+                withTimeout(5_000) { job.join() }
+                assertTrue("the call was not cancelled", call.isCanceled())
+            }
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+            assertTrue("executeCancellable returned after ${elapsedMs}ms", elapsedMs < 2_500)
+            assertTrue("the connection stayed open", stalled.clientClosedWithin(2_000))
+        } finally {
+            single.close()
             stalled.shutdown()
         }
     }

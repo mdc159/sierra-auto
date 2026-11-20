@@ -2,6 +2,7 @@ package com.mdc159.sierra.net
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -113,9 +114,11 @@ suspend fun <T> Call.executeCancellable(
     dispatcher: CoroutineDispatcher,
     block: suspend (Response) -> T,
 ): T = coroutineScope {
-    // ATOMIC, so the guard enters its body even when cancellation wins the start race and
-    // its `finally` — the actual `Call.cancel()` — always runs when the caller goes away.
-    val guard = launch(start = CoroutineStart.ATOMIC) {
+    // Unconfined + UNDISPATCHED: the guard starts at once (it cannot lose a start race) and,
+    // when the caller is cancelled, its `finally` — the actual `Call.cancel()` — runs
+    // immediately on the cancelling thread. It never waits for a free thread on [dispatcher],
+    // which the blocked body read may be holding (single-thread or saturated pools).
+    val guard = launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
         try {
             awaitCancellation()
         } finally {
