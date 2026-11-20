@@ -55,6 +55,9 @@ class DuplexSettingsActivity : ComponentActivity() {
 
     private var controller: DuplexController? = null
 
+    /** The controller whose stop is already running on its own thread, so it is asked once. */
+    private var stopping: DuplexController? = null
+
     /** True once the current session finished connecting (typed turns can be sent). */
     private var live = false
 
@@ -139,7 +142,11 @@ class DuplexSettingsActivity : ComponentActivity() {
 
         form.addView(Button(this).apply {
             text = "Save"
-            setOnClickListener { save(); Toast.makeText(context, "Saved.", Toast.LENGTH_SHORT).show() }
+            setOnClickListener {
+                save()
+                val message = if (DuplexConfigStore.openError == null) "Saved." else "Not saved: the settings store could not be opened. Kept until the app closes."
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            }
         })
 
         heading("Try it on this phone")
@@ -158,7 +165,7 @@ class DuplexSettingsActivity : ComponentActivity() {
         stopButton = Button(this).apply {
             text = "Stop"
             isEnabled = false
-            setOnClickListener { controller?.stop() }
+            setOnClickListener { stopSession("Stop button") }
         }
         form.addView(stopButton)
         status = TextView(this)
@@ -205,7 +212,7 @@ class DuplexSettingsActivity : ComponentActivity() {
                 }
             }
             "interrupt" -> controller?.tapInterrupt() ?: DuplexLog.w("bench interrupt ignored: no session")
-            "stop" -> controller?.stop() ?: DuplexLog.w("bench stop ignored: no session")
+            "stop" -> if (controller != null) stopSession("bench") else DuplexLog.w("bench stop ignored: no session")
             else -> DuplexLog.w("bench command not recognised")
         }
     }
@@ -248,11 +255,31 @@ class DuplexSettingsActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        controller?.stop()
+        stopSession("screen left")
+    }
+
+    /**
+     * Ends the session without blocking the screen: closing the microphone and the speaker
+     * are native calls, made under the lock a session that is still starting also holds.
+     * The controller reports `Ended` when it is done, which re-enables the buttons. Safe to
+     * call twice, and when the activity is going away (the thread only holds the controller).
+     */
+    private fun stopSession(why: String) {
+        val c = controller ?: return
+        if (stopping === c) return
+        stopping = c
+        DuplexLog.i("screen: stop requested ($why)")
+        stopButton.isEnabled = false
+        interruptButton.isEnabled = false
+        setStatus("Stopping…")
+        Thread({ c.stop() }, "duplex-stop").start()
     }
 
     private fun load() {
         val c = DuplexConfigStore.load(this)
+        DuplexConfigStore.openError?.let {
+            setStatus("The saved full-duplex settings could not be opened ($it). Nothing was deleted; defaults are used until the app is restarted.")
+        }
         providerGroup.check(if (c.provider == DuplexProvider.OPENAI_REALTIME) 1 else 2)
         modeGroup.check(if (c.mode == DuplexMode.GUARDED) 1 else 2)
         guardRatio.setText(c.guardRatio.toString())
@@ -294,7 +321,8 @@ class DuplexSettingsActivity : ComponentActivity() {
 
     private fun tryIt() {
         if (controller != null) return
-        val config = Studio54.duplexConfig(this, current())
+        val typed = current()
+        val config = Studio54.duplexConfig(this, typed)
         DuplexLog.i("screen: try it; provider=${config.provider} mode=${config.mode} model=${config.openAiModel} vault=${Studio54.suppliesAgent(this)} keyPresent=${config.openAiApiKey.isNotBlank()} configured=${config.isConfigured}")
         if (!config.isConfigured) {
             setStatus(
@@ -308,8 +336,11 @@ class DuplexSettingsActivity : ComponentActivity() {
         setStatus("Connecting…")
         tryButton.isEnabled = false
         stopButton.isEnabled = true
-        val session = Duplex.session(config, Duplex.defaultTools(this))
-        val c = DuplexController(
+        val app = applicationContext
+        // Asked again on every connect, so a key the vault refreshed after a 401 is used.
+        val session = Duplex.session(config, Duplex.defaultTools(this), credentials = { Studio54.duplexConfig(app, typed) })
+        lateinit var c: DuplexController
+        c = DuplexController(
             session = session,
             mic = com.mdc159.sierra.voice.diagnostics.Microphones.phone(this),
             sink = AudioTrackSink(),
@@ -319,7 +350,8 @@ class DuplexSettingsActivity : ComponentActivity() {
             listener = { event ->
                 logEvent(event)
                 if (event is DuplexEvent.Error) Studio54.onDuplexError(this, config.provider, event.message)
-                runOnUiThread { onEvent(event) }
+                // Events of a session this screen has already let go of are not shown.
+                runOnUiThread { if (controller === c && !isDestroyed) onEvent(event) }
             },
             log = DuplexLog::i,
         )
@@ -382,6 +414,7 @@ class DuplexSettingsActivity : ComponentActivity() {
 
     private fun finished() {
         controller = null
+        stopping = null
         live = false
         pendingText = null
         tryButton.isEnabled = true

@@ -76,6 +76,9 @@ abstract class WebSocketSessionBase(
     /** The connection dropped and a new one is about to be made. Reset per-connection state. */
     protected open fun onBeforeReconnect() {}
 
+    /** [close] was called. Abort whatever the session still has running elsewhere (tools). */
+    protected open fun onClose() {}
+
     override fun start(listener: DuplexListener) {
         this.listener = listener
         connect()
@@ -148,7 +151,9 @@ abstract class WebSocketSessionBase(
         handshake?.countDown()
         socket?.close(1000, "User ended conversation")
         val abandoned = toolExecutor.shutdownNow().size
-        DuplexLog.i("session close: socket closing, tool thread interrupted (queued tools dropped=$abandoned)")
+        // Interrupting the tool thread does not unblock a socket read; the tool is told itself.
+        runCatching { onClose() }
+        DuplexLog.i("session close: socket closing, running tool cancelled (queued tools dropped=$abandoned)")
         end("Ended")
     }
 

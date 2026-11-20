@@ -9,6 +9,7 @@ import okhttp3.WebSocket
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Base64
+import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -28,6 +29,12 @@ class OpenAiRealtimeSession(
     private val tools: ToolRegistry,
     client: OkHttpClient,
     timing: WebSocketSessionBase.Timing = WebSocketSessionBase.Timing(),
+    /**
+     * The settings as they are now, asked on every connect. The base URL and key are taken
+     * from it, so a key refreshed after a 401 reaches the next connection of this session
+     * instead of the one captured when the session was built. Null keeps [config]'s.
+     */
+    private val credentials: (() -> DuplexConfig)? = null,
 ) : WebSocketSessionBase(client, timing) {
 
     override val provider = DuplexProvider.OPENAI_REALTIME
@@ -55,12 +62,34 @@ class OpenAiRealtimeSession(
     @Volatile
     private var truncatedItemId: String? = null
 
+    /**
+     * Response and item ids whose remaining audio must not be played: cancelled by the
+     * server when the driver spoke, cancelled by a tap, or truncated. Deltas already on
+     * the wire when playback was cut would otherwise start it again.
+     */
+    private val cancelledIds: MutableSet<String> = Collections.synchronizedSet(LinkedHashSet())
+    private var droppedDeltas = 0
+
+    // When a `response.create` may be sent. Guarded by responseLock: tools finish on the tool
+    // thread and typed turns arrive on the caller's, while the socket thread tracks responses.
+    private val responseLock = Any()
+    private var responsePending = false
+    private var responseRequestedAt = 0L
+    private var userSpeaking = false
+    private var vadResponseDueBy = 0L
+
     private val userTranscripts = HashMap<String, StringBuilder>()
     private val assistantTranscript = StringBuilder()
 
     override fun buildRequest(): Request {
+        // Read at connect time, not at construction: the vault may have a newer key by now.
+        val live = credentials?.let { runCatching(it).getOrNull() }
+            ?.takeIf { it.provider == DuplexProvider.OPENAI_REALTIME && it.openAiBaseUrl.isNotBlank() }
+        val baseUrl = live?.openAiBaseUrl ?: config.openAiBaseUrl
+        val apiKey = live?.openAiApiKey ?: config.openAiApiKey
+        if (live != null && apiKey != config.openAiApiKey) DuplexLog.i("openai connect: using credentials newer than the session's")
         val url = try {
-            AgentConfig.endpoint(config.openAiBaseUrl, "realtime")
+            AgentConfig.endpoint(baseUrl, "realtime")
                 .toHttpUrlOrThrow()
                 .newBuilder()
                 .setQueryParameter("model", config.openAiModel)
@@ -69,7 +98,7 @@ class OpenAiRealtimeSession(
             throw DuplexException("The realtime base URL is not valid.", e)
         }
         val builder = Request.Builder().url(url)
-        if (config.openAiApiKey.isNotBlank()) builder.header("Authorization", "Bearer ${config.openAiApiKey}")
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
         return builder.build()
     }
 
@@ -133,6 +162,57 @@ class OpenAiRealtimeSession(
         audioReceivedBytes = 0
         truncatedItemId = null
         assistantTranscript.setLength(0)
+        cancelledIds.clear()
+        synchronized(responseLock) {
+            responsePending = false
+            responseRequestedAt = 0
+            userSpeaking = false
+            vadResponseDueBy = 0
+        }
+    }
+
+    /** Stop must not wait for the owner's agent: abort a tool call that is still running. */
+    override fun onClose() {
+        tools.cancel()
+    }
+
+    private fun markCancelled(id: String) {
+        synchronized(cancelledIds) {
+            cancelledIds.add(id)
+            while (cancelledIds.size > MAX_CANCELLED_IDS) cancelledIds.remove(cancelledIds.first())
+        }
+    }
+
+    /**
+     * Asks for a reply, unless one is already being made: the server refuses a second
+     * `response.create` while a response is active. A tool can take many seconds, and the
+     * driver may have spoken (or typed) in the meantime.
+     *  - a response is active, or one was just requested: ask again when it is done;
+     *  - the driver is mid-turn: the response the server creates for that turn already
+     *    includes the new item, so nothing is sent;
+     *  - otherwise: send it now.
+     */
+    private fun requestResponse(why: String) {
+        synchronized(responseLock) {
+            val now = System.currentTimeMillis()
+            val requested = now - responseRequestedAt < RESPONSE_CREATE_WAIT_MS
+            when {
+                activeResponseId != null || requested -> {
+                    responsePending = true
+                    DuplexLog.i("openai response.create deferred ($why): response ${activeResponseId ?: "requested"} in progress")
+                }
+                userSpeaking || now < vadResponseDueBy -> {
+                    responsePending = false
+                    DuplexLog.i("openai response.create skipped ($why): the driver's turn will produce the reply")
+                }
+                else -> {
+                    responsePending = false
+                    responseRequestedAt = now
+                    DuplexLog.i("openai tx response.create ($why)")
+                    send(JSONObject().put("type", "response.create"))
+                }
+            }
+        }
     }
 
     override fun onJson(message: JSONObject) {
@@ -143,15 +223,27 @@ class OpenAiRealtimeSession(
                 val err = message.optJSONObject("error")
                 val text = err?.optString("message")?.takeIf { it.isNotBlank() } ?: "Voice service error."
                 DuplexLog.w("openai error type=${err?.optString("type")} code=${err?.optString("code")} handshaking=$isHandshaking message=${DuplexLog.redact(text)}")
+                // A refused response.create never gets its response.created.
+                synchronized(responseLock) { responseRequestedAt = 0 }
                 if (isHandshaking) handshakeFailed(text) else emit(DuplexEvent.Error(text, fatal = false))
             }
             "input_audio_buffer.speech_started" -> {
                 // With interrupt_response=true the server cancels the response itself.
                 DuplexLog.i("openai barge-in: server heard speech; activeResponse=${activeResponseId ?: "none"}")
-                if (activeResponseId != null) cancelledByServer = true
+                synchronized(responseLock) { userSpeaking = true }
+                activeResponseId?.let {
+                    cancelledByServer = true
+                    markCancelled(it)
+                }
                 emit(DuplexEvent.UserStartedSpeaking)
             }
-            "input_audio_buffer.speech_stopped" -> emit(DuplexEvent.UserStoppedSpeaking)
+            "input_audio_buffer.speech_stopped" -> {
+                synchronized(responseLock) {
+                    userSpeaking = false
+                    vadResponseDueBy = System.currentTimeMillis() + VAD_RESPONSE_WAIT_MS
+                }
+                emit(DuplexEvent.UserStoppedSpeaking)
+            }
             "conversation.item.input_audio_transcription.delta" -> {
                 val id = message.optString("item_id")
                 val sb = userTranscripts.getOrPut(id) { StringBuilder() }
@@ -163,7 +255,12 @@ class OpenAiRealtimeSession(
                 emit(DuplexEvent.UserTranscript(message.optString("transcript").trim(), final = true))
             }
             "response.created" -> {
-                activeResponseId = message.optJSONObject("response")?.optString("id")?.ifBlank { null } ?: "?"
+                synchronized(responseLock) {
+                    activeResponseId = message.optJSONObject("response")?.optString("id")?.ifBlank { null } ?: "?"
+                    responseRequestedAt = 0
+                    vadResponseDueBy = 0
+                }
+                droppedDeltas = 0
                 cancelledByServer = false
                 audioItemId = null
                 audioReceivedBytes = 0
@@ -171,8 +268,14 @@ class OpenAiRealtimeSession(
                 DuplexLog.i("openai response created id=$activeResponseId")
             }
             "response.output_audio.delta", "response.audio.delta" -> {
-                val pcm = Base64.getDecoder().decode(message.optString("delta"))
                 val itemId = message.optString("item_id").ifBlank { null }
+                val responseId = message.optString("response_id").ifBlank { null }
+                // Audio of a reply that was cancelled or truncated: playback was already cut.
+                if (cancelledByServer || (responseId != null && responseId in cancelledIds) || (itemId != null && itemId in cancelledIds)) {
+                    if (droppedDeltas++ == 0) DuplexLog.i("openai dropping audio of interrupted reply response=${responseId ?: activeResponseId} item=$itemId")
+                    return
+                }
+                val pcm = Base64.getDecoder().decode(message.optString("delta"))
                 if (itemId != audioItemId) {
                     audioItemId = itemId
                     audioReceivedBytes = 0
@@ -202,9 +305,13 @@ class OpenAiRealtimeSession(
                 val reason = response?.optJSONObject("status_details")?.let { d ->
                     d.optString("reason").ifBlank { d.optJSONObject("error")?.optString("code").orEmpty() }
                 }.orEmpty()
-                DuplexLog.i("openai response done id=${response?.optString("id")} status=$status${if (reason.isBlank()) "" else " reason=$reason"} audioMs=${Resampler.durationMs(audioReceivedBytes.toInt(), SAMPLE_RATE)}")
-                activeResponseId = null
+                DuplexLog.i("openai response done id=${response?.optString("id")} status=$status${if (reason.isBlank()) "" else " reason=$reason"} audioMs=${Resampler.durationMs(audioReceivedBytes.toInt(), SAMPLE_RATE)} droppedDeltas=$droppedDeltas")
+                val pending = synchronized(responseLock) {
+                    activeResponseId = null
+                    responsePending
+                }
                 emit(DuplexEvent.AssistantDone(cancelled = status == "cancelled"))
+                if (pending) requestResponse("deferred")
             }
             else -> Unit // session.updated-adjacent chatter, rate limits, item lifecycle: not needed.
         }
@@ -217,7 +324,7 @@ class OpenAiRealtimeSession(
             DuplexLog.i("openai tool result dropped: session closed (call=$callId)")
             return
         }
-        DuplexLog.i("openai tx function_call_output call=$callId error=${outcome.isError}; tx response.create")
+        DuplexLog.i("openai tx function_call_output call=$callId error=${outcome.isError}")
         val output = if (outcome.isError) "Error: ${outcome.result}" else outcome.result
         send(
             JSONObject()
@@ -230,7 +337,7 @@ class OpenAiRealtimeSession(
                         .put("output", output),
                 ),
         )
-        send(JSONObject().put("type", "response.create"))
+        requestResponse("tool result")
     }
 
     override fun sendAudio(pcm: ByteArray, offset: Int, length: Int) {
@@ -253,6 +360,7 @@ class OpenAiRealtimeSession(
             DuplexLog.i("openai interrupt: tx response.cancel id=$activeResponseId")
             send(JSONObject().put("type", "response.cancel"))
             cancelledByServer = true
+            activeResponseId?.let(::markCancelled)
         }
         val itemId = audioItemId
         if (itemId == null) {
@@ -261,6 +369,7 @@ class OpenAiRealtimeSession(
         }
         if (itemId == truncatedItemId) return
         truncatedItemId = itemId
+        markCancelled(itemId)
         val receivedMs = Resampler.durationMs(audioReceivedBytes.toInt(), SAMPLE_RATE)
         DuplexLog.i("openai interrupt: tx conversation.item.truncate item=$itemId playedMs=$playedMs receivedMs=$receivedMs")
         send(
@@ -277,7 +386,7 @@ class OpenAiRealtimeSession(
             DuplexLog.w("openai typed turn ignored (blank=${text.isBlank()} closed=$isClosed)")
             return
         }
-        DuplexLog.i("openai tx typed user turn chars=${text.length}; tx response.create")
+        DuplexLog.i("openai tx typed user turn chars=${text.length}")
         send(
             JSONObject()
                 .put("type", "conversation.item.create")
@@ -292,11 +401,19 @@ class OpenAiRealtimeSession(
                         ),
                 ),
         )
-        send(JSONObject().put("type", "response.create"))
+        requestResponse("typed turn")
     }
 
     companion object {
         const val SAMPLE_RATE = 24_000
+
+        private const val MAX_CANCELLED_IDS = 32
+
+        /** How long a sent `response.create` counts as in progress before `response.created`. */
+        private const val RESPONSE_CREATE_WAIT_MS = 3_000L
+
+        /** How long after the driver stops speaking the server's own response is still expected. */
+        private const val VAD_RESPONSE_WAIT_MS = 3_000L
 
         private fun String.toHttpUrlOrThrow(): HttpUrl {
             // OkHttp speaks websockets over http(s) URLs; map ws(s) schemes for convenience.

@@ -13,6 +13,13 @@ interface DuplexTool {
 
     @Throws(Exception::class)
     fun invoke(arguments: JSONObject): String
+
+    /**
+     * The session is ending: abort an [invoke] that is still running (close its socket) so
+     * it returns or throws promptly. Called from another thread. Tools that finish quickly
+     * need not implement it.
+     */
+    fun cancel() {}
 }
 
 /** The tools offered to a session, looked up by name when the service calls one. */
@@ -22,6 +29,11 @@ class ToolRegistry(tools: List<DuplexTool> = emptyList()) {
     val all: List<DuplexTool> get() = byName.values.toList()
 
     operator fun get(name: String): DuplexTool? = byName[name]
+
+    /** Aborts any tool that is still running. The session calls this when it is closed. */
+    fun cancel() {
+        byName.values.forEach { runCatching { it.cancel() } }
+    }
 
     /**
      * Runs [name] with [argumentsJson]. Never throws: an unknown tool or a tool failure
@@ -76,6 +88,9 @@ fun interface AgentBridge {
     /** Blocking. Returns the agent's answer, or throws with a short message. */
     @Throws(Exception::class)
     fun ask(question: String): String
+
+    /** Aborts an [ask] that is still waiting, from another thread. */
+    fun cancel() {}
 }
 
 /** Built-in tool: hands a hard question to the owner's agent and returns its answer. */
@@ -93,6 +108,8 @@ class AskAgentTool(private val bridge: AgentBridge) : DuplexTool {
         if (question.isEmpty()) throw IllegalArgumentException("ask_agent needs a question.")
         return bridge.ask(question)
     }
+
+    override fun cancel() = bridge.cancel()
 
     companion object {
         const val NAME = "ask_agent"
