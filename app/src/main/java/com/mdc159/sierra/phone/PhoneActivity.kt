@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.mdc159.sierra.MainActivity
 import com.mdc159.sierra.agent.AgentConfig
@@ -75,8 +76,14 @@ class PhoneActivity : ComponentActivity() {
     /** Test seam: replace before onCreate (Robolectric sets it on the pre-setup instance). */
     internal var deps: PhoneDeps = PhoneDeps()
 
-    private val conversation = PhoneConversation()
-    private val transcript = TranscriptLog()
+    /**
+     * Conversation state that survives recreation (rotation, theme change): the rolling
+     * context with its bridge identity, the visible transcript and the endpoint key.
+     * Retrieved lazily so it is first touched from onCreate, after the activity is attached.
+     */
+    private val model: PhoneViewModel by lazy { ViewModelProvider(this)[PhoneViewModel::class.java] }
+    private val conversation get() = model.conversation
+    private val transcript get() = model.transcript
     internal val gate = PhoneJobGate()
 
     private var voiceJob: Job? = null
@@ -84,9 +91,6 @@ class PhoneActivity : ComponentActivity() {
     private var checkJob: Job? = null
     private var controller: ConversationController? = null
     private var speech: SpeechOutput? = null
-
-    /** Endpoint identity the current context belongs to; a change clears the context. */
-    private var endpointKey: String? = null
 
     /** What the current speech engine was built from, so settings changes rebuild it. */
     private var speechKey: Pair<VoiceSettings, AgentConfig>? = null
@@ -318,14 +322,14 @@ class PhoneActivity : ComponentActivity() {
      */
     private fun prepareConversation(config: AgentConfig) {
         val key = "${config.profile.name}|${config.chatBaseUrl}|${config.chatModel}"
-        val old = endpointKey
+        val old = model.endpointKey
         if (old != null && old != key) {
             conversation.clear()
             transcript.event("Switched to ${Tailnet.agentLabel(config)}")
             renderTranscript()
             VoiceDiagnostics.event(this, "Phone", "endpoint changed; context cleared")
         }
-        endpointKey = key
+        model.endpointKey = key
     }
 
     /**
@@ -416,7 +420,7 @@ class PhoneActivity : ComponentActivity() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Studio54.onAgentError(this@PhoneActivity, e, config?.profile ?: AgentProfile.GATEWAY)
+                deps.onAgentError(this@PhoneActivity, e, config?.profile ?: AgentProfile.GATEWAY)
                 status("Error: ${shortError(e, config)}")
             } finally {
                 controller = null
@@ -450,6 +454,13 @@ class PhoneActivity : ComponentActivity() {
             focus = deps.focus(this),
             config = controllerConfig,
             onState = { s -> runOnUiThread { onConversationState(s) } },
+            onAgentError = { e ->
+                // The controller handles this error itself (status line, no spoken errors);
+                // route it to the same credential-refresh hook the typed path uses, so a
+                // 401 from the agent rotates the vault key instead of being reused. The
+                // turn still ends with a clear error — no automatic retry loop.
+                deps.onAgentError(this@PhoneActivity, e, config.profile)
+            },
             log = { line ->
                 deps.log(line)
                 VoiceDiagnostics.recorder(this, line)
@@ -558,7 +569,7 @@ class PhoneActivity : ComponentActivity() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Studio54.onAgentError(this@PhoneActivity, e, config?.profile ?: AgentProfile.GATEWAY)
+                deps.onAgentError(this@PhoneActivity, e, config?.profile ?: AgentProfile.GATEWAY)
                 status("Error: ${shortError(e, config)}")
             } finally {
                 speakingNow = false
@@ -593,7 +604,7 @@ class PhoneActivity : ComponentActivity() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Studio54.onAgentError(this@PhoneActivity, e, config?.profile ?: AgentProfile.GATEWAY)
+                deps.onAgentError(this@PhoneActivity, e, config?.profile ?: AgentProfile.GATEWAY)
                 status("Connection failed: ${shortError(e, config)}")
                 val c = config
                 if (c != null && Tailnet.hint(c) != null) showHint(c)
@@ -712,5 +723,9 @@ internal data class PhoneDeps(
     val focus: (Context) -> com.mdc159.sierra.voice.tts.AudioFocusGate = { ctx -> AndroidAudioFocus(ctx) },
     val recognizer: suspend (Context) -> String = { PhoneRecognizer.recognize(it) },
     val history: (Context, String, String) -> Unit = { ctx, q, a -> runCatching { History.add(ctx, q, a) } },
+    /** The credential-refresh hook: a 401 while the vault supplies the key rotates it. */
+    val onAgentError: (Context, Throwable, AgentProfile) -> Unit = { ctx, e, profile ->
+        Studio54.onAgentError(ctx, e, profile)
+    },
     val log: (String) -> Unit = { MicLog.i(it) },
 )

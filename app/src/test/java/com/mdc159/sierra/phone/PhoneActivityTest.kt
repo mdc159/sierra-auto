@@ -49,6 +49,9 @@ class PhoneActivityTest {
     private val chatCalls = Collections.synchronizedList(mutableListOf<Pair<String?, List<ChatMessage>>>())
     private val history = Collections.synchronizedList(mutableListOf<Pair<String, String>>())
 
+    /** What the agent-error hook saw: a 401 here means the vault-refresh path was reached. */
+    private val agentErrors = Collections.synchronizedList(mutableListOf<Throwable>())
+
     /** Blocks the first chat call until released, to observe in-flight behavior. */
     private var chatLatch: CountDownLatch? = null
 
@@ -79,6 +82,7 @@ class PhoneActivityTest {
         recognizer = recognizer,
         focus = { com.mdc159.sierra.voice.FakeAudioFocus() },
         history = { _, q, a -> history += q to a },
+        onAgentError = { _, e, _ -> agentErrors += e },
     )
 
     private fun fastConversation(base: VoiceSettings): ConversationConfig = base.conversationConfig().copy(
@@ -114,6 +118,19 @@ class PhoneActivityTest {
         while (!condition()) {
             assertTrue(
                 "timed out; status='${activity.statusView.text}' transcript='${activity.transcriptView.text}'",
+                System.currentTimeMillis() - start < timeoutMs,
+            )
+            Shadows.shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(15)
+        }
+    }
+
+    /** Same, for a recreated activity instance the [activity] field no longer points at. */
+    private fun waitUntil(recreated: PhoneActivity, timeoutMs: Long = 10_000, condition: () -> Boolean) {
+        val start = System.currentTimeMillis()
+        while (!condition()) {
+            assertTrue(
+                "timed out; status='${recreated.statusView.text}' transcript='${recreated.transcriptView.text}'",
                 System.currentTimeMillis() - start < timeoutMs,
             )
             Shadows.shadowOf(Looper.getMainLooper()).idle()
@@ -354,6 +371,31 @@ class PhoneActivityTest {
     }
 
     @Test
+    fun agent401DuringAControllerTurnTriggersExactlyOneVaultRefresh() {
+        val mic = FakeMic()
+        mic.feedMs(100, 100)
+        mic.feedMs(400, 3_000)
+        mic.feedMs(400, 100)
+        mic.feedMs(1_200, 100)
+        val deps = testDeps(mic = mic).copy(chat = { _, id, messages ->
+            chatCalls += id to messages
+            throw com.mdc159.sierra.agent.AgentException("Agent error 401: bad key")
+        })
+        launch(deps)
+        activity.talkButton.performClick()
+
+        waitUntil { activity.statusView.text.toString().contains("401") }
+        waitUntil { activity.talkButton.text.toString() == "Talk" && activity.sendButton.isEnabled }
+
+        assertEquals(
+            "the controller turn must reach the same refresh hook as the typed path, exactly once",
+            listOf("Agent error 401: bad key"),
+            agentErrors.map { it.message },
+        )
+        assertEquals("no retry loop: one agent call for the failing turn", 1, chatCalls.size)
+    }
+
+    @Test
     fun talkWithoutMicPermissionDoesNotStartAConversation() {
         Shadows.shadowOf(application()).denyPermissions(Manifest.permission.RECORD_AUDIO)
         val mic = FakeMic()
@@ -383,6 +425,39 @@ class PhoneActivityTest {
         assertEquals(PhoneJob.NONE, gateOf(activity).active)
         chatLatch!!.countDown() // even if the interrupted call somehow finished, no second result shows
         waitUntil { activity.statusView.text.contains("Stopped") }
+    }
+
+    @Test
+    fun recreationKeepsTheTranscriptAndConversationIdentity() {
+        launch(testDeps())
+        activity.input.setText("hello hermes")
+        activity.sendButton.performClick()
+        waitUntil { activity.transcriptView.text.contains("Hello from Hermes.") }
+        val identityBefore = activity.conversationIdentity()
+
+        activityController.recreate() // rotation/configuration change: same ViewModelStore
+        val recreated = activityController.get()
+
+        assertTrue(recreated.transcriptView.text.contains("You: hello hermes"))
+        assertTrue(recreated.transcriptView.text.contains("Sierra: Hello from Hermes."))
+        assertEquals("recreation must keep the bridge conversation identity", identityBefore, recreated.conversationIdentity())
+    }
+
+    @Test
+    fun recreationDuringAnInFlightTurnDoesNotDuplicateOrCorruptState() {
+        chatLatch = CountDownLatch(1)
+        launch(testDeps())
+        activity.input.setText("hello")
+        activity.sendButton.performClick()
+        waitUntil { chatCalls.size == 1 && activity.transcriptView.text.contains("You: hello") }
+
+        activityController.recreate() // the turn is cancelled with the old activity
+        chatLatch!!.countDown() // a late reply must not appear in the surviving transcript
+        val recreated = activityController.get()
+
+        waitUntil(recreated) { recreated.sendButton.isEnabled }
+        val lines = recreated.transcriptView.text.lines().filter { it.isNotBlank() }
+        assertEquals("one user line, no reply, no duplicates", listOf("You: hello"), lines)
     }
 
     @Test

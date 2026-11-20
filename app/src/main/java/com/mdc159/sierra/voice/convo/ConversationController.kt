@@ -103,6 +103,15 @@ class ConversationController(
     private val config: ConversationConfig = ConversationConfig(),
     private val onState: (ConversationState) -> Unit = {},
     private val onExchange: (heard: String, reply: String) -> Unit = { _, _ -> },
+    /**
+     * Called once when the agent's reply fails, before the conversation ends with that
+     * error. The controller keeps the error handling (speak it, end, report it in the
+     * Ended state); this hook lets the caller react to failures it otherwise never sees —
+     * the phone screen uses it to run the same credential-refresh path its typed-send
+     * error handler runs, so an HTTP 401 from the agent rotates the vault key instead of
+     * being retried with the rejected one. Failures of the hook itself are ignored.
+     */
+    private val onAgentError: (Exception) -> Unit = {},
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     /** Diagnostic lines (levels and outcomes, never audio or text); the car screen sends them to logcat. */
     private val log: (String) -> Unit = {},
@@ -223,6 +232,7 @@ class ConversationController(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    runCatching { onAgentError(e) }
                     return fail(describe(e), heard, lastReply)
                 }
                 if (stopRequested.get()) return end(EndReason.USER_STOPPED, null, heard, reply)
