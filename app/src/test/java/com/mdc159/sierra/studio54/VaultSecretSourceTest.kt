@@ -1,5 +1,6 @@
 package com.mdc159.sierra.studio54
 
+import com.mdc159.sierra.net.StalledBodyServer
 import com.mdc159.sierra.net.StalledConnectionServer
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -206,6 +207,39 @@ class VaultSecretSourceTest {
     @Test
     fun aTimedOutRefreshReleasesTheVaultConnection() {
         val stalled = StalledConnectionServer().start()
+        val slowHttp = OkHttpClient.Builder()
+            .readTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .build()
+        val s = VaultSecretSource(
+            store = store,
+            clientFactory = { InfisicalClient(it, slowHttp) { now } },
+            clock = { now },
+        )
+        s.signIn(Studio54Credentials(stalled.url, vault.clientId, vault.clientSecret, "agent"))
+        try {
+            val startedAt = System.nanoTime()
+            val result = runBlocking { withTimeoutOrNull(1_500) { s.refresh() } }
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+            assertNull("withTimeoutOrNull must return null", result)
+            assertTrue("refresh returned after ${elapsedMs}ms", elapsedMs < 2_500)
+            assertTrue("the vault connection stayed open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
+        }
+    }
+
+    /**
+     * Regression (follow-up on the #54 cancellation fix): the vault answers the refresh
+     * with headers whose Content-Length promises a body it never finishes sending. The
+     * refresh timeout must cancel that mid-body read — not wait out OkHttp's ~20 s read
+     * timeout — and the server must see the connection closed. `withTimeoutOrNull` only
+     * returns null when the read ends as cancellation, so a wrapped VaultException
+     * surfacing here fails the test.
+     */
+    @Test
+    fun aTimedOutRefreshReleasesAConnectionStalledMidBody() {
+        val stalled = StalledBodyServer().start()
         val slowHttp = OkHttpClient.Builder()
             .readTimeout(20, TimeUnit.SECONDS)
             .callTimeout(30, TimeUnit.SECONDS)

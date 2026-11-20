@@ -1,7 +1,8 @@
 package com.mdc159.sierra.studio54
 
 import com.mdc159.sierra.net.Http
-import com.mdc159.sierra.net.await
+import com.mdc159.sierra.net.executeCancellable
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import okhttp3.HttpUrl
@@ -66,7 +67,8 @@ class InfisicalClient(
     /**
      * Reads every secret in [environment] at [path] of [projectId], values included.
      * Secrets the project defines win over secrets it imports from elsewhere. Cancellable:
-     * a cancelled caller aborts the underlying HTTP call (see [com.mdc159.sierra.net.await]).
+     * a cancelled caller aborts the underlying HTTP call, headers and body alike (see
+     * [com.mdc159.sierra.net.executeCancellable]).
      */
     suspend fun listSecrets(projectId: String, environment: String = ENVIRONMENT, path: String = SECRET_PATH): Map<String, String> {
         val url = base.newBuilder()
@@ -172,8 +174,8 @@ class InfisicalClient(
 
     private suspend fun execute(request: Request): Reply {
         try {
-            http.newCall(request).await().use { response ->
-                return Reply(response.code, response.body?.string().orEmpty())
+            return http.newCall(request).executeCancellable(Dispatchers.IO) { response ->
+                Reply(response.code, response.body?.string().orEmpty())
             }
         } catch (e: UnknownServiceException) {
             // Android blocks plain http unless the network security config allows the host.
