@@ -1,6 +1,14 @@
 package com.mdc159.sierra.net
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import okhttp3.Call
@@ -68,6 +76,10 @@ object Http {
  * not abort an OkHttp socket read — so every production call that runs inside a cancellable
  * coroutine (vault reads, transcription) awaits the call through this helper.
  *
+ * Cancellation is armed for the response **headers** only: once [onResponse] resumes, the
+ * continuation is complete and coroutine cancellation no longer touches the call. Use
+ * [executeCancellable] when the body must be consumed cancellably too.
+ *
  * The caller owns the returned [Response] and must close it, for example with `use`.
  */
 suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
@@ -82,4 +94,44 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
         }
     })
     continuation.invokeOnCancellation { cancel() }
+}
+
+/**
+ * Runs one call to completion — waiting for the response *and* consuming its body through
+ * [block] on [dispatcher] — while keeping coroutine cancellation wired to [Call.cancel]
+ * for that whole time. [await] alone is not enough: once it resumes with the headers, its
+ * cancellation hook is spent, so a server that answers with headers and then stalls the
+ * body would leave `Response.body.string()` blocked until OkHttp's own read timeout, and a
+ * caller timeout (the 8 s vault refresh) or Stop could not release it.
+ *
+ * Here a guard coroutine cancels the call the moment the caller's job is cancelled, which
+ * unblocks the in-flight read at once; the socket `IOException` that closes the read then
+ * surfaces as the caller's [kotlinx.coroutines.CancellationException] (checked again with
+ * `ensureActive` before the original `IOException` is rethrown), never as a domain error.
+ */
+suspend fun <T> Call.executeCancellable(
+    dispatcher: CoroutineDispatcher,
+    block: suspend (Response) -> T,
+): T = coroutineScope {
+    // ATOMIC, so the guard enters its body even when cancellation wins the start race and
+    // its `finally` — the actual `Call.cancel()` — always runs when the caller goes away.
+    val guard = launch(start = CoroutineStart.ATOMIC) {
+        try {
+            awaitCancellation()
+        } finally {
+            this@executeCancellable.cancel()
+        }
+    }
+    try {
+        // Headers first (no thread held); the blocking body read runs on [dispatcher], with
+        // the guard above armed for the whole response lifetime.
+        await().use { response -> withContext(dispatcher) { block(response) } }
+    } catch (e: IOException) {
+        // Cancelling the call closes the socket, which surfaces here as an IOException.
+        // That is the caller's cancellation, not a network failure: let it through.
+        currentCoroutineContext().ensureActive()
+        throw e
+    } finally {
+        guard.cancel()
+    }
 }

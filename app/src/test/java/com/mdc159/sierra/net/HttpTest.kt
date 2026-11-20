@@ -1,5 +1,7 @@
 package com.mdc159.sierra.net
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -109,6 +111,68 @@ class HttpTest {
             }
             val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
             assertTrue("await returned after ${elapsedMs}ms", elapsedMs < 2_500)
+            assertTrue("the connection stayed open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
+        }
+    }
+
+    @Test
+    fun executeCancellableDeliversHeaderAndBody() = runBlocking {
+        val server = MockWebServer().apply { start() }
+        try {
+            server.enqueue(MockResponse().setBody("""{"text":" ok "}"""))
+            val text = Http.client.newCall(Request.Builder().url(server.url("/v1")).build())
+                .executeCancellable(Dispatchers.IO) { it.body!!.string() }
+            assertEquals("""{"text":" ok "}""", text)
+            assertEquals("/v1", server.takeRequest().path)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun executeCancellableSurfacesConnectionFailures() {
+        val server = MockWebServer().apply { start() }
+        val url = server.url("/").toString()
+        server.shutdown() // nothing is listening on that port any more
+        try {
+            runBlocking {
+                Http.client.newCall(Request.Builder().url(url).build())
+                    .executeCancellable(Dispatchers.IO) { it.body!!.string() }
+            }
+            fail("expected IOException")
+        } catch (e: IOException) {
+            // expected: the connection is refused
+        }
+    }
+
+    /**
+     * The body phase is the part `await()` alone cannot cancel: the server has already sent
+     * the headers, so the only thing that can release the blocked body read is cancellation
+     * still wired to `Call.cancel()` for the whole response lifetime.
+     */
+    @Test
+    fun cancellingDuringTheBodyReadCancelsTheCallAndClosesTheConnection() {
+        val stalled = StalledBodyServer().start()
+        try {
+            val startedAt = System.nanoTime()
+            runBlocking {
+                val call = Http.client.newCall(Request.Builder().url(stalled.url).build())
+                val job = launch {
+                    try {
+                        call.executeCancellable(Dispatchers.IO) { it.body!!.string() }
+                    } catch (e: CancellationException) {
+                        // the expected outcome: the caller's own cancellation
+                    }
+                }
+                delay(300) // let the headers arrive so the body read is the blocked part
+                job.cancel()
+                job.join()
+                assertTrue("the call was not cancelled", call.isCanceled())
+            }
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+            assertTrue("executeCancellable returned after ${elapsedMs}ms", elapsedMs < 2_500)
             assertTrue("the connection stayed open", stalled.clientClosedWithin(2_000))
         } finally {
             stalled.shutdown()

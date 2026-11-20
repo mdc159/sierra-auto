@@ -1,5 +1,6 @@
 package com.mdc159.sierra.studio54
 
+import com.mdc159.sierra.net.StalledBodyServer
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
@@ -224,6 +225,38 @@ class InfisicalClientTest {
             assertTrue("listSecrets returned after ${elapsedMs}ms", elapsedMs < 2_500)
         } finally {
             stalledServer.shutdown()
+        }
+    }
+
+    /**
+     * Regression (follow-up on the #54 cancellation fix): the vault sends headers that
+     * promise a longer body than it ever delivers, then stalls. `await()` has already
+     * resumed at that point, so only cancellation wired to the call for the whole response
+     * lifetime — body included — can release the blocked body read instead of waiting out
+     * OkHttp's ~20 s read timeout. `withTimeoutOrNull` can only return null when the read
+     * ends as cancellation; a wrapped VaultException would propagate out and fail here.
+     */
+    @Test
+    fun aBodyStalledAfterHeadersIsCancelledNotAReadTimeout() {
+        val stalled = StalledBodyServer().start()
+        val slowHttp = OkHttpClient.Builder()
+            .readTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .build()
+        val stalledCredentials = Studio54Credentials(
+            stalled.url, vault.clientId, vault.clientSecret, "agent",
+        )
+        try {
+            val startedAt = System.nanoTime()
+            val result = runBlocking {
+                withTimeoutOrNull(1_500) { InfisicalClient(stalledCredentials, slowHttp) { now }.listSecrets("agent") }
+            }
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+            assertNull("a cancelled read must surface as timeout cancellation", result)
+            assertTrue("listSecrets returned after ${elapsedMs}ms", elapsedMs < 2_500)
+            assertTrue("the vault connection stayed open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
         }
     }
 

@@ -4,7 +4,7 @@ import com.mdc159.sierra.agent.AgentClient
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.AgentException
 import com.mdc159.sierra.net.Http
-import com.mdc159.sierra.net.await
+import com.mdc159.sierra.net.executeCancellable
 import com.mdc159.sierra.voice.Pcm
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -43,12 +43,14 @@ class GatewayTranscriber(
     private val url = AgentConfig.endpoint(baseUrl, "audio/transcriptions")
 
     /**
-     * Cancellable: Stop cancels the caller's coroutine, which aborts the HTTP call at once
-     * (see [com.mdc159.sierra.net.await]); a blocking read could not be released that way.
+     * Cancellable: Stop cancels the caller's coroutine, which aborts the HTTP call at once —
+     * headers and body alike (see [com.mdc159.sierra.net.executeCancellable]); a blocking
+     * read could not be released that way.
      */
     override suspend fun transcribe(pcm: ByteArray, sampleRate: Int): String = withContext(ioDispatcher) {
-        val response = try {
-            http.newCall(request(pcm, sampleRate)).await()
+        try {
+            http.newCall(request(pcm, sampleRate))
+                .executeCancellable(ioDispatcher) { response -> readTranscriptionCancellable(response) }
         } catch (e: IOException) {
             // Cancelling the call closes the socket: that is the caller's Stop, not an error.
             currentCoroutineContext().ensureActive()
@@ -56,7 +58,6 @@ class GatewayTranscriber(
         } catch (e: IllegalArgumentException) {
             throw AgentException("Transcription URL is not valid.", e)
         }
-        response.use { readTranscription(it) }
     }
 
     fun transcribeBlocking(pcm: ByteArray, sampleRate: Int): String {
@@ -69,6 +70,17 @@ class GatewayTranscriber(
         }
         return response.use { readTranscription(it) }
     }
+
+    /** [readTranscription] for the cancellable path: a body read aborted by the caller's
+     * cancellation is Stop, so keep that cancellation instead of letting a late
+     * AgentException replace it. */
+    private suspend fun readTranscriptionCancellable(response: Response): String =
+        try {
+            readTranscription(response)
+        } catch (e: AgentException) {
+            currentCoroutineContext().ensureActive()
+            throw e
+        }
 
     private fun request(pcm: ByteArray, sampleRate: Int): Request {
         val wav = Pcm.toWav(pcm, sampleRate)
@@ -125,18 +137,19 @@ class ElevenLabsTranscriber(
 ) : Transcriber {
 
     /**
-     * Cancellable: Stop cancels the caller's coroutine, which aborts the HTTP call at once
-     * (see [com.mdc159.sierra.net.await]); a blocking read could not be released that way.
+     * Cancellable: Stop cancels the caller's coroutine, which aborts the HTTP call at once —
+     * headers and body alike (see [com.mdc159.sierra.net.executeCancellable]); a blocking
+     * read could not be released that way.
      */
     override suspend fun transcribe(pcm: ByteArray, sampleRate: Int): String = withContext(ioDispatcher) {
-        val response = try {
-            http.newCall(request(pcm, sampleRate)).await()
+        try {
+            http.newCall(request(pcm, sampleRate))
+                .executeCancellable(ioDispatcher) { response -> readTranscriptionCancellable(response) }
         } catch (e: IOException) {
             // Cancelling the call closes the socket: that is the caller's Stop, not an error.
             currentCoroutineContext().ensureActive()
             throw AgentException(Http.describe(e), e)
         }
-        response.use { readTranscription(it) }
     }
 
     fun transcribeBlocking(pcm: ByteArray, sampleRate: Int): String {
@@ -147,6 +160,17 @@ class ElevenLabsTranscriber(
         }
         return response.use { readTranscription(it) }
     }
+
+    /** [readTranscription] for the cancellable path: a body read aborted by the caller's
+     * cancellation is Stop, so keep that cancellation instead of letting a late
+     * AgentException replace it. */
+    private suspend fun readTranscriptionCancellable(response: Response): String =
+        try {
+            readTranscription(response)
+        } catch (e: AgentException) {
+            currentCoroutineContext().ensureActive()
+            throw e
+        }
 
     private fun request(pcm: ByteArray, sampleRate: Int): Request {
         val wav = Pcm.toWav(pcm, sampleRate)
