@@ -156,6 +156,17 @@ class StreamedSpeechOutput(
         val buf = ByteArray(8 * 1024)
         var header: ByteArray? = if (first) ByteArray(0) else null
         var formatSent = !first
+        // HTTP reads can end halfway through a 16-bit sample. AudioTrack only accepts
+        // complete frames; retrying a final single byte would otherwise never advance.
+        // Keep that byte for the next read within this response, preserving every sample.
+        var pendingByte: Byte? = null
+        fun emitAudio(bytes: ByteArray) {
+            val previous = pendingByte
+            val joined = if (previous == null) bytes else byteArrayOf(previous) + bytes
+            val complete = joined.size - joined.size % 2
+            pendingByte = if (complete < joined.size) joined.last() else null
+            if (complete > 0) pieces.trySend(Piece.Audio(if (complete == joined.size) joined else joined.copyOf(complete)))
+        }
         while (!me.stopped.get()) {
             val n = input.read(buf)
             if (n < 0) break
@@ -170,16 +181,19 @@ class StreamedSpeechOutput(
                 formatSent = true
                 val skip = wav?.dataOffset ?: 0
                 val payload = header.copyOfRange(skip, header.size)
-                if (payload.isNotEmpty()) pieces.trySend(Piece.Audio(payload))
+                if (payload.isNotEmpty()) emitAudio(payload)
                 continue
             }
-            pieces.trySend(Piece.Audio(buf.copyOfRange(0, n)))
+            emitAudio(buf.copyOfRange(0, n))
         }
         if (!formatSent && header != null) {
             // Very short reply (under the header window): treat it as raw PCM.
             pieces.trySend(Piece.Format(factory.sampleRate))
-            if (header.isNotEmpty()) pieces.trySend(Piece.Audio(header))
+            if (header.isNotEmpty()) emitAudio(header)
         }
+        // Each sentence response must be complete; never combine a truncated sample
+        // with the first byte of a different response or silently discard it.
+        if (pendingByte != null && !me.stopped.get()) throw TtsException("Voice server sent an incomplete PCM sample.")
     }
 
     override fun stop() {

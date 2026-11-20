@@ -4,8 +4,7 @@
 # Google Play. A build that the phone installs from Play keeps that record on every
 # update, with no PC involved. See docs/UPDATES.md for the one-time Play Console setup.
 #
-# Needs these repository secrets. When any of them is missing the job logs a warning,
-# writes the reason to the run summary and ends successfully without uploading.
+# Needs these repository secrets. Missing secrets fail the deployment with a summary.
 #   PLAY_SERVICE_ACCOUNT_JSON   the service account key (JSON text) invited in Play Console
 #   SIGNING_KEYSTORE_BASE64, SIGNING_STORE_PASSWORD, SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD
 #                               the same release key build.yml uses (it is the Play upload key)
@@ -16,8 +15,8 @@
 # Otherwise Play re-signs with its own key, and a Play install and a GitHub Release
 # install can never update each other (INSTALL_FAILED_UPDATE_INCOMPATIBLE).
 #
-# versionCode: 100000 + this workflow's run number. GitHub Releases from build.yml use the
-# plain build run number, so a Play build always outranks a GitHub build and the in-app
+# versionCode is explicitly selected above the uploaded and installed maximum. GitHub builds use the
+# separate build run number. Check both channels before deployment; the in-app
 # updater never offers a downgrade. Play requires a strictly increasing versionCode.
 
 name: play
@@ -25,6 +24,10 @@ name: play
 on:
   workflow_dispatch:
     inputs:
+      version_code:
+        description: 'Unused Play version code, greater than every uploaded or installed build (last recorded phone: 100009)'
+        required: true
+        type: string
       status:
         description: "Play release status: completed goes live for internal testers at once, draft waits in the console"
         type: choice
@@ -43,7 +46,53 @@ permissions:
   contents: read
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require staging and an explicit version code
+        env:
+          REQUESTED_VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/staging || { echo '::error::Deploy Play internal testing from staging only'; exit 1; }
+          [[ "$REQUESTED_VERSION_CODE" =~ ^[1-9][0-9]{5,9}$ ]] || { echo '::error::Invalid version code'; exit 1; }
+          (( REQUESTED_VERSION_CODE > 100009 && REQUESTED_VERSION_CODE <= 2100000000 )) || { echo '::error::Version code must exceed 100009 and fit the Play limit'; exit 1; }
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan source history for secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+          GITLEAKS_ENABLE_SUMMARY: 'true'
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'true'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Validate Android and Play release manifest
+        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug lintRelease -Pplay=true
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+      - name: Validate bridge
+        working-directory: bridge
+        run: |
+          uv sync --locked
+          uv run --locked pytest -q
+      - name: Preserve validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: play-validation
+          path: |
+            app/build/reports/
+            app/build/test-results/
   play:
+    if: github.ref == 'refs/heads/staging'
+    needs: [validate]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -63,13 +112,13 @@ jobs:
           [ "$HAS_KEY_ALIAS" = "true" ] || missing="$missing SIGNING_KEY_ALIAS"
           [ "$HAS_KEY_PASSWORD" = "true" ] || missing="$missing SIGNING_KEY_PASSWORD"
           if [ -n "$missing" ]; then
-            msg="Play upload skipped: missing repository secret(s):$missing. See docs/UPDATES.md, section \"One-time Play Console setup\"."
-            echo "::warning title=Play upload skipped::$msg"
+            msg="Play upload skipped: missing repository secret(s):$missing. See docs/UPDATES.md and docs/DEVELOPMENT-WORKFLOW.md."
+            echo "::error title=Play upload blocked::$msg"
             {
               echo "### Play upload skipped"
               echo "$msg"
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 1
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
@@ -89,11 +138,12 @@ jobs:
       - name: Decode release keystore
         if: steps.secrets.outputs.ready == 'true'
         env:
+          REQUESTED_VERSION_CODE: ${{ inputs.version_code }}
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
         run: |
           echo "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           echo "SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-          echo "PLAY_VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "PLAY_VERSION_CODE=$REQUESTED_VERSION_CODE" >> "$GITHUB_ENV"
 
       - name: Build signed release bundle
         if: steps.secrets.outputs.ready == 'true'

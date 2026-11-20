@@ -1,7 +1,9 @@
 # GM Mode 22 PIDs for the 2018 Sierra 1500 Denali
 
-**Researched:** 2026-11-05  
-**Truck:** 2018 GMC Sierra 1500 Denali, K2XX platform, 5.3L L83 or 6.2L L86 (E92 ECM), 8L90 8-speed (T87A TCM); the 6L80 is the other possibility  
+**Researched:** 2026-11-05. **Reconciled:** 2026-11-08, main `210448b`. Catalogs/decoders/readers exist but **are not used by live Truck UI or agent tools**. Transmission-temperature integration, `read_vehicle` and alerts remain unfinished/absent. Legacy `GmExtendedPids` and newer `GmDids` still disagree on oil life (`119C` versus `119F`, #32); neither is truck-validated. No external sources or vehicle reads were rerun for this docs update.
+
+**Target:** 2018 GMC Sierra 1500 Denali, K2XX. Historical research assumed 5.3L L83/6.2L L86 and an 8L90/T87A or alternate transmission; exact installed powertrain/module identity is not established here. Confirm build information before relying on model-specific addresses.
+
 **Code:** `app/src/main/java/com/mdc159/sierra/obd/gm/` (`GmDids`, `GmResponseDecoder`, `GmTruckReader`)  
 **Companion docs:** `docs/OBD2-PLAN.md` (bus, adapter, safety rules), `docs/lanes/f-gm-pids.md` (the brief)
 
@@ -121,13 +123,11 @@ block. No change to the allowlist was needed, and none is proposed.
 
 Why Mode 22 is still read-only: ReadDataByIdentifier only returns data. It cannot start a
 diagnostic session (`10`), unlock security access (`27`), write a DID (`2E`), control an actuator
-(`2F`, `AE`) or run a routine (`31`); all of those stay refused. The worst a wrong DID can do is
-a `7F 22 31` refusal or `NO DATA`, which `GmReading` reports as ordinary results.
+(`2F`, `AE`) or run a routine (`31`); all of those stay refused. Expected unsupported outcomes include `7F 22 31` or `NO DATA`, represented by `GmReading`; this does not prove all physical outcomes benign. Polling can affect adapter/module wake, and actual bus behavior/load needs measurement. Do not broaden headers/services or treat allowlisting as vehicle safety certification.
 
 ## 5. Polling while driving
 
-All six DIDs are reads and are safe to request while driving in the sense that matters: they
-cannot change module state. The limits are bus courtesy and usefulness, so `GmDids` carries an
+All six catalog requests are data reads, not ECU write/session commands. That alone does **not** establish physical driving safety, bus courtesy or key-off behavior; validate parked before passenger-observed road use. The limits are bus courtesy and usefulness, so `GmDids` carries an
 interval per DID:
 
 | DID | While driving | Interval | Why |
@@ -139,13 +139,13 @@ interval per DID:
 | `199A` current gear | Yes, once proven | 1 s | Only after Park/Neutral semantics are known |
 | `119F` oil life | Read once per trip | — | Changes once per drive at most |
 
-Cost: `Elm327Client.readExtended` sends `AT SH <module>`, the request, then `AT SH 7DF`, so one
-extended read is three commands (roughly 0.3–0.5 s on a decent adapter, more on a clone). With
+Cost: `Elm327Client.readExtended` sends `AT SH <module>`, the request, then `AT SH 7DF`, so a normal header-changing
+extended read uses setup/request/restoration (timing estimates below are unmeasured on this adapter/truck). `readExtended` skips restoration when resync is needed and suppresses restoration errors: header restoration after timeout needs a targeted regression before mixed GM/standard polling. With
 the intervals above the steady-state load is about 2 reads/s, well under what the bus and a
-cheap ELM327 handle. If the coordinator wants a tighter loop, a small hook in `Elm327Client`
+cheap ELM327 handle. If later measured performance needs a tighter loop, a small hook in `Elm327Client`
 that leaves the header set between consecutive reads to the same module (and restores `7DF`
 on the way out) would cut this to one command per read. That hook is described in the PR,
-not implemented here, because `Elm327Client` belongs to lane C.
+not implemented here, because it would require a separately reviewed core-client change, not just catalog research.
 
 Never run `readWithFallbacks` in a loop: it is for discovery, up to three module addresses per
 DID. Once the module is known, poll with `read(did, module)`.
@@ -161,6 +161,10 @@ DID. Once the module is known, poll with `read(did, module)`.
 | `33` | securityAccessDenied | The DID needs a security session; this app never opens one, so drop the DID |
 | `78` | responsePending | Wait for the final reply; `GmResponseDecoder` treats a lone `78` as no reply |
 | `NO DATA` | nobody answered | Wrong address, key off, or the DID is silent; try the fallback module |
+
+## Next steps
+
+Resolve oil-life catalog disagreement (#32), add timeout/header-restoration regressions and validate standard OBD on the chosen physical adapter first. Then use reviewed parked instrumentation for GM discovery, retaining raw request/header/reply and independent cluster comparisons; the current UI does not invoke this reader. Only integrate live Truck/voice data after freshness, unknown/unsupported and demo labels are specified and tested.
 
 ## 7. First test on the truck
 
@@ -190,12 +194,11 @@ Try these three, in this order:
    temperature on this truck, so the Mode 01 reading and plausibility against coolant are the
    check.
 
-Then, still parked: `22 11 9F` on `7E0` should match the DIC's "Remaining oil life" percentage
-within one percent. Leave `22 19 9A` for a drive with a passenger watching: note what it reads in
-Park, Reverse, Neutral and each gear, and write the mapping here.
+Then, still parked: compare `22 11 9F` on `7E0` with DIC Remaining oil life; record raw/decoded/DIC values and rounding instead of declaring the catalog proven from one match. Resolve the competing `119C` definition. Gear discovery needs a separate safe procedure: do not shift just to test a hypothesis; any later road observation is passenger-only after parked acceptance.
 
-Record results in this table (date, VIN prefix, reading, DIC value, verdict), and only then flip
-anything to "verified" in code:
+The numerical warm-idle ranges and bulletin interpretations above are historical research/plausibility prompts, **not verified health limits**; do not induce high RPM or rely on sentinel guesses as proof. No phone/car UI currently invokes `firstTest()`; reviewed read-only instrumentation would be needed.
+
+Record date, a nonidentifying vehicle/build alias, raw reply/header, decoded and independent reference values across cold/warm conditions. Do not publish a VIN. Only change a verified flag in a separate reviewed code change after evidence:
 
 | Date | DID | Module that answered | Raw byte | Decoded | DIC showed | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |

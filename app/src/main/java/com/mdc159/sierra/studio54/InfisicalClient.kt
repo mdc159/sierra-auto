@@ -1,6 +1,10 @@
 package com.mdc159.sierra.studio54
 
 import com.mdc159.sierra.net.Http
+import com.mdc159.sierra.net.executeCancellable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -62,9 +66,11 @@ class InfisicalClient(
 
     /**
      * Reads every secret in [environment] at [path] of [projectId], values included.
-     * Secrets the project defines win over secrets it imports from elsewhere.
+     * Secrets the project defines win over secrets it imports from elsewhere. Cancellable:
+     * a cancelled caller aborts the underlying HTTP call, headers and body alike (see
+     * [com.mdc159.sierra.net.executeCancellable]).
      */
-    fun listSecrets(projectId: String, environment: String = ENVIRONMENT, path: String = SECRET_PATH): Map<String, String> {
+    suspend fun listSecrets(projectId: String, environment: String = ENVIRONMENT, path: String = SECRET_PATH): Map<String, String> {
         val url = base.newBuilder()
             .encodedPath(LIST_PATH)
             .addQueryParameter("workspaceId", projectId)
@@ -91,7 +97,7 @@ class InfisicalClient(
     }
 
     /** Runs [build] with a valid bearer token, logging in again once if the vault says 401. */
-    private fun authorised(build: (String) -> Request): String {
+    private suspend fun authorised(build: (String) -> Request): String {
         val first = execute(build(currentToken()))
         if (first.code != 401) return first.okBody()
         invalidateToken()
@@ -99,7 +105,7 @@ class InfisicalClient(
         return second.okBody()
     }
 
-    private fun currentToken(): String {
+    private suspend fun currentToken(): String {
         val now = clock()
         val t = token
         if (t != null && t.expiresAt - now > RENEW_MARGIN_MILLIS) return t.value
@@ -114,7 +120,7 @@ class InfisicalClient(
         return login().also { token = it }.value
     }
 
-    private fun login(): Token {
+    private suspend fun login(): Token {
         val body = JSONObject()
             .put("clientId", credentials.clientId)
             .put("clientSecret", credentials.clientSecret)
@@ -126,7 +132,7 @@ class InfisicalClient(
         return parseToken(execute(request).okBody("Sign-in"), issuedAt, maxFrom = null)
     }
 
-    private fun renew(current: Token): Token {
+    private suspend fun renew(current: Token): Token {
         val body = JSONObject().put("accessToken", current.value)
         val request = Request.Builder()
             .url(base.newBuilder().encodedPath(RENEW_PATH).build())
@@ -166,10 +172,10 @@ class InfisicalClient(
         }
     }
 
-    private fun execute(request: Request): Reply {
+    private suspend fun execute(request: Request): Reply {
         try {
-            http.newCall(request).execute().use { response ->
-                return Reply(response.code, response.body?.string().orEmpty())
+            return http.newCall(request).executeCancellable(Dispatchers.IO) { response ->
+                Reply(response.code, response.body?.string().orEmpty())
             }
         } catch (e: UnknownServiceException) {
             // Android blocks plain http unless the network security config allows the host.
@@ -179,6 +185,9 @@ class InfisicalClient(
                 cause = e,
             )
         } catch (e: IOException) {
+            // Cancelling the call closes the socket, which surfaces here as an IOException.
+            // That is the caller's cancellation, not a vault failure: let it through.
+            currentCoroutineContext().ensureActive()
             throw VaultException("Vault unreachable: ${Http.describe(e)}", unreachable = true, cause = e)
         }
     }

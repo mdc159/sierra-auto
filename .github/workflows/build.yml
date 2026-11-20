@@ -3,8 +3,13 @@ name: build
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, staging, 'dev/**']
   workflow_dispatch:
+    inputs:
+      publish_github:
+        description: 'Publish an optional GitHub APK from main after validation'
+        type: boolean
+        default: false
 
 concurrency:
   group: build-${{ github.ref }}
@@ -14,6 +19,19 @@ permissions:
   contents: read
 
 jobs:
+  promotion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require main promotions to come from staging
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          if [[ "$EVENT" == pull_request && "$BASE" == main ]]; then
+            [[ "$HEAD" == staging && "$HEAD_REPO" == "$GITHUB_REPOSITORY" ]] || { echo '::error::Promote staging to main after internal-test acceptance'; exit 1; }
+          fi
   # A committed key, keystore or token fails the build before anything is compiled.
   secret-scan:
     runs-on: ubuntu-latest
@@ -117,12 +135,12 @@ jobs:
             app/build/test-results/
           if-no-files-found: ignore
 
-  # Only a push to main reaches this job, and only after every gate (build, lint and the
+  # Only an explicit main dispatch with publish_github reaches this job, after every gate (build, lint and the
   # secret scan) is green. The steps below are the original release steps, unchanged; they
   # just run under their own write-scoped token.
   release:
-    needs: [build, lint, secret-scan]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [promotion, build, lint, secret-scan]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_github
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -138,7 +156,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       - name: Decode release keystore
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_github
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
         run: |
@@ -150,7 +168,7 @@ jobs:
           echo "SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
       - name: Build signed release APK
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_github
         env:
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
@@ -168,7 +186,7 @@ jobs:
           fi
 
       - name: Publish GitHub Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_github
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

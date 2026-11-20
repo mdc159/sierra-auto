@@ -164,10 +164,12 @@ class TalkScreen(
         if (useCarMic && !CarMic.hasPermission(carContext)) return setState(State.NeedsMic, initial)
 
         setState(State.Listening(useCarMic), initial)
-        val client = AgentClient(config)
+        val client = AgentClient(config, conversationId = session.conversation.id)
         VoiceDiagnostics.event(carContext, "Agent target", config.targetLabel)
         if (useCarMic) {
-            val voice = VoiceSettingsStore.load(carContext)
+            // The vault may hold the ElevenLabs key: resolve it so the transcriber (and the
+            // per-session TalkVoice, cached on these settings) follows key rotation.
+            val voice = Studio54.voiceSettings(carContext, VoiceSettingsStore.load(carContext))
             val transcriber = VoiceStack.transcriber(voice, config)
             if (transcriber != null) return startConversation(config, client, voice, transcriber)
             return setState(State.Failed("Set up a transcription endpoint on the phone to use the selected microphone, or choose Automatic to use the system speech recognizer."), initial)

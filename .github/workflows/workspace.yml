@@ -1,0 +1,35 @@
+name: workspace
+
+on:
+  pull_request:
+    paths: ['scripts/**', '.gitignore', '.github/workflows/workspace.yml']
+  push:
+    branches: [main, staging, 'dev/**']
+    paths: ['scripts/**', '.gitignore', '.github/workflows/workspace.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Lint shell scripts
+        run: shellcheck scripts/*.sh
+      - name: Check workspace and exercise safe lifecycle
+        run: |
+          bash scripts/workspace.sh check
+          bash scripts/test-workspace.sh
+      - name: Upload workspace test summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-test-summary
+          path: .local/tests/workspace-*/result.txt
+          include-hidden-files: true
+          if-no-files-found: ignore

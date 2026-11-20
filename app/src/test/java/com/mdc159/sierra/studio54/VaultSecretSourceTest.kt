@@ -1,5 +1,9 @@
 package com.mdc159.sierra.studio54
 
+import com.mdc159.sierra.net.StalledBodyServer
+import com.mdc159.sierra.net.StalledConnectionServer
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -56,11 +60,14 @@ class VaultSecretSourceTest {
         cacheMaxAgeMillis = maxAge,
     )
 
+    /** Production callers run the now-cancellable suspend refresh in a coroutine; tests run it synchronously. */
+    private fun VaultSecretSource.refreshSync(): RefreshResult = runBlocking { refresh() }
+
     @Test
     fun notSignedInHasNothing() {
         val s = source()
         assertFalse(s.isSignedIn)
-        assertTrue(s.refresh() is RefreshResult.NotSignedIn)
+        assertTrue(s.refreshSync() is RefreshResult.NotSignedIn)
         assertEquals(emptySet<String>(), s.names())
         assertNull(s.get(SecretNames.OPENAI_API_KEY))
         assertNull(s.lastFetched)
@@ -71,7 +78,7 @@ class VaultSecretSourceTest {
     fun refreshReadsBothProjectsAndTheAgentProjectWins() {
         val s = source()
         s.signIn(credentials())
-        val result = s.refresh()
+        val result = s.refreshSync()
         assertTrue(result is RefreshResult.Fetched)
         assertEquals(setOf("ELEVENLABS_API_KEY", "OPENAI_API_KEY", "OPENAI_BASE_URL"), s.names())
         assertEquals("sk-agent", s.get(SecretNames.OPENAI_API_KEY))
@@ -97,7 +104,7 @@ class VaultSecretSourceTest {
     fun withoutAKeysProjectOnlyTheAgentProjectIsRead() {
         val s = source()
         s.signIn(credentials(keysProjectId = null))
-        s.refresh()
+        s.refreshSync()
         assertEquals(setOf("OPENAI_API_KEY", "OPENAI_BASE_URL"), s.names())
         assertEquals(1, vault.listCount)
     }
@@ -106,12 +113,12 @@ class VaultSecretSourceTest {
     fun unreachableVaultServesTheWarmCache() {
         val s = source()
         s.signIn(credentials())
-        s.refresh()
+        s.refreshSync()
         val fetchedAt = s.lastFetched
         server.shutdown()
 
         now += 60 * 60 * 1000
-        val result = s.refresh()
+        val result = s.refreshSync()
         assertTrue(result is RefreshResult.Failed)
         result as RefreshResult.Failed
         assertTrue(result.unreachable)
@@ -125,7 +132,7 @@ class VaultSecretSourceTest {
 
     @Test
     fun cacheSurvivesAProcessRestartWithoutTheNetwork() {
-        source().apply { signIn(credentials()); refresh() }
+        source().apply { signIn(credentials()); refreshSync() }
         server.shutdown()
         val restarted = source()
         assertTrue(restarted.isSignedIn)
@@ -137,13 +144,13 @@ class VaultSecretSourceTest {
     fun aCacheOlderThanTheLimitIsNotServed() {
         val s = source(maxAge = 1000)
         s.signIn(credentials())
-        s.refresh()
+        s.refreshSync()
         server.shutdown()
         now += 1001
         assertNull(s.get(SecretNames.OPENAI_API_KEY))
         assertEquals(emptySet<String>(), s.names())
         assertNull(s.lastFetched)
-        val result = s.refresh() as RefreshResult.Failed
+        val result = s.refreshSync() as RefreshResult.Failed
         assertFalse(result.cached)
     }
 
@@ -151,7 +158,7 @@ class VaultSecretSourceTest {
     fun signOutWipesSignInTokenAndCache() {
         val s = source()
         s.signIn(credentials())
-        s.refresh()
+        s.refreshSync()
         s.signOut()
         assertFalse(s.isSignedIn)
         assertNull(store.loadCredentials())
@@ -159,7 +166,7 @@ class VaultSecretSourceTest {
         assertEquals(emptySet<String>(), s.names())
         assertNull(s.get(SecretNames.OPENAI_API_KEY))
         assertNull(s.lastFetched)
-        assertTrue(s.refresh() is RefreshResult.NotSignedIn)
+        assertTrue(s.refreshSync() is RefreshResult.NotSignedIn)
         assertFalse(s.status().signedIn)
         // A fresh source over the same store sees nothing either.
         assertFalse(source().isSignedIn)
@@ -170,10 +177,10 @@ class VaultSecretSourceTest {
         vault.projects["other"] = mapOf("OPENAI_API_KEY" to "sk-other")
         val s = source()
         s.signIn(credentials())
-        s.refresh()
+        s.refreshSync()
         s.signIn(credentials(projectId = "other", keysProjectId = null))
         assertEquals(emptySet<String>(), s.names())
-        s.refresh()
+        s.refreshSync()
         assertEquals("sk-other", s.get(SecretNames.OPENAI_API_KEY))
     }
 
@@ -183,12 +190,76 @@ class VaultSecretSourceTest {
         s.signIn(
             Studio54Credentials(server.url("/").toString(), vault.clientId, "wrong", "agent"),
         )
-        val result = s.refresh() as RefreshResult.Failed
+        val result = s.refreshSync() as RefreshResult.Failed
         assertFalse(result.unreachable)
         assertFalse(result.cached)
         assertTrue(result.message.contains("Sign-in rejected"))
         assertNull(store.loadCache())
         assertEquals(result.message, s.status().lastError)
+    }
+
+    /**
+     * Regression (review finding on #54): the eight-second refresh timeout in PhoneActivity
+     * must release the underlying vault call, not wait out OkHttp's own timeouts. The
+     * stalled server never answers, so the only way `withTimeoutOrNull` can return promptly
+     * is by cancelling the HTTP call; the server then sees the connection closed.
+     */
+    @Test
+    fun aTimedOutRefreshReleasesTheVaultConnection() {
+        val stalled = StalledConnectionServer().start()
+        val slowHttp = OkHttpClient.Builder()
+            .readTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .build()
+        val s = VaultSecretSource(
+            store = store,
+            clientFactory = { InfisicalClient(it, slowHttp) { now } },
+            clock = { now },
+        )
+        s.signIn(Studio54Credentials(stalled.url, vault.clientId, vault.clientSecret, "agent"))
+        try {
+            val startedAt = System.nanoTime()
+            val result = runBlocking { withTimeoutOrNull(1_500) { s.refresh() } }
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+            assertNull("withTimeoutOrNull must return null", result)
+            assertTrue("refresh returned after ${elapsedMs}ms", elapsedMs < 2_500)
+            assertTrue("the vault connection stayed open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
+        }
+    }
+
+    /**
+     * Regression (follow-up on the #54 cancellation fix): the vault answers the refresh
+     * with headers whose Content-Length promises a body it never finishes sending. The
+     * refresh timeout must cancel that mid-body read — not wait out OkHttp's ~20 s read
+     * timeout — and the server must see the connection closed. `withTimeoutOrNull` only
+     * returns null when the read ends as cancellation, so a wrapped VaultException
+     * surfacing here fails the test.
+     */
+    @Test
+    fun aTimedOutRefreshReleasesAConnectionStalledMidBody() {
+        val stalled = StalledBodyServer().start()
+        val slowHttp = OkHttpClient.Builder()
+            .readTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .build()
+        val s = VaultSecretSource(
+            store = store,
+            clientFactory = { InfisicalClient(it, slowHttp) { now } },
+            clock = { now },
+        )
+        s.signIn(Studio54Credentials(stalled.url, vault.clientId, vault.clientSecret, "agent"))
+        try {
+            val startedAt = System.nanoTime()
+            val result = runBlocking { withTimeoutOrNull(1_500) { s.refresh() } }
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+            assertNull("withTimeoutOrNull must return null", result)
+            assertTrue("refresh returned after ${elapsedMs}ms", elapsedMs < 2_500)
+            assertTrue("the vault connection stayed open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
+        }
     }
 
     @Test

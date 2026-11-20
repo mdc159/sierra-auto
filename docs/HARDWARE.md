@@ -1,6 +1,6 @@
 # Sierra Auto — Hardware Guide
 
-**Checked on:** 2026-11-04 (prices are the makers' own store prices on that day)
+**Reference research:** 2026-11-04 (prices/specifications below are historical maker/source claims, not current offers). **Reconciled:** 2026-11-08, main `210448b`. Classic **and BLE** transports are implemented; neither has physical adapter acceptance in the reviewed evidence. A54 inspection had Bluetooth CONNECT/SCAN ungranted. Play internal testing is now preferred distribution, not a sideload-only workaround. See [STATUS.md](STATUS.md) and the [parked-first truck plan](TRUCK-TEST-PLAN.md).
 **Truck:** 2018 GMC Sierra 1500 Denali, 8-inch factory IntelliLink screen
 **Phone:** Samsung Galaxy A54, Android 16
 **Goes with:** [`OBD2-PLAN.md`](OBD2-PLAN.md) (how the app talks to the adapter) and [`android-auto-constraints.md`](android-auto-constraints.md) (what the car screen allows)
@@ -9,18 +9,18 @@ Every claim links to where it came from (the list is at the bottom). **Unverifie
 
 ---
 
-## 1. What to buy
+## 1. Historical candidate comparison (not current purchasing advice)
 
-| Item | Buy this | Price | Why |
+| Item | November 4 candidate | Historical listed price | Research rationale |
 | --- | --- | --- | --- |
-| **OBD-II adapter, first choice** | **OBDLink LX** | **$89.95** ([lx]) | Classic Bluetooth, which is the transport `OBD2-PLAN.md` builds first. A physical button must be pressed before a new phone can pair. It sleeps at 2 mA, so it can stay in the port. Its command set is documented by the maker and no SDK or licence is needed. |
+| **OBD-II adapter, first choice** | **OBDLink LX** | **$89.95** ([lx]) | Classic Bluetooth, which is the transport `OBD2-PLAN.md` builds first. A physical button must be pressed before a new phone can pair. Maker-rated sleep is 2 mA; do not leave it connected unattended until actual key-off/polling/sleep behavior is measured. Its command set is documented by the maker and no SDK or licence is needed. |
 | OBD-II adapter, step up | OBDLink MX+ | $139.95 ([mxp]) | Same behaviour for Sierra Auto. The extra $50 buys GM's single-wire body network, iPhone support and the maker's GM add-on in its own app. Sierra Auto uses none of these today (section 2.7). |
 | **OBD-II adapter, budget** | **Veepeak OBDCheck BLE+** | **$41.99** ([veepeak]) | Works over classic Bluetooth and Bluetooth LE and reports itself as ELM327 v2.2. Two costs: anyone nearby can pair with PIN 1234, and it has no low-power sleep, so unplug it when the truck will sit. |
 | USB cable | A short (under 1 m) USB-IF certified data cable with a USB-C plug for the phone | not priced | Google and GM both name the cable as a common cause when Android Auto misbehaves ([aa-trouble], [bulletin]). Look at the truck's port before ordering: it is expected to be the older rectangular USB-A type (**unverified**). |
 | Phone mount | An air-vent mount on the driver's side, out of direct sun | not priced | Heat is the A54's main enemy on long drives (section 5). Do not buy a wireless-charging mount: the A54 has no wireless charging listed ([gsmarena]). |
 | Wireless Android Auto dongle | Nothing for now | — | They do work on this generation of truck, but they add heat, a slower start and one more thing to debug (section 4). |
 
-Do not buy: an unbranded "ELM327 v1.5" or "v2.1" dongle (section 2.6), or any Wi-Fi OBD adapter (`OBD2-PLAN.md` §2: it takes over the phone's Wi-Fi).
+The original comparison excluded unbranded clones and Wi-Fi adapters for command/reliability/network-interference risks; this is dated research, not a current product-quality or availability audit.
 
 **When the adapter arrives**, do these in order, parked:
 
@@ -35,7 +35,7 @@ Do not buy: an unbranded "ELM327 v1.5" or "v2.1" dongle (section 2.6), or any Wi
 
 ### 2.1 What Sierra Auto needs from the adapter
 
-From `OBD2-PLAN.md`: plain ELM327 commands over a serial-style link; CAN at 500 kbaud with 11-bit IDs (`ATSP6`); the ability to change the request header with `ATSH` to `7E0`, `7E1` or `7E2` for GM Mode 22 requests; and about five requests per second. It never needs GM's other networks, never writes, and never changes adapter settings.
+From `OBD2-PLAN.md`: plain ELM327 commands over a serial-style link; CAN at 500 kbaud with 11-bit IDs (`ATSP6`); the ability to change the request header with `ATSH` to `7E0`, `7E1` or `7E2` for GM Mode 22 requests; and about five requests per second. The implemented UI needs no GM body network and exposes no ECU write/clear action. The low-level client does have an explicitly guarded Mode 04 API and sends reset/setup commands including `ATSP6`; it is incorrect to claim it never changes adapter settings. Investigate protocol persistence (#20) and real sleep/reinit behavior separately.
 
 That is a low bar. Every branded adapter below clears it on paper. They differ in what happens when the adapter is left plugged in, who else can connect to it, and how well the maker documents it.
 
@@ -55,8 +55,8 @@ Notes on the table:
 
 - **Custom headers and Mode 22.** `ATSH` with an 11-bit header such as `7DF` is in OBDLink's manual ([frpm]), and OBDLink's own app reads GM transmission fluid temperature from a "GM - CAN" manufacturer list ([obdlink-tft]). For the vLinker MC+, an open-source dashboard reads transmission fluid temperature and oil pressure through one on a Chevrolet Colorado ([espcomp]). For the Veepeak I found no report specific to GM Mode 22; `ATSH` is a basic ELM327 command, so it should work, but that is **unverified**. None of this confirms the particular IDs in `OBD2-PLAN.md` §7 for this truck.
 - **The vLinker FS is a Ford tool.** Its page is about Ford's two networks and FORScan ([vgate-fs]). Nothing on it is useful for a GM truck that the cheaper vLinker MC+ lacks.
-- **The OBDLink CX is sold for BMW coding** ([cx], [obdlink-choose]). It supports the CAN protocol this truck uses ([cx]), so it would work, and it is the only adapter here whose Bluetooth LE layout is published by its maker. It is the one to pick if the app ever goes LE-only.
-- **Speed.** OBDLink advertises about 100 values per second for the MX+ on Android ([mxp-spec]). I found no independent measurement for any of these adapters that I could read first-hand, so real rates are **unverified**. OBDLink's manual says Bluetooth latency holds performance back ([frpm]). Sierra Auto plans about five requests per second, so speed does not decide this purchase.
+- **The OBDLink CX is sold for BMW coding** ([cx], [obdlink-choose]). It supports the CAN protocol this truck uses ([cx]), so it would work, and it is the only adapter here whose Bluetooth LE layout is published by its maker. Its documented layout is useful for the implemented BLE transport; actual pairing/UUID/MTU behavior still needs a device test.
+- **Speed.** OBDLink advertises about 100 values per second for the MX+ on Android ([mxp-spec]). I found no independent measurement for any of these adapters that I could read first-hand, so real rates are **unverified**. OBDLink's manual says Bluetooth latency holds performance back ([frpm]). The monitor polls seven standard values plus fallback voltage as needed, then pauses 250 ms; throughput is adapter-dependent, not a proven five requests/s. Screen refresh is capped separately at 1 Hz.
 
 ### 2.3 Leaving it plugged in
 
@@ -64,7 +64,7 @@ Notes on the table:
 
 What each adapter does once the engine is off:
 
-- **OBDLink LX and MX+.** They go to sleep after 600 seconds with no traffic from the phone, and wake when battery voltage changes by 0.2 V within a second ([frpm]: the defaults). Starting the engine should do that (my reading, not the manual's words). Asleep they draw 2 mA ([lx], [mxp]). That is about 0.05 Ah a day, which a truck battery will not notice. The MX+ also wakes on network activity, and will not sleep until the truck's network has been quiet for 5 minutes ([frpm]).
+- **OBDLink LX and MX+.** They go to sleep after 600 seconds with no traffic from the phone, and wake when battery voltage changes by 0.2 V within a second ([frpm]: the defaults). Starting the engine should do that (my reading, not the manual's words). Asleep they draw 2 mA ([lx], [mxp]). At that rated sleep current the arithmetic is about 0.05 Ah/day; vehicle battery state, module wake and actual current were not measured, so do not infer negligible drain. The MX+ also wakes on network activity, and will not sleep until the truck's network has been quiet for 5 minutes ([frpm]).
 - **OBDLink CX.** Under 2 mA asleep; the maker says it can stay plugged in ([cx-notes]).
 - **Vgate.** The maker says the vLinker models sleep and wake by themselves ([vgate-mcp], [vgate-mc]) and gives 3 mA for the FS ([vgate-fs]). No figure is published for the MC+.
 - **Veepeak BLE+.** No sleep mode. The maker says a few days is fine, and to remove it if the truck will sit for more than a week ([veepeak]). At its 45 mA maximum that is about 1 Ah a day.
@@ -72,7 +72,7 @@ What each adapter does once the engine is off:
 Two things for the app, whichever adapter is used:
 
 1. **After a sleep the adapter resets itself** ([frpm]: it performs a warm reset on wake). Echo, spacing, header and protocol settings are gone, so the app has to run its full init sequence again after every reconnect, not only on first use.
-2. **Stop asking once the engine is off.** Requests on the truck's network keep the adapter awake, and may keep the truck's own modules awake (the second part is **unverified**). The polling loop should stop when the engine stops answering.
+2. **Stop asking once the engine is off.** Requests on the truck's network keep the adapter awake, and may keep the truck's own modules awake (the second part is **unverified**). The polling loop should stop when the engine stops answering, but current missing-ECU cycles can continue while ATRV answers. This is an unfixed review finding; key-off drain/wake effects were not measured. Close Truck and unplug the unvalidated adapter after testing.
 
 ### 2.4 Who else can connect
 
@@ -103,17 +103,17 @@ Bluetooth LE details that matter if an LE transport is used with the CX ([cx-not
 - **Vgate.** The maker's own page says "Pirated products cannot be upgraded" ([vgate-fs]), so fakes exist. Buy from vgatemall.com or the maker's own storefront. Vgate's Android instructions say to pair with the device named `vLinker MC` or `vLinker MC-Android`, not `vLinker MC+` or `vLinker MC-IOS` ([vgate-mcp]).
 - **Veepeak.** I found no firmware update path for it. **Unverified.**
 
-### 2.7 The recommendation
+### 2.7 Historical ranking and its limits
 
-**First choice: OBDLink LX, $89.95.** Three facts decided it:
+**Original preferred candidate: OBDLink LX, listed $89.95.** The historical rationale was:
 
 1. It is classic Bluetooth, the transport `OBD2-PLAN.md` builds first, and its command set is the one the plan is written against, documented by the maker.
 2. It is the cheapest adapter here that both needs a button press to pair and sleeps at 2 mA. Those are the two things that matter for an adapter that lives in the port.
 3. The MX+ costs $50 more for things Sierra Auto cannot use. Its extra networks (GM single-wire CAN and Ford's medium-speed CAN, [mxp]) are not where the engine and transmission modules answer (`OBD2-PLAN.md` §1), and the app's safety list only allows four addresses on the main network anyway.
 
-Buy the **MX+** instead if any of these apply: you also want the GM enhanced-diagnostics add-on in the maker's own app, which the maker recommends for trouble codes and which is MX+ only ([obdlink-tft]); you may move to an iPhone (the LX lists Android and Windows only, [lx]); or you want the adapter that was independently tested for pairing security ([usenix]).
+The original comparison listed possible reasons to consider **MX+**, not a new purchase recommendation: you also want the GM enhanced-diagnostics add-on in the maker's own app, which the maker recommends for trouble codes and which is MX+ only ([obdlink-tft]); you may move to an iPhone (the LX lists Android and Windows only, [lx]); or you want the adapter that was independently tested for pairing security ([usenix]).
 
-**Budget choice: Veepeak OBDCheck BLE+, $41.99.** It offers both radios, so it works with the classic transport now and an LE transport later. A developer's log shows it answering `ELM327 v2.2` and holding a link through a 15-minute drive ([sprinter]). The price is paid in section 2.3 (no sleep) and section 2.4 (PIN 1234). Treat it as a tool you plug in for a drive, not a fixture.
+**Original budget candidate: Veepeak OBDCheck BLE+, listed $41.99.** It offers both radios, so both transport implementations exist, but neither is verified with this unit. A developer's log shows it answering `ELM327 v2.2` and holding a link through a 15-minute drive ([sprinter]). The price is paid in section 2.3 (no sleep) and section 2.4 (PIN 1234). Treat it as a tool you plug in for a drive, not a fixture.
 
 ---
 
@@ -169,7 +169,7 @@ What does change:
 
 Price: the Motorola MA1 launched at $89.95 ([ma1]). I could not confirm a current price for either product (**unverified**).
 
-Recommendation: stay wired until Sierra Auto is proven on the truck. A dongle is a fine later convenience, but it adds an unknown while the sideloading question (`android-auto-constraints.md` §0) is still open.
+Acceptance order: establish wired behavior before adding a wireless-AA experiment. A dongle is a later experiment adding routing/heat/radio unknowns. First confirm actual Play installation provenance and wired real-host acceptance; a source label or DHU pass alone does not settle that.
 
 ---
 
@@ -198,11 +198,15 @@ So:
 
 ## 6. Safety and legal
 
-- While the truck is moving, Sierra Auto only reads. Clearing codes erases evidence a mechanic may need and resets the emissions readiness monitors, so it is a parked, deliberate act on the phone, never on the car screen (`OBD2-PLAN.md` §6). The app never writes to or reprograms a module (`OBD2-PLAN.md` §8).
+- While the truck is moving, Sierra Auto only reads. Clearing codes erases evidence and resets readiness monitors. No clear action is exposed in current Truck car UI or adapter settings; a guarded low-level Mode 04 API exists, not a shipped phone clear workflow. Arbitrary ECU write/session/reprogramming commands are denied (`OBD2-PLAN.md` §8). Do not use clearing as an acceptance test.
 - The adapter is a radio on the truck's network. Researchers have used the OBD port to control vehicle components ([obd-wiki]) and found most dongles open to anyone nearby ([usenix]). Prefer the adapter with a pairing button, and unplug the budget one in public places.
 - Phone-use and hands-free laws differ by state and I did not research them (**unverified**). Set up, pair and change settings while parked. While driving, use voice and the truck's screen, not the phone.
 
 ---
+
+## Next steps
+
+Confirm actual powertrain, selected adapter model/firmware and current maker specifications before purchase or pairing decisions; no market research was rerun here. Validate one adapter's pairing, standard PID accuracy, cancelled connect, reconnect/reinit and measured key-off sleep/current. Close polling/unplug after tests until ECU-silence behavior is repaired and actual sleep established. Only then consider enhanced GM reads or wireless-AA coexistence. Keep cluster/raw/units evidence under `.local/runs` using [TRUCK-TEST-PLAN.md](TRUCK-TEST-PLAN.md); software tests and maker current ratings are not physical acceptance.
 
 ## 7. Unverified items
 
@@ -230,7 +234,9 @@ Not confirmed from a source I read myself:
 - Veepeak handles GM Mode 22 requests with a custom header.
 - The standard serial-port UUID is correct for each classic adapter.
 - An independent speed comparison of OBDLink against cheap adapters. A tuning-software developer's forum post is quoted in search results as 47 against 20 values per second; the page would not load.
-- Current US street prices. Prices here are from each maker's own store; clone and dongle prices were not checked.
+- Current US street prices/spec revisions. Listed maker prices are November 4 research; no purchasing/availability audit was rerun for November 8.
+- Exact installed engine/transmission and adapter model/firmware: source docs disagree on powertrain possibilities; confirm physical build information before model-specific assumptions.
+- ATSP protocol persistence, real adapter sleep/reinit and ECU-silence handling: software allowlisting is not battery/safety certification.
 - Nothing I read says Android 16 changes classic Bluetooth serial connections, but I did not research it specifically.
 - State hands-free law.
 

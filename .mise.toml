@@ -1,0 +1,4 @@
+# Toolchain pin for this repository's JDK (see scripts/_common.sh, which falls
+# back to mise when .local/omarchy-toolchain/env.sh is absent).
+[tools]
+java = "temurin-17.0.21+9"

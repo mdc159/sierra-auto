@@ -1,11 +1,14 @@
 # Sierra Auto — OBD-II Plan
 
-**Status:** wired to the car screen (Truck and Codes) through demo, Bluetooth classic and Bluetooth LE transports. Demo mode is tested; the real transports are unverified until an adapter is plugged in. See section 11.  
-**Vehicle:** 2018 GMC Sierra 1500 Denali (6.2L L86, 8-speed 8L90 or 10-speed 10L80 depending on build)  
-**Phone:** Samsung Galaxy A54, Android 14+  
+**As-is:** 2026-11-08, main `210448b`. Truck/Codes, demo, classic and BLE exist. Fake/demo software tests do not prove physical adapter/ECU behavior. NO DATA can falsely become “No stored codes”; transient physical reconnect failures bypass retry, and missing-ECU polling can continue while ATRV answers. No `read_vehicle`/`read_trouble_codes`, configurable alerts or live GM UI are integrated. [STATUS.md](STATUS.md), [acceptance plan](TRUCK-TEST-PLAN.md).
+
+**Vehicle:** 2018 GMC Sierra 1500 Denali; exact engine/transmission/build needs confirmation (older docs disagreed; no 10L80 assumption is established).
+
+**Phone:** Samsung Galaxy A54, Android 16/API 36 at review; Bluetooth CONNECT/SCAN were ungranted
+
 **Adapter:** Bluetooth ELM327-class dongle in the OBD-II port under the dash
 
-This document is the reference for the `com.mdc159.sierra.obd` package. Code in that package is testable on the JVM with a fake transport and has no Android dependency. Anything marked **UNVERIFIED** has not been confirmed on this truck and must be shown as such if it ever reaches a screen.
+This document is the reference for the `com.mdc159.sierra.obd` package. Core protocol/safety code is JVM-testable without Android; `obd/bt` and settings/transports have Android dependencies. Anything marked **UNVERIFIED** has not been confirmed on this truck and must be shown as such if it ever reaches a screen.
 
 ## 1. The bus
 
@@ -34,7 +37,7 @@ Addresses that matter:
 | Android permissions (API 31+) | `BLUETOOTH_CONNECT` | `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT`; location-free if `neverForLocation` flag is set |
 | Simplicity | Simplest: an `InputStream`/`OutputStream` pair maps straight onto `ObdTransport` | Needs chunking writes to the MTU and reassembling notifications |
 
-**Recommendation:** start with a Bluetooth classic adapter. The `ObdTransport` interface is byte-stream shaped so a classic socket is a 40-line wrapper. Add a BLE transport later only if the chosen adapter needs it. Avoid Wi-Fi adapters: they take over the phone's Wi-Fi interface.
+**Recommendation:** start with a Bluetooth classic adapter. The `ObdTransport` interface is byte-stream shaped so a classic socket is a 40-line wrapper. A BLE transport is already implemented; choose it only for a matching adapter and validate its UUIDs/permissions on hardware. Avoid Wi-Fi adapters: they take over the phone's Wi-Fi interface.
 
 Adapter quality matters more than the radio. Many $10 clones report `ELM327 v1.5` (a version Elm Electronics never shipped) and have incomplete command support, slow protocol handling, or drop frames on multi-ECU replies. A genuine ELM327 or an STN11xx/STN22xx-based adapter (OBDLink) behaves per the datasheet. The `ATI` response is logged in `Elm327Info.identity` so we know what we are talking to.
 
@@ -50,7 +53,7 @@ Adapter quality matters more than the radio. Many $10 clones report `ELM327 v1.5
 | `ATS0` | Spaces off, so `410C0BB8` instead of `41 0C 0B B8` | `OK` |
 | `ATH0` | Headers off; the client reads the functional reply without caring which ECU | `OK` |
 | `ATAT1` | Adaptive timing on: adapter shortens its wait once it learns ECU response times | `OK` |
-| `ATSP6` | ISO 15765-4 CAN 11/500 | `OK` |
+| `ATSP6` | ISO 15765-4 CAN 11/500; actual adapter persistence must be investigated (#20), not described as “never changes adapter settings” | `OK` |
 | `0100` | First real request; proves the bus answers and wakes ECUs | `4100BE3EA813` or similar |
 | `ATDPN` | Describe protocol by number, for logging | `6` (or `A6` if auto-detected) |
 
@@ -115,7 +118,7 @@ The ECM on this truck should support the standard J1979 set. `Elm327Client.suppo
 | `5C` | Engine oil temp | 1 | A − 40 °C | Supported on L86; confirm with `0140` bitmap |
 | `5E` | Engine fuel rate | 2 | (256A + B)/20 L/h | Instant MPG |
 
-Polling plan for a future "Gauges" screen: RPM, speed, coolant, oil temp and voltage in a tight loop (~5 Hz total), everything else every few seconds. One request per PID keeps parsing simple; multi-PID requests (`010C0D05`) are allowed by the safety layer but not used yet.
+The current Truck monitor polls RPM, speed, coolant, intake air, load, fuel and voltage, then pauses 250 ms; it does not poll oil temperature or GM transmission temperature. Effective rate depends on adapter responses. The 1 Hz screen refresh cap is separate. One request per PID keeps parsing simple; multi-PID requests (`010C0D05`) are allowed by the safety layer but not used yet.
 
 ## 5. Mode 03/07/0A: trouble codes
 
@@ -125,9 +128,9 @@ Polling plan for a future "Gauges" screen: RPM, speed, coolant, oil temp and vol
 | `07` | `47 <count> …` | Pending codes: a fault seen on one drive cycle, not yet confirmed. Useful after a repair. |
 | `0A` | `4A <count> …` | Permanent codes. Set by the ECU, cannot be cleared by Mode 04; clear themselves when the monitor passes. |
 
-On CAN the payload begins with a count byte, so `Dtc.parseList` strips it when the payload length is odd. Each ECU replies separately; `Elm327Client.readStoredCodes()` merges and de-duplicates. `NO DATA` for Mode 03 is treated as "no codes" because some ECUs answer that way instead of `4300`.
+On CAN the payload begins with a count byte, so `Dtc.parseList` strips it when the payload length is odd. Each ECU replies separately; `Elm327Client.readStoredCodes()` merges and de-duplicates. **Current defect (#21):** `NO DATA` becomes an empty code list, and absent monitor-status data can let Codes say “No stored codes.” This is implementation behavior, not valid evidence that the ECU has zero codes. Preserve no-response/unknown separately from a valid zero-code reply and change the tests that currently encode the conflation.
 
-Code letters: `P` powertrain, `C` chassis, `B` body, `U` network, from the top two bits of the first byte. Looking up a code's meaning is not in scope here; the agent (M3) can do that in natural language.
+Code letters: `P` powertrain, `C` chassis, `B` body, `U` network, from the top two bits of the first byte. The agent has no wired code-reading tool today; general model explanations are not actual diagnostic reads.
 
 ## 6. Mode 04: clearing codes
 
@@ -138,7 +141,7 @@ Code letters: `P` powertrain, `C` chassis, `B` body, `U` network, from the top t
 1. `userConfirmed` is true, meaning the UI showed a confirmation that names what will be lost;
 2. `vehicleStopped` is true, set by the caller from its own knowledge;
 3. the truck itself reports `0 km/h` on PID `0D`, read immediately before;
-4. the request header is `7DF`.
+4. it sets the request header back to `7DF` before sending `04` (not a caller precondition).
 
 Everything else raises `ObdCommandBlockedException` before the write. Anything that would clear codes from the Android Auto head unit while driving is out of the question; the Car App Quality guidelines wouldn't allow the dialog anyway. If a clear is ever exposed, it belongs on the phone UI, parked.
 
@@ -150,15 +153,15 @@ Service `22` (UDS ReadDataByIdentifier) returns manufacturer-specific data by a 
 | --- | --- | --- | --- | --- |
 | `1940` | TCM, `7E2` | Transmission fluid temperature | A − 40 °C | Commonly cited; the one worth verifying first (towing) |
 | `115C` | ECM, `7E0` | Engine oil pressure | A·4 kPa | Commonly cited, scaling varies between lists |
-| `119C` | ECM, `7E0` | Engine oil life remaining | A·100/255 % | Commonly cited |
+| `119C` | ECM, `7E0` | Legacy oil-life guess | A·100/255 % | Disputed: newer `GmDids` uses `119F`; #32 unresolved, neither truck-verified |
 
 Verification procedure, parked with the engine warm:
 
 1. `ATSH7E2` then `221940`. Expect `62 19 40 xx`. A `7F 22 31` means "request out of range": the DID is wrong for this module; try `7E1`. A `7F 22 11` means the service isn't supported at that address.
 2. Compare the decoded value with the transmission temperature in the driver information center (Settings → Info → Trans Temp on the 2018 cluster).
-3. If they agree within a couple of degrees across a cold-to-warm run, flip `verified = true` in `GmExtendedPids` and record the date and VIN prefix in this table.
+3. Record raw/decoded/cluster comparison across cold-to-warm conditions under a nonidentifying vehicle alias; reconcile old/new catalogs before a separately reviewed verified-flag code change. Do not publish a VIN.
 
-Candidates not yet implemented, also unverified: `2217AC` (trans gear), `221154` (oil temp via Mode 22 as a fallback when `015C` is unsupported), `22165E`-series (misfire counters). Only DIDs on this allowlist pattern (`22` + 4 hex digits, to an allowed header) pass `ObdSafety`.
+The separate newer `obd/gm/GmDids` catalog implements `1940`, `1154`, `1470`, `115C`, `119F`, `199A`; see [GM-PIDS.md](GM-PIDS.md) for sources/formulas/fallbacks. These readers are not integrated into live UI/voice. Other historical guesses (`17AC`, `165E`-series) remain unimplemented/unverified. Only DIDs on this allowlist pattern (`22` + 4 hex digits, to an allowed header) pass `ObdSafety`.
 
 ## 8. Read-only safety rules
 
@@ -169,7 +172,7 @@ These are enforced in `ObdSafety`, tested in `ObdSafetyTest`, and must stay true
 3. **No adapter reprogramming.** `ATPP*` writes the adapter's EEPROM and can brick a clone; `ATSD`, `ATCV`, `ATBD`, `ATMA`, `ATFC*`, `ATCRA`, `ATRTR`, `ATWM` and others are refused because they send or monitor arbitrary frames.
 4. **Never a bare carriage return.** The ELM327 repeats the previous command on an empty line.
 5. **One command in flight.** The client is synchronized; no interleaving.
-6. **Every wait has a deadline.** Nothing blocks a thread forever; a wedged adapter surfaces as `ObdTimeoutException` and the next command resyncs.
+6. **Protocol waits use deadlines.** Command prompt/read loops can throw `ObdTimeoutException` and resync. This is not proof every Android native connect/close/cancel path is bounded; exercise real transport cancellation and header restoration after timeout.
 7. **Driving-safe by design.** Only reading happens while the truck moves. Mode 04 requires a stopped truck confirmed by the truck itself.
 8. **Secrets and privacy.** The VIN is personal data; log it only at debug level and never ship it to the agent endpoint without the owner choosing to.
 9. **Label what we don't trust.** Anything from `GmExtendedPids` carries `verified = false` until proven.
@@ -200,17 +203,17 @@ Reached by the "Truck data settings" button in `MainActivity`. Lists demo mode, 
 
 ### Monitor (`obd/live/TruckMonitor.kt`)
 
-One worker thread per Truck screen. It opens the transport, runs init, walks the supported PIDs once, then loops: RPM, speed, coolant, intake air, engine load, fuel level and control-module voltage (falling back to `ATRV` when PID `42` is unsupported), publishing a `TruckReadings` on a `StateFlow`. A PID that answers `NO DATA` shows as `n/a` rather than failing the screen. Three consecutive timeouts count as a dropped link. A link that drops after it worked is reconnected up to three times, 3 s apart; an adapter that cannot be reached at all (`AdapterUnavailableException`: Bluetooth off, permission missing, not paired, connect timed out) fails immediately with a message that says what to do on the phone. Codes are read on request from the same thread, so one command is in flight at any time. `close()` stops the thread, aborts a connect still in flight (`PendingConnect`: the transport registers its `BluetoothSocket` or GATT link, and closing it unblocks the connect) and closes the socket, so backing out of "Connecting…" and tapping Truck again never leaves two workers racing for the dongle.
+One worker thread per Truck screen. It opens the transport, runs init, walks the supported PIDs once, then loops: RPM, speed, coolant, intake air, engine load, fuel level and control-module voltage (falling back to `ATRV` when PID `42` is unsupported), publishing a `TruckReadings` on a `StateFlow`. A PID that answers `NO DATA` shows as `n/a` rather than failing the screen. Three consecutive timeouts count as a dropped link. The ordinary failure branch retries up to three times, 3 s apart; **known defect:** transient reconnects from physical transports may throw `AdapterUnavailableException` and exit before that budget. An adapter classified as unavailable (`AdapterUnavailableException`: Bluetooth off, permission missing, not paired, connect timed out) fails immediately with a message that says what to do on the phone. Codes are read on request from the same thread, so one command is in flight at any time. `close()` stops the thread, aborts a connect still in flight (`PendingConnect`: the transport registers its `BluetoothSocket` or GATT link, and closing it unblocks the connect) and closes the socket, to prevent two workers racing after backing out of Connecting; physical cancellation still needs device acceptance, and cancelled adapter-test ownership has a specialist test gap.
 
 ### Car screens
 
-- **Home** is now a `GridTemplate` with Talk, Places, Truck and History (four items; the host grid limit is never below six).
+- **Home** is a bounded `GridTemplate` with **Talk, Places, Truck, History, Mic test and Conversation** (six entries, truncated to the queried host limit).
 - **Truck** (`TruckScreen`) is a `PaneTemplate` with four fixed-title rows ("Engine", "Speed", "Temperature", "Fuel and battery") whose secondary text carries the seven values in US units. Fixed titles mean each update is a refresh of the same template, not a new task step. The screen collects the monitor's flow and calls `invalidate()` **at most once per second** (`TruckScreen.MIN_REFRESH_MILLIS`), whatever rate the adapter answers at; the constraints doc gives no number, so this is a deliberate, conservative choice. Loading, failure (`MessageTemplate` with Retry) and missing-permission (`MessageTemplate` with Allow, which raises the dialog on the phone) are separate states. Retry pops and pushes a fresh screen so the popped template steps are handed back. The monitor is created with the screen and closed in `onDestroy`.
 - **Codes** (`TruckCodesScreen`) is a read-only `ListTemplate`: MIL status row, one row per stored code within the host list limit (overflow collapses into a "+N more" row), and a final "Read-only: Sierra never clears codes" row. There is no clear action anywhere on the car screen; see section 6.
 
 ### Not done
 
-- The agent does not yet read codes or live data into its prompt (that belongs with lane B's tools).
+- The agent does not yet read codes or live data into its prompt (no vehicle-reading tool is implemented).
 - No foreground service: the connection lives only while the Truck screen is on the stack. That is deliberate for this milestone, so the socket cannot outlive the screen.
 
 ## 10. Testing
@@ -227,11 +230,15 @@ One worker thread per Truck screen. It opens the transport, runs init, walks the
 
 Run: `./gradlew testDebugUnitTest --tests 'com.mdc159.sierra.obd.*' --tests 'com.mdc159.sierra.car.*'`
 
+## Next steps
+
+Fix NO DATA/unknown code semantics, physical reconnect exception classification and bounded missing-ECU polling with regressions. Investigate ATSP persistence and GM timeout header restoration; reconcile `119C`/`119F`. Then execute the [parked-first adapter plan](TRUCK-TEST-PLAN.md) before integrating GM, spoken vehicle data or alerts. Current fake tests do not prove battery/key-off safety or real PID accuracy.
+
 ## 11. What still needs a real adapter
 
 None of this has met a physical ELM327 on this truck. In order of risk:
 
-1. **Bluetooth classic connect on the Galaxy A54.** Some phones need `createInsecureRfcommSocketToServiceRecord` for cheap clones; this code uses the secure variant. If `connect()` fails with "Couldn't connect", try the insecure call first. The likely adapter is the **OBDLink LX**: classic Bluetooth only, paired by pressing its button (no PIN), and it warm-resets when it wakes from sleep. The init sequence therefore has to run on every reconnect; `TruckMonitor` does that (a fresh `Elm327Client.initialize()` per transport open), but it is untested against a sleeping LX.
+1. **Bluetooth classic connect on the Galaxy A54.** Current code uses secure RFCOMM. If connect fails, capture pairing/permissions/adapter firmware and error first; any insecure-socket fallback is a separate reviewed change, not a guaranteed fix or routine first step. The likely adapter is the **OBDLink LX**: classic Bluetooth only, paired by pressing its button (no PIN), and it warm-resets when it wakes from sleep. The init sequence therefore has to run on every reconnect; `TruckMonitor` does that (a fresh `Elm327Client.initialize()` per transport open), but it is untested against a sleeping LX.
 2. **`InputStream.available()` on `BluetoothSocket`.** Documented to work, and it is how most Android OBD apps poll, but a stack that always returns 0 would make every command time out. The fallback is a reader thread that blocks on `read()` and feeds a `ByteInbox`, the same shape the BLE transport already uses.
 3. **BLE layouts.** Every UUID in `BleUartLayouts` is unverified. Sources, for the record: OBDLink's developer notes give `FFF0`/`FFF1`/`FFF2` for the OBDLink CX; open-source projects attribute `E7810A71-…` to Vgate (not OBDLink, as an earlier draft of this PR said). The adapter test on the phone prints which layout matched; record it here with the adapter model once confirmed. If none matches, the message says "no known serial service" and the service table from a BLE scanner app is what to add.
 4. **Protocol.** `ATSP6` is correct for every 2008+ GM truck. If the first `0100` returns `UNABLE TO CONNECT` with the key on, try `ATSP0` (auto) once by changing `Elm327Config.protocol`.

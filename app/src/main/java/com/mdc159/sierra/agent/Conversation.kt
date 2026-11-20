@@ -4,6 +4,10 @@ package com.mdc159.sierra.agent
 class Conversation(private val maxTurns: Int = 6) {
 
     private val turns = ArrayDeque<ChatMessage>()
+    /** Explicit identity for bridge sessions; equal replies must never identify a session. */
+    @Volatile
+    var id: String = java.util.UUID.randomUUID().toString()
+        private set
 
     @Synchronized
     fun messagesFor(userText: String): List<ChatMessage> =
@@ -17,7 +21,10 @@ class Conversation(private val maxTurns: Int = 6) {
     }
 
     @Synchronized
-    fun clear() = turns.clear()
+    fun clear() {
+        turns.clear()
+        id = java.util.UUID.randomUUID().toString()
+    }
 
     @Synchronized
     fun size(): Int = turns.size / 2

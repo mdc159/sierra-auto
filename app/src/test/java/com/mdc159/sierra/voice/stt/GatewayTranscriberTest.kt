@@ -1,6 +1,10 @@
 package com.mdc159.sierra.voice.stt
 
 import com.mdc159.sierra.agent.AgentException
+import com.mdc159.sierra.net.StalledBodyServer
+import com.mdc159.sierra.net.StalledConnectionServer
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -70,6 +74,67 @@ class GatewayTranscriberTest {
             fail()
         } catch (e: AgentException) {
             assertEquals("Transcription reply couldn't be read.", e.message)
+        }
+    }
+
+    /**
+     * Regression (review finding on #54): Stop cancels the transcription coroutine, and that
+     * must abort the stalled HTTP call instead of waiting out OkHttp's read timeout. The
+     * stalled server never answers, so a prompt return and a closed connection are both proof
+     * that cancellation reached the call.
+     */
+    @Test
+    fun stopCancelsAStalledTranscriptionAndClosesTheConnection() {
+        val stalled = StalledConnectionServer().start()
+        val slowHttp = OkHttpClient.Builder()
+            .readTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .build()
+        val transcriber = GatewayTranscriber(stalled.url, "key", http = slowHttp)
+        try {
+            val startedAt = System.nanoTime()
+            runBlocking {
+                val job = launch { transcriber.transcribe(ByteArray(3_200), 16_000) }
+                delay(300) // let the request reach the stalled server
+                job.cancel()
+                job.join()
+            }
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+            assertTrue("transcribe returned after ${elapsedMs}ms", elapsedMs < 2_500)
+            assertTrue("the transcription connection stayed open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
+        }
+    }
+
+    /**
+     * Regression (follow-up on the #54 cancellation fix): the server answers with headers
+     * that promise a longer body than it ever sends, so `await()` has already resumed and
+     * only cancellation wired to the whole response lifetime can release the blocked body
+     * read. Stop must propagate cancellation promptly — a late AgentException from OkHttp's
+     * read timeout would fail this test by escaping the cancelled child coroutine.
+     */
+    @Test
+    fun stopReleasesATranscriptionStalledMidBody() {
+        val stalled = StalledBodyServer().start()
+        val slowHttp = OkHttpClient.Builder()
+            .readTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .build()
+        val transcriber = GatewayTranscriber(stalled.url, "key", http = slowHttp)
+        try {
+            val startedAt = System.nanoTime()
+            runBlocking {
+                val job = launch { transcriber.transcribe(ByteArray(3_200), 16_000) }
+                delay(300) // let the response headers arrive and the body read start
+                job.cancel()
+                job.join()
+            }
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+            assertTrue("transcribe returned after ${elapsedMs}ms", elapsedMs < 2_500)
+            assertTrue("the transcription connection stayed open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
         }
     }
 }

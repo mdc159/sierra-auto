@@ -61,6 +61,7 @@ class AudioTrackPlayer(
     }
 
     override fun write(data: ByteArray, offset: Int, length: Int): Boolean {
+        require(length % 2 == 0) { "PCM playback requires complete 16-bit samples." }
         val t = track ?: return false
         val sliceBytes = (sampleRate * 2 * sliceMs / 1000).coerceAtLeast(2)
         var pos = offset

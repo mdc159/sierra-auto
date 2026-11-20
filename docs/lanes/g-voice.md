@@ -1,16 +1,11 @@
-LANE G: conversational voice. Branch `voice`.
-Today Talk is push-to-talk: one tap, one question, one reply read by Android's built-in voice. The owner wants a natural, hands-free conversation with a high-quality voice.
-You own: new files under voice/tts/, voice/stt/, voice/convo/ and voice/realtime/, a new VoiceSettingsActivity, and tests. In phase 1 do not edit any existing file under voice/, agent/ or car/ (lanes B and E own them tonight).
-Shared-file edits allowed: AndroidManifest.xml (your Activity), MainActivity.kt (one button row to open VoiceSettingsActivity), app/build.gradle.kts (add-only dependencies).
+# Lane G — historical conversational-voice scope
 
-What the owner's gateway offers (one OpenAI-compatible base URL and one key, already used for chat): speech-to-text models such as groq/whisper-large-v3-turbo and openai/gpt-4o-transcribe at /v1/audio/transcriptions; text-to-speech models such as openai/gpt-4o-mini-tts at /v1/audio/speech; and realtime speech models such as openai/gpt-realtime-2.1. The gateway is LiteLLM; whether its realtime websocket route works is unverified. The owner also has an ElevenLabs key, which would be entered on the phone.
+Historical branch/scope (2026-11-04): `voice`; streamed sentence speech outputs, end-of-speech detection, follow-up controller, voice settings and older experimental realtime loop. Phase 2 requested Talk wiring. Session gates/deadlines and exclusive ownership are retired.
 
-Phase 1, standalone and fully unit-tested against fake servers:
-1. A SpeechOutput interface with three implementations: the gateway's /v1/audio/speech with streamed playback (start speaking before the whole file arrives); ElevenLabs streaming text-to-speech; and the existing Android TextToSpeech as the fallback. All request audio focus the way the constraints doc describes and release it when done. Sentence-level chunking so long replies start fast.
-2. End-of-speech detection on the car microphone's PCM stream (energy-based, with tunable thresholds), so the driver does not have to tap to stop.
-3. A ConversationController state machine: listening, thinking, speaking, then listening again without a tap. It ends on a stop phrase ("stop", "that's all", "never mind"), on a configurable silence timeout, or when the host ends the mic session. Tapping the mic while Sierra is speaking interrupts the reply and starts listening (barge-in). It must be driven through interfaces (mic, transcriber, agent, speech output) so it can be tested with fakes and wired in later.
-4. VoiceSettingsActivity: choose the voice provider and voice, the speech-to-text model, conversation mode on or off, and a "Test voice" button that speaks a sample. Keys are stored encrypted the same way ConfigStore stores the agent key.
-5. Experimental, behind a setting that is off by default: a client for the OpenAI Realtime protocol over websocket, pointed at the gateway. Document what you could and could not verify without a device.
-6. docs/VOICE.md: the options compared (turn-based with streamed voice; realtime speech-to-speech through the gateway; ElevenLabs Agents with a custom LLM, which needs a public URL), expected latency for each, cost notes, and what Android Auto allows for a continuous mic session according to docs/android-auto-constraints.md. Mark every unverified claim.
+## As-is — 2026-11-08, main `210448b`
 
-Phase 2, only after the `talk-tools` PR is merged into main (check `gh pr list --state merged`): merge main, then wire ConversationController and SpeechOutput into car/TalkScreen.kt with the smallest possible change, keeping the tool-calling behavior intact. If talk-tools is not merged by 10:15 PM PST, skip phase 2 and describe the exact wiring in your PR so the coordinator can do it.
+Turn-based pipeline is wired into Talk when capture/transcription is available, with tools/history/follow-ups and diagnostic input selection. Android/gateway/ElevenLabs output and transcription implementations exist. Adaptive detector no longer has the old permanent RMS cap. Saved legacy realtime settings are **not wired into Talk**; use lane J's separate duplex Conversation. November 4 probe numbers are desktop synthetic-audio observations, not truck latency/accuracy guarantees.
+
+## Next steps
+
+Verify capture/detection/transcription/output and focus on the actual phone/host, including silence, unconfirmed first utterance, follow-ups and cancellation. Repair permission fallback, legacy speaker callbacks and unsafe store recovery; retain diagnostic evidence for intermittent truck silence. [VOICE.md](../VOICE.md), [microphone diagnostics](../MICROPHONE-DIAGNOSTICS.md).

@@ -1,0 +1,102 @@
+---
+name: conditional-docs
+description: Select which Sierra Auto docs to read for the subsystem or task at hand, without loading the whole documentation set.
+---
+
+<!-- docs-standard: v1 -->
+# Conditional Documentation Guide
+
+Read only the docs whose conditions match the task in hand. Do not read everything.
+
+## Conditional Documentation
+
+- README.md
+  - Conditions:
+    - When first understanding the project structure
+    - When you need the commands to set up, run or test the project
+- AGENTS.md
+  - Conditions:
+    - Before any change: workspace, worktree, evidence and credential rules
+- docs/STATUS.md
+  - Conditions:
+    - When you need current verified state, open defects or promotion blockers
+    - Before reporting test results or acceptance
+- docs/PLAN.md
+  - Conditions:
+    - When choosing what to work on next (authoritative work order)
+- docs/ARCHITECTURE.md
+  - Conditions:
+    - When changing code boundaries or tracing how phone, car, agent and bridge connect
+- docs/WORKSPACE.md
+  - Conditions:
+    - Before creating/removing worktrees or relocating local evidence
+- docs/DEVELOPMENT-WORKFLOW.md
+  - Conditions:
+    - When branching, opening PRs, promoting to staging/main or publishing to Play
+- docs/UPDATES.md
+  - Conditions:
+    - When working on release builds, version codes, signing, Play upload or the in-app updater (`update/`)
+- docs/TESTING.md
+  - Conditions:
+    - When running device/DHU tests or the scripts in `scripts/`
+- docs/TRUCK-TEST-PLAN.md
+  - Conditions:
+    - When planning or recording physical truck acceptance
+- docs/USER-GUIDE.md
+  - Conditions:
+    - When changing user-visible phone or car behaviour
+- docs/PHONE-CONVERSATION.md
+  - Conditions:
+    - When working on `phone/` (PhoneActivity, phone Talk) or Tailscale/bridge connectivity from the phone
+- docs/android-auto-constraints.md
+  - Conditions:
+    - Before building or changing any car screen (`car/`) or Car App Library usage
+- docs/AGENT-BACKENDS.md
+  - Conditions:
+    - When working on `agent/` (AgentClient, config) or choosing gateway vs bridge backends
+- docs/VOICE.md
+  - Conditions:
+    - When working on turn-based voice: `voice/stt`, `voice/tts`, `voice/convo`
+- docs/DUPLEX.md
+  - Conditions:
+    - When working on `voice/duplex` (OpenAI Realtime / ElevenLabs agent sessions, echo gate)
+- docs/MICROPHONE-DIAGNOSTICS.md
+  - Conditions:
+    - When debugging mic capture or `voice/diagnostics`, or Hermes on Victoria
+- docs/VOICE-GATEWAY-CHECK.md
+  - Conditions:
+    - When you need historical latency/capability measurements of the gateway and ElevenLabs
+- docs/STUDIO54.md
+  - Conditions:
+    - When working on `studio54/` sign-in, vault-backed secrets or credential stores
+- docs/IDEA-LOOP.md
+  - Conditions:
+    - When working on `FileIdeaTool` or `.github/workflows/claude.yml` issue-to-PR automation
+- docs/OBD2-PLAN.md
+  - Conditions:
+    - When working on `obd/` (ELM327 client, transports, safety allowlist, TruckMonitor)
+- docs/GM-PIDS.md
+  - Conditions:
+    - When working on `obd/gm` Mode 22 DIDs/decoders
+- docs/HARDWARE.md
+  - Conditions:
+    - When reasoning about the truck, phone or OBD adapter hardware
+- docs/lanes/README.md
+  - Conditions:
+    - When a historical lane brief is referenced (lanes are records, not current instructions)
+- bridge/README.md
+  - Conditions:
+    - When choosing bridge test commands or interpreting platform-specific test results
+    - When working on the Python bridge (`bridge/`), its adapters or its deployment
+- tools/voice-probe/README.md
+  - Conditions:
+    - When running or changing the voice-provider probes
+- ai_docs/README.md
+  - Conditions:
+    - When you need official docs for a third-party library, API or tool
+- specs/README.md
+  - Conditions:
+    - When adding a new plan or spec
+- app_docs/README.md
+  - Conditions:
+    - When adding a new feature/subsystem doc

@@ -1,9 +1,11 @@
-LANE F: GM-specific truck data. Branch `gm-pids`.
-The standard OBD-II PIDs miss what the owner most wants while towing and driving: transmission fluid temperature, oil pressure and temperature, and similar. On GM trucks these come from manufacturer-specific Mode 22 requests.
-You own: new files under obd/gm/, their tests, and docs/GM-PIDS.md. Do not edit any existing file under obd/ (lane C is extending them), and do not touch car/, agent/, places/, voice/, MainActivity.kt, the manifest, Gradle files or .github/. If you need a hook in an existing obd/ file, describe it in your PR and the coordinator will add it.
-Do:
-1. Research Mode 22 PIDs for the 2018 GMC Sierra 1500 Denali (K2XX platform; 5.3L L83 or 6.2L L86 engine; 8L90 8-speed automatic, with the 6L80 as a possibility). Use every credible public source: scan-tool PID lists (Torque custom PID files, OBD Fusion, Car Scanner), enthusiast forums, open-source projects. For each PID record: the request bytes, the ECU header it must be sent to (engine or transmission module), response length, formula, units, and how many independent sources agree.
-2. docs/GM-PIDS.md: a table of those PIDs, each with its sources and a confidence level (confirmed by 2+ independent sources / single source / guess). Everything is unverified on the real truck until the owner tests it; say so at the top. List which PIDs are safe to poll while driving and a sensible polling interval.
-3. Code under obd/gm/: typed definitions and decoders for the PIDs with confidence "2+ sources", built on the existing ObdPids and ElmResponseParser conventions, read-only, and passing ObdSafety without changes to its allowlist. If ObdSafety blocks Mode 22 reads, do not weaken it; document exactly what would need to change and why it is still read-only.
-4. JVM unit tests with scripted responses for every decoder, including negative responses (7F 22 xx) and short frames.
-5. A short "first test on the truck" checklist in the doc: which three PIDs to try first, and what a sane reading looks like with a warm engine at idle.
+# Lane F — historical GM research scope
+
+Historical branch/scope (2026-11-04): `gm-pids`; sourced Mode 22 DID/header/formula tables, typed readers/decoders and fake-response tests under `obd/gm/`, without weakening the command allowlist. Requested first-truck comparison steps and confidence labels. Old file-ownership mandates are retired.
+
+## As-is — 2026-11-08, main `210448b`
+
+GmDids, GmResponseDecoder and GmTruckReader exist. Source-count confidence is not vehicle validation; none of these readings is truck-proven. They are not wired into live Truck or agent tools. Legacy oil-life DID `119C` disagrees with newer `119F` (#32). Exact installed powertrain needs confirmation.
+
+## Next steps
+
+Reconcile catalogs and prove header restoration after timeouts, then validate standard OBD before parked GM discovery. Start with transmission DID `1940`, record raw reply/header and cluster comparison cold/warm. Do not rely on plausible values or research ranges as health thresholds. [GM-PIDS.md](../GM-PIDS.md), [truck plan](../TRUCK-TEST-PLAN.md).

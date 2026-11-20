@@ -8,7 +8,7 @@ on:
       - "bridge/**"
       - ".github/workflows/bridge.yml"
   push:
-    branches: [main]
+    branches: [main, staging, 'dev/**']
     paths:
       - "bridge/**"
       - ".github/workflows/bridge.yml"

@@ -1,17 +1,19 @@
 # Conversational voice for Talk
 
-**Written:** 2026-11-04 (lane G). **Status:** phase 1 code is on the branch and unit-tested against fake servers and fake devices. Nothing in this document has been run on the phone or the truck. Where a figure says **measured**, it comes from issue #39 (`docs/VOICE-GATEWAY-CHECK.md` in PR #38): probes run from the owner's PC on the Tailscale network on 2026-11-04 against the LiteLLM gateway (1.102.1) and ElevenLabs, one to ten calls per figure, 82–99 ms round trip to the gateway. From the truck every stage adds a mobile round trip, which is not measured. Every claim that could not be checked is marked **unverified**.
+**As-is:** 2026-11-08, main `210448b`; lane G's original work is historical. Turn-based capture/transcription, selected speech output and follow-up mode are **wired into Talk**, with diagnostic input selection. The separate duplex Conversation flow is wired too ([DUPLEX.md](DUPLEX.md)); the older `voice/realtime` loop and saved switch are not wired to Talk.
 
-Today Talk is push-to-talk: tap, one question, one reply read by Android's built-in voice. The goal is a hands-free conversation with a high-quality voice. This doc compares the ways to get there, says what the code on this branch does, and lists what still has to be proven on a device.
+Measured figures below are historical desktop synthetic-audio probes (#39, [VOICE-GATEWAY-CHECK.md](VOICE-GATEWAY-CHECK.md), November 4, LiteLLM 1.102.1, one to ten calls per cell, 82–99 ms RTT), not current phone/truck latency or provider availability. No completed current-build duplex exchange or actual truck audio pass was established by the November 8 review; it made no recording or live call. Earlier phone handshake evidence does not prove a spoken turn. Pricing remains unverified; check the configured account before paid tests.
+
+Known gaps remain: destructive ConfigStore/Studio54/Duplex settings recovery, recognizer permission fallback, legacy Repeat/History focus callbacks, private ElevenLabs signed-URL cancellation and native mic Stop blocking. Diagnostics/cleanup improvements do not prove the intermittent truck silence fixed. [STATUS.md](STATUS.md) and [TRUCK-TEST-PLAN.md](TRUCK-TEST-PLAN.md) define the evidence and next steps.
 
 ## 1. The three options
 
-| | A. Turn-based with streamed voice (built) | B. Realtime speech-to-speech through the gateway (built, experimental, off) | C. ElevenLabs Agents with a custom LLM (not built) |
+| | A. Turn-based with streamed voice (built, wired) | B. Older realtime loop (built, unwired) | C. ElevenLabs custom-LLM hosting (proposal; separate Agents client is built) |
 | --- | --- | --- | --- |
 | How it works | Car mic → energy end-of-speech → `/v1/audio/transcriptions` → chat completion (tools stay as they are) → `/v1/audio/speech` streamed sentence by sentence to an `AudioTrack` | One websocket to `/v1/realtime`; mic PCM up, voice PCM down, server VAD decides turns; the model speaks directly | ElevenLabs hosts the voice agent (their STT, VAD, TTS); it calls back to *your* LLM over HTTPS for the text |
 | Where the agent logic lives | In the app (AgentClient, tool calling from lane B) | In the realtime model; tool calls would have to be re-implemented on realtime events | On ElevenLabs' side, which calls a **public** OpenAI-compatible URL |
 | Needs | Gateway URL and key (already configured) | Gateway realtime route working; a realtime model routed by LiteLLM | ElevenLabs account with Agents; a public HTTPS URL for the custom LLM (the gateway is on Tailscale, so a tunnel or the lane-H bridge exposed publicly); the ElevenLabs Android SDK or their WebRTC/websocket protocol |
-| Interrupting Sierra | Mic tap (barge-in) stops playback and starts listening. Always works, no server needed | Server VAD `speech_started` event drops queued audio; also mic tap | Handled by ElevenLabs |
+| Interrupting Sierra | Mic action can stop playback/listen; physical Stop/focus behavior still needs testing | Server VAD `speech_started` event drops queued audio; also mic tap | Handled by ElevenLabs |
 | Keeps tool calling from lane B | Yes, unchanged | No, would need porting (untested on this path) | Partly; tools would run on ElevenLabs' side or via webhooks |
 | Measured from the PC (#39), end of recorded speech to first audio | 1.2–1.9 s with ElevenLabs speech-to-text and voice; 2.7–5.2 s all on the gateway | 1.1 s (`gpt-realtime-2.1-mini`, 500 ms server silence window included) | Not measured |
 | Verified in this branch | Request shapes, streaming playback, focus handling, state machine: unit tests only | Wire format and event handling against a fake websocket server: unit tests only | Nothing |
@@ -30,15 +32,15 @@ Latency per turn, from the moment the driver stops talking to the first sound of
 | First voice bytes | ElevenLabs `eleven_flash_v2_5` 0.18–0.40 s; gateway `openai/gpt-4o-mini-tts` 1.0–1.1 s per sentence, 3.6 s for four sentences | **The gateway's `/v1/audio/speech` does not stream**: it buffers the whole upstream file, so first byte grows with the text. One request per sentence (what `StreamedSpeechOutput` does) keeps it to about a second per sentence. ElevenLabs streams for real |
 | **Total to first sound, after the silence window** | **1.2–1.9 s** with ElevenLabs speech-to-text and voice; **1.6–2.7 s** gateway speech-to-text + ElevenLabs voice; **2.7–5.2 s** all on the gateway | Plus the mobile round trips from the truck |
 
-Defaults chosen from this: transcription `openai/gpt-4o-mini-transcribe` on the gateway, or ElevenLabs `scribe_v2` when a key is entered (both selectable in Voice settings); voice ElevenLabs `eleven_flash_v2_5` when a key is entered, else gateway `gpt-4o-mini-tts`, else Android. Ways to cut further, in order of payoff: shorter `silenceMs`; stream the chat completion and start TTS on the first complete sentence (saves most of the completion time; the splitter must wait for whitespace after `.`, which `SentenceChunker` already does, because #39 saw "3.2 miles" cut at "3.").
+Provider/model choices are selectable in Voice settings and factory fallback depends on configuration. The probe recommendation was gateway `openai/gpt-4o-mini-transcribe` or ElevenLabs `scribe_v2`, plus ElevenLabs `eleven_flash_v2_5` or gateway speech. Do not assume entering a key automatically selects a provider; inspect the saved selection. Ways to cut further, in order of payoff: shorter `silenceMs`; stream the chat completion and start TTS on the first complete sentence (saves most of the completion time; the splitter must wait for whitespace after `.`, which `SentenceChunker` already does, because #39 saw "3.2 miles" cut at "3.").
 
-Cost (list prices, **unverified** for the owner's gateway and plan): `gpt-4o-mini-tts` is billed per token, about $0.015 per minute of audio per OpenAI's pricing page; `whisper-large-v3-turbo` on Groq is about $0.04 per hour of audio; `gpt-4o-mini-transcribe` is about $0.003 per minute. ElevenLabs Flash is billed per character against the plan's quota. A ten-minute conversation of 20 turns is in the cents.
+Cost was not established for actual phone conversations. Provider/account/gateway billing and growing context can differ; use the dated probe spend only as historical evidence and confirm current account limits before authorized calls.
 
 ### B. Realtime speech-to-speech
 
-Lowest latency and the most natural barge-in, because the server hears the driver while it speaks. **Measured (#39):** the gateway's realtime route works at `ws://<gateway>/v1/realtime?model=…` with only the bearer key, in OpenAI's current (non-beta) event format; `openai/gpt-realtime-2.1-mini` took 1.1 s to open the socket and 1.1 s from end of speech to first audio with a 500 ms server silence window; `openai/gpt-realtime-2.1` 2.6 s cold dial and 1.3 s; Gemini Live and Grok voice also answered through the same route. So open the socket when the mic session starts, which `RealtimeVoiceLoop` does. Costs more: realtime audio is billed per audio token in and out, on the order of $0.06 per minute of conversation (**unverified**, check the current pricing page). It sidesteps lane B's tool calling, and tool calls, barge-in and sessions longer than a few seconds were **not tested** on this path (#39), so it stays a separate, experimental switch.
+Lowest latency and the most natural barge-in, because the server hears the driver while it speaks. **Measured (#39):** the gateway's realtime route works at `ws://<gateway>/v1/realtime?model=…` with only the bearer key, in OpenAI's current (non-beta) event format; `openai/gpt-realtime-2.1-mini` took 1.1 s to open the socket and 1.1 s from end of speech to first audio with a 500 ms server silence window; `openai/gpt-realtime-2.1` 2.6 s cold dial and 1.3 s; Gemini Live and Grok voice also answered through the same route. So open the socket when the mic session starts, which `RealtimeVoiceLoop` does. No current realtime price or comparative cost guarantee is established here; check the selected account/model before testing. It sidesteps lane B's tool calling, and the probes did not test tool calls/barge-in/long sessions. This older loop stays unwired; the separate duplex implementation supplies those APIs but still needs physical acceptance.
 
-What is on the branch: `RealtimeConfig` (default `openai/gpt-realtime-2.1-mini`, 500 ms server VAD), `RealtimeEvents` (encode/decode, both the GA and the 2024 beta event names), `RealtimeClient` (OkHttp websocket), `Resampler` (16 kHz car mic → 24 kHz wire), and `RealtimeVoiceLoop` (full duplex pump with barge-in). It is behind **Realtime** in Voice settings, off by default, and nothing on the car screen uses it yet.
+What exists in the older, unwired package: `RealtimeConfig` (default `openai/gpt-realtime-2.1-mini`, 500 ms server VAD), `RealtimeEvents` (encode/decode, both the GA and the 2024 beta event names), `RealtimeClient` (OkHttp websocket), `Resampler` (16 kHz car mic → 24 kHz wire), and `RealtimeVoiceLoop` (full duplex pump with barge-in). The **Realtime** switch in Voice settings is saved/off by default but does not activate this loop in Talk. The implemented car realtime entry is **Conversation**, backed by `voice/duplex/`, not this package.
 
 Still **unverified** without a device:
 
@@ -48,11 +50,11 @@ Still **unverified** without a device:
 
 ### C. ElevenLabs Agents with a custom LLM
 
-ElevenLabs' conversational agents give the best voices and handle VAD, interruption and TTS on their side. Their "custom LLM" option points the agent at an OpenAI-compatible chat-completions URL, which must be reachable from ElevenLabs' servers, so the Tailscale-only gateway would need a public front (Cloudflare Tunnel, Tailscale Funnel, or the lane-H bridge on a public VPS). The app would use the ElevenLabs Android SDK or their websocket protocol. Not built and **not tested** (#39); listed so the trade-off is on record. Latency: ElevenLabs quotes sub-second turn latency for agents (**unverified**). Cost: agent minutes are billed separately from TTS characters, around $0.08–0.10 per minute on paid plans (**unverified**).
+ElevenLabs Agents handle service-side VAD, interruption and TTS; voice quality was not comparatively measured. Their "custom LLM" option points the agent at an OpenAI-compatible chat-completions URL, which must be reachable from ElevenLabs' servers, so the Tailscale-only gateway would need a public front (Cloudflare Tunnel, Tailscale Funnel, or the lane-H bridge on a public VPS). The app would use the ElevenLabs Android SDK or their websocket protocol. This custom-LLM hosting topology is not implemented/tested by the probes. The **separate ElevenLabs Agents websocket client is implemented** in `voice/duplex/` and reaches the private selected agent through phone-side `ask_agent`, without publishing the tailnet agent URL. Agents latency/cost were not measured by #39 and are not inferred from TTS first-byte timings; verify the configured account during an authorized test.
 
 ElevenLabs plain TTS **is** built as a `SpeechOutput` (option A with an ElevenLabs voice), using `POST /v1/text-to-speech/{voice}/stream?output_format=pcm_24000` with the `xi-api-key` header. **Measured (#39):** it streams for real, first byte 0.18–0.40 s for `eleven_flash_v2_5` regardless of text length, 0.22–0.32 s for `eleven_v4_turbo`; `pcm_24000` works on the owner's account. ElevenLabs transcription (`POST /v1/speech-to-text`, `model_id=scribe_v2`) is built too and was the fastest transcriber measured. The code reports an MP3 reply as a clear error rather than playing noise.
 
-## 2. What the branch builds (phase 1)
+## 2. Implemented turn-based components
 
 ```
 voice/tts/     SpeechOutput, SentenceChunker, AudioFocusGate (+AndroidAudioFocus), PcmPlayer (+AudioTrackPlayer),
@@ -85,23 +87,26 @@ From `docs/android-auto-constraints.md` §7 and the pages it cites:
   - On the first question of a Talk, or after a Done tap, audio the energy gate called empty still goes to the transcriber, so a road-noise floor or a quiet head-unit mic can't drop a real question. Ordinary follow-up turns keep the old rule, so a quiet cabin still ends a conversation. The phone diagnostic mode overrides local detection for Talk screens with a twenty-second recording window and unconfirmed-audio submission. The risk: road noise sent this way may be transcribed as a few stray words.
   - Full-duplex logs its mic levels every 5 s, and its stop reason.
 - TTS and `AudioTrack` playback go out like any phone audio over Android Auto. Use `USAGE_ASSISTANT`, not the navigation channel (quality rule DD-1). Which usage the head unit routes best is **unverified**; test on the truck.
-- Template steps: the Talk flow must stay a refresh of the same template type while listening/thinking/speaking, or budget its steps (§4 of the constraints doc). Phase 2 wiring should show the conversation on one `MessageTemplate` (Listening… / Thinking… / the reply) and only push a new screen for the final reply pane, as `TalkScreen` does today.
-- The DHU can feed audio with `mic begin` / `mic play file.wav`, and `mic reject on` simulates a refused mic, which is how the coordinator can test end-of-speech and `HOST_ENDED` without the truck.
+- Template steps: the Talk flow must stay a refresh of the same template type while listening/thinking/speaking, or budget its steps (§4 of the constraints doc). Current Talk uses bounded templates and fresh follow-up screens; tool status is pushed/popped while Thinking text stays fixed. Changing Message text is not automatically a free refresh. Validate real-host flow/quota rather than assuming state-machine tests prove it.
+- The DHU can feed audio with `mic begin` / `mic play file.wav`, and `mic reject on` simulates a refused mic, to test end-of-speech and `HOST_ENDED` without claiming physical truck routing.
 
-## 4. Phase 2 wiring (not done on this branch; see the PR comment)
+## 4. Current Talk wiring and next checks
 
-`TalkScreen` should, when `VoiceSettings.conversationMode` is on and the car mic is available:
+`TalkScreen.start()` loads the effective Studio54/typed configuration and input selection. Automatic uses the capture pipeline when transcription is configured and the car API supports it; explicit Car/Phone selection also requires transcription. Otherwise Automatic uses `PhoneRecognizer`.
 
-1. Build `VoiceStack.speechOutput(carContext, settings, agentConfig)` once per session (instead of `session.speaker`), `VoiceStack.transcriber(settings, agentConfig)`, and a `ConversationAgent` that calls `AgentClient.chat(session.conversation.messagesFor(text))` (the lane-B version with tools) and records the exchange.
-2. Create `ConversationController(CarMicSource(carContext), transcriber, agent, speech, AndroidAudioFocus(carContext), settings.conversationConfig(), onState = { invalidate() }, onExchange = { h, r -> History.add(...) })` and `launch { controller.run() }` in `lifecycleScope`.
-3. Render `controller.state.value`: Listening → "Listening…" message with the mic icon and a **Done** action that calls `onMicTapped()`; Thinking → loading message; Speaking → the reply pane with the mic action calling `onMicTapped()` (barge-in); Ended → the reply pane with **Ask again** (or the error with **Try again**).
-4. On screen destroy, `controller.stop()` and `speech.close()`.
+`startConversation()` builds the configured transcriber, a tool-calling `ConversationAgent`, shared session speech via `TalkVoice`, and a single-turn `ConversationController`. It records history and diagnostic stage events. With conversation mode enabled, the screen replaces itself with a fresh listening follow-up after each answer; noise floor is carried across turns. Done completes capture. Screen destruction requests mic/controller stop and cancels work; shared output is session-owned rather than closed per screen. The legacy recognizer/Repeat/History path still uses `Speaker`.
+
+Next: parked tests for first utterance/unconfirmed audio, permission denial, focus, follow-up mic reopens, background Phone service, stop phrases, silent PCM, stalled native operations and timeout recovery. Preserve actual input/device/level diagnostics; no physical routing guarantee follows from the selected label. Fix source-confirmed lifecycle/store defects before claiming all error paths bounded.
+
+## Next steps
+
+Repair store recovery, recognizer permission fallback and legacy focus; add cancellation/stalled-native/HTTP regressions for the separate duplex path. Record the full parked input → transcription → selected agent → speaker → stop chain on the current build, then follow-ups/focus/reconnect. Preserve diagnostic source/levels and exact provider/model evidence instead of equating desktop probes with physical routing. See [TRUCK-TEST-PLAN.md](TRUCK-TEST-PLAN.md).
 
 ## 5. Unverified items (summary)
 
 Verified from the PC by #39 and therefore **not** on this list any more: gateway `pcm` output from `gpt-4o-mini-tts` (raw 24 kHz, rate inferred from byte counts), ElevenLabs `pcm_24000` on the owner's account, the realtime route, bearer auth and GA session shape, and the stage latencies in section 1.
 
-- Everything from the phone and the truck: mobile round trips, `AudioTrack` routing, echo, the car microphone's behaviour across turns.
+- Completed current-build phone/truck speech exchanges: mobile round trips, `AudioTrack` routing, echo, the car microphone's behaviour across turns. Narrow historical phone handshake/profile checks are recorded separately in STATUS.md.
 - All price figures.
 - Realtime tool calls, barge-in and long sessions (#39 did not test them).
 - Echo from the car speakers triggering server VAD in realtime mode.

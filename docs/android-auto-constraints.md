@@ -1,13 +1,14 @@
 # Android Auto constraints: check this before building a feature
 
-**Checked against Google's documentation on:** 2026-11-04
-**Applies to:** Sierra Auto, a Car App Library app in the point-of-interest (POI) category. It is sideloaded onto a Galaxy A54 and projected over wired Android Auto to a 2018 GMC Sierra Denali.
+**Source research:** 2026-11-04; **code reconciliation:** 2026-11-08, main `210448b`. Sierra is a POI Car App Library app for Galaxy A54 / wired 2018 GMC Sierra Android Auto. **Play internal testing is now operational**, alongside signed GitHub APKs. This update read code/review, not fresh external policy pages: the reference tables/links below are historical design guidance, not current platform-policy or release-acceptance guarantees.
 
-Every claim below links to the page it came from (link labels are defined at the bottom). Claims marked **unverified** could not be confirmed in official Google documentation. Treat them as hypotheses to test, not as facts.
+Implemented constraints: Car App Library/projected **1.7.0**, Android min SDK **29**, compile/target **36**, manifest **minCarApiLevel 1**, with mic guarded at host API **5**; POI/MAP_TEMPLATES, host-drawn Places map, content limits queried at runtime, bounded template flows, `USAGE_ASSISTANT` audio, debug allow-all HostValidator versus release library sample allowlist. Template/FakeHost tests do not prove real release-host acceptance (#23). Navigation success/stale location and voice lifecycle/store defects remain: [STATUS.md](STATUS.md).
+
+Useful setup/API references are retained. Recheck official requirements before changing category/library/distribution. Physical host behavior needs [TRUCK-TEST-PLAN.md](TRUCK-TEST-PLAN.md), not inference from a lane brief.
 
 ---
 
-## 0. Read this first: the sideloading risk
+## 0. Distribution and real-host evidence
 
 > **Google's testing page says the Android Auto "Unknown sources" developer option does not apply to Car App Library apps.**
 >
@@ -15,12 +16,12 @@ Every claim below links to the page it came from (link labels are defined at the
 >
 > The same page says: "To test your app in real vehicles, you must install it from a trusted source such as Google Play, with one exception detailed in Allow unknown sources." It suggests Play **Internal App Sharing** or an **Internal Test Track** to get onto devices without full Play review. ([testing])
 
-Sierra Auto is a Car App Library app. If it is installed from a GitHub Release APK, it **may not appear on the truck screen even with "Unknown sources" turned on.** M1 ("Hello, truck") exists to test exactly this, so treat it as the first thing to prove.
+Use the enrolled Play-internal listing for truck installs/updates. GitHub/ADB installs remain development paths and may affect visibility/provenance. The November 8 A54 showed installer Play / initiator shell, not demonstrated direct Play/Play; real truck acceptance was not tested. `InstallRecord` predicts a risk, not definite rejection. [UPDATES.md](UPDATES.md) records current workflow and historical installer research.
 
 Mitigations, in order of confidence:
 
-1. **Desktop Head Unit (DHU) during development.** The DHU is Google's supported way to run apps under development ([dhu]). Whether the DHU also enforces the trusted-installer check for a sideloaded APK is **unverified**.
-2. **Play Console Internal Testing or Internal App Sharing.** This is the official route for real vehicles ([testing]). It needs a Play developer account. The APK must still be signed consistently.
+1. **Desktop Head Unit (DHU) during development.** The DHU is Google's supported way to run apps under development ([dhu]). Historical local DHU sessions accepted every source tried; that does not prove real-host trusted-source acceptance.
+2. **Play Console Internal Testing or Internal App Sharing.** This is the official route for real vehicles ([testing]). Sierra's internal track is already set up; compatible signing/versioning and an actual enrolled tester install still matter.
 3. **Install with Play recorded as the installer.** A third-party project (UnknownAuto) states: "Android Auto won't run an app built with its Car App Library unless Android thinks the app was installed from Google Play. The developer 'Unknown sources' switch doesn't change that." It also says the Play mark "can only be set when the app is installed," and its workaround uses Shizuku ([unknownauto]). **Unverified, not Google documentation.** A related workaround that some people use is `adb install -i com.android.vending app.apk`. It is not documented by Google or by that project and is also **unverified**.
 4. **"The toggle resets after updates."** I found no official or reliable source saying the "Unknown sources" toggle resets when Android Auto updates. One third-party guide says that clearing Android Auto's app data resets all developer options. **Unverified.** If the app disappears after an Android Auto update, re-check the developer settings first.
 
@@ -30,8 +31,8 @@ Mitigations, in order of confidence:
 
 | Item | Value | Source |
 | --- | --- | --- |
-| Latest **stable** `androidx.car.app` | **1.7.0** (released July 16, 2025) | [release] |
-| Release candidate | 1.8.0-rc01 (Aug 26, 2026). "This release includes a security fix. If you are using a lower version, please update to use this version." | [release] |
+| **Pinned in Sierra** `androidx.car.app` / projected / testing | **1.7.0**; not a claim about today's latest release | `app/build.gradle.kts` |
+| Historical upgrade candidate | 1.8.0-rc01 was noted in November 4 research with a security-fix advisory; recheck current release notes and test compatibility before choosing an upgrade | [release] |
 | Alpha | 1.9.0-alpha03 (Oct 7, 2026) | [release] |
 | Artifacts | `androidx.car.app:app`, `app-projected` (Android Auto specific), `app-automotive` (AAOS), `app-testing` | [release] |
 | Highest Car App API level introduced | Level 8 was introduced in 1.7.0-beta01. The 1.9 alphas mention "API 9" features (for example `SearchHeader`). | [release] |
@@ -48,7 +49,7 @@ Declare the minimum Car App API level in the manifest. The host's actual level i
 <meta-data android:name="androidx.car.app.minCarApiLevel" android:value="5"/>
 ```
 
-Sierra needs `CarAudioRecord`, so **`minCarApiLevel` should be at least 5** (inferred from [carmic] and [release]). Alpha releases and `@ExperimentalCarApi` APIs "can change—and potentially break—your app when the hosts are updated. We strongly recommend that you don't refer to these categories of APIs in your production APKs." ([setup])
+This snippet is an **example for an app requiring the car mic universally**, not Sierra's current manifest. Sierra declares **1** and guards mic-dependent paths at **5**, retaining other features/system-recognizer fallback on lower hosts. Alpha releases and `@ExperimentalCarApi` APIs "can change—and potentially break—your app when the hosts are updated. We strongly recommend that you don't refer to these categories of APIs in your production APKs." ([setup])
 
 ---
 
@@ -82,9 +83,9 @@ Quality rules that bind a POI app ([quality]):
 - **TH-1:** Custom theming with library 1.9 or later must support light and dark themes.
 - **DD-1:** "The navigation audio channel can only be used by navigation apps and for navigation instructions."
 
-These are Play Store review criteria. A sideloaded app is not reviewed. However, the host enforces many limits (list sizes, step quota, parked-only content) at runtime regardless ([restrictions], [constraint]).
+These are historical published review/design criteria, not certification that Sierra complies or that internal testing bypasses them. The implemented host/template constraints still apply at runtime; test limits and task flows on the actual target host ([restrictions], [constraint]).
 
-> **Talk feature and PC-1 (unverified interpretation).** A general-purpose chat agent is not one of the listed categories. Google does document car microphone recording "to support building features such as an in-app digital assistant" ([voice]). For a personal sideloaded app, Play policy is not the gate. The runtime host is, and the host does not police the topic of a conversation.
+> **Talk feature and PC-1 (unverified interpretation).** A general-purpose chat agent is not one of the listed categories. Google does document car microphone recording "to support building features such as an in-app digital assistant" ([voice]). Sierra now uses Play internal distribution. Neither a successful upload nor microphone APIs establish category-policy acceptance for general chat; host runtime behavior and store review are separate boundaries.
 
 ---
 
@@ -162,7 +163,7 @@ The fallback defaults come from the library source, `car/app/app/src/main/res/va
 - Only specific `CarSpan` types are honored, and only where an API documents them. Other spans "will be simply ignored". For example, `PlaceListMapTemplate` titles accept only `DistanceSpan` and `DurationSpan` ([cartext], [plm-ref]).
 - The host does not localize text ([cartext]).
 - **No auto-scrolling text** (ST-1) ([quality]).
-- **Long agent replies:** while driving, the only screen surface for long text is `LongMessageTemplate`, and it is **parked only** ([longmsg]). While driving, show a short summary of 2 lines or row text, and **speak** the full reply with TTS.
+- **Long agent replies:** `LongMessageTemplate` is parked-only ([longmsg]), not a moving-vehicle long-text surface. Use short bounded rows while moving and a suitable spoken summary. Sierra's current speech truncation can cut at 800 characters; do not promise every full reply is spoken.
 
 ---
 
@@ -253,7 +254,7 @@ carContext.startCarApp(
 
 - Android Auto supports phones on Android 9 (API 28) and higher ([cars]).
 - Keep the signing key stable. An APK signed with a different key cannot update the installed app. This is general Android behavior and not specific to the car documentation.
-- Exported `CarAppService` must override `createHostValidator`. That method decides which hosts may connect ([setup], [glossary]). For a personal build, allowing all hosts is the simplest option. Restricting it to known hosts is the safer one.
+- Sierra overrides `createHostValidator`: debug builds allow all; release uses the library's sample host allowlist. This is app-side host trust, separate from Android Auto's app/install validation. Do not weaken release trust merely to make a test connect; actual release-host coverage remains a gap.
 
 ---
 
@@ -262,13 +263,13 @@ carContext.startCarApp(
 All of the following comes from [dhu] unless noted otherwise.
 
 - **Install:** Android Studio → SDK Manager → SDK Tools → **Android Auto Desktop Head Unit Emulator**. It installs to `SDK_LOCATION/extras/google/auto/`. On Android 10+ phones, sign in to Play and update Android Auto before the first run.
-- **Connect, ADB tunneling (simplest on Windows):**
+- **Connect, ADB tunneling:**
   1. Enable Android Auto developer mode.
   2. In the Android Auto overflow menu, choose **Start head unit server**.
   3. Make sure **Previously connected cars > Add new cars to Android Auto** is on.
   4. Connect USB, unlock the phone, and run `adb forward tcp:5277 tcp:5277`.
-  5. Run `desktop-head-unit.exe` (Windows) or `./desktop-head-unit` from `SDK_LOCATION/extras/google/auto`.
-- **Connect, Accessory Mode:** `./desktop-head-unit --usb`. On Windows this may need the WinUSB driver and can conflict with adb. Try `adb kill-server` first.
+  5. Run `./desktop-head-unit` from `SDK_LOCATION/extras/google/auto` (`desktop-head-unit.exe` on Windows).
+- **Connect, Accessory Mode:** `./desktop-head-unit --usb`. On Windows this may need the WinUSB driver and can conflict with adb; try `adb kill-server` first. Not used by this project's scripts, which use the adb tunnel.
 - **Flags:** `-c/--config FILE.ini`, `-i/--input touch|rotary|hybrid`, `--adb=HOSTPORT`, `--usb=DEVICE_ID`, `-h/--headless`, `-t` (always on top).
 - **Console commands:** `restrict all` / `restrict none` (simulate driving), `day` / `night`, `mic begin` / `mic play f.wav`, `location …`, `speed …`, `gear 101` (park) / `gear 100` (drive), `parking_brake true|false`, `screenshot f.png`, `keycode back|home|navigation`, `focus audio|video|nav on|off`. Sensors must be enabled in the `[sensors]` section of the `.ini`.
 - **Screen sizes:** 800x480 (default), 1280x720 and 1920x1080, with margins for other aspect ratios. The Sierra's factory screen is 8". Its exact projected resolution is **unverified**, so test at both 800x480 and 1280x720.
@@ -285,7 +286,7 @@ Answer every question before accepting a feature request. A "no" on any starred 
 2. ★ **Does every on-screen task finish in 5 templates or fewer**, ending on a Pane, Message or another allowed final template? Do status updates count as *refreshes* (same template type, same main content) rather than new steps ([restrictions], [taskflows])?
 3. ★ **Does the screen respect host content limits?** Plan for 6 or fewer rows or places from `ConstraintManager`, 4 or fewer Pane rows, 2 or fewer buttons, and 2 lines of text while driving. Is the key information in the first words ([constraint], [list], [pane])?
 4. ★ **Is it free of video, animation and auto-scrolling text**, with images used only to aid a driving decision (SA-1, ST-1, IU-1) ([quality])?
-5. ★ **Does it fit the POI category, or the templates POI may use?** If it needs `NavigationTemplate`, turn-by-turn, the nav audio channel or a custom-drawn map, it is out of scope unless we change category ([setup], [drawmaps], [quality]).
+5. ★ **Does it fit the POI category, or the templates POI may use?** `NavigationTemplate`, turn-by-turn guidance and the navigation audio channel are navigation-only, not POI features. A custom-drawn **POI map** does not itself require a category change: `MapWithContentTemplate` permits it with `MAP_TEMPLATES` and `ACCESS_SURFACE`, subject to host/API and map-content limits. Sierra currently uses host-drawn `PlaceListMapTemplate`; custom POI rendering would require a separate implementation and validation, not navigation privileges ([setup], [drawmaps], [quality]).
 6. **If it needs the phone screen** (permissions, settings, long input), is the action wrapped in `ParkedOnlyOnClickListener` with a "look at your phone only when safe" message ([parkedonly], [quality] VI-1)?
 7. **If it uses audio:** does it take and release audio focus, stop recording on focus loss, avoid the navigation audio channel, and speak long content rather than display it ([carmic], [quality] DD-1)?
 8. **Does it need a Car App API level above 5**, or anything in 1.8/1.9 alpha or `@ExperimentalCarApi`? If so, guard it with `getCarAppApiLevel()` or skip it ([setup], [release]).
@@ -296,17 +297,21 @@ Answer every question before accepting a feature request. A "no" on any starred 
 
 ## Unverified items (summary)
 
-- Whether a GitHub-sideloaded Car App Library APK shows up on a real Android Auto head unit at all. Google says "Unknown sources" does not apply ([testing]), and a third party says Play must be recorded as the installer ([unknownauto]). **This is M1's first test.**
+- Real-host launch/visibility with the phone's actual source record; Play internal exists but A54 shell initiation is not proven Play provenance. Confirm launch rather than treating source names/third-party heuristics as a stable contract.
 - `adb install -i com.android.vending` as a workaround.
 - That the "Unknown sources" toggle resets after Android Auto updates.
-- Whether the DHU enforces the trusted-installer check.
+- Current real release-host trust/acceptance. Historical DHU source-permissive observations do not settle that.
 - The `CarAudioRecord` format (16 kHz `audio/l16`) and the `read() == -1` on dismissal. Both came from a search summary of the reference, not from verbatim page text.
 - The best `AudioAttributes` usage for a POI app's mic and TTS (`USAGE_ASSISTANT` is suggested).
 - TTS guidance for Car App Library apps. No official page was found.
 - The Android Auto settings path on Samsung One UI.
 - The Sierra head unit's projected resolution and whether it exposes car GPS through `CarHardwareManager`.
 - Running the DHU headless in CI.
-- How a general chat assistant fits the PC-1 category rule (relevant only for Play publishing).
+- How a general chat assistant fits category/review requirements; internal testing upload is not a future-policy guarantee.
+
+## Next steps
+
+Keep the useful API/template references above, but test current Talk/Conversation/Truck transitions and permission/focus/cancellation on the real release host. Preserve paired install-source/host-bind evidence, mic levels and actual navigation results. Recheck library advisories and official guidance only when choosing a related change; do not label a historical search result a current guarantee. [STATUS.md](STATUS.md) lists code defects that no template/policy document fixes.
 
 ---
 

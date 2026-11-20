@@ -1,8 +1,10 @@
 # voice-probe
 
-Small Python probes that measure what the owner's LiteLLM gateway and ElevenLabs can do for the voice feature. The findings are written up in `docs/VOICE-GATEWAY-CHECK.md`; the raw numbers are in `results/`.
+## As is — 2026-11-08, main `210448b`
 
-The gateway is reachable only on the owner's Tailscale network, so these run on the owner's PC, not in a cloud session or CI.
+Small implemented Python probes for the owner's LiteLLM gateway and ElevenLabs. [Findings](../../docs/VOICE-GATEWAY-CHECK.md) and `results/` are **historical November 4 desktop synthetic-audio measurements**, not current provider availability, account pricing or phone/truck evidence. No probes/live requests were rerun for this documentation update. Current Android integration and remaining defects are in [VOICE](../../docs/VOICE.md), [DUPLEX](../../docs/DUPLEX.md) and [STATUS](../../docs/STATUS.md).
+
+The gateway is reachable only on the owner's Tailscale network, so these run on the owner's Linux box (omarchy), not in a cloud session or CI.
 
 ## Keys
 
@@ -14,16 +16,16 @@ The scripts read keys from the environment and nowhere else:
 | `OPENAI_API_KEY` | gateway key |
 | `ELEVENLABS_API_KEY` | `p06` and `p07` only |
 
-Nothing prints or saves a key. Text that goes to the console or to `results/` passes through `scrub()` in `probe_common.py`, which removes the value of any environment variable whose name contains KEY, TOKEN, SECRET or PASSWORD.
+Shared `say()`/`save()` helpers scrub environment credential values whose names contain KEY, TOKEN, SECRET or PASSWORD **when the value is at least eight characters**, plus selected key-like shapes. This is useful redaction, not a guarantee all output/transcripts/URLs are private. Inspect outputs and avoid short dummy/real tokens, raw shell environment dumps or captured launcher credentials.
 
 ## Running
 
 ```
-uv sync                      # creates .venv here; never installs into system Python
-./run.sh p00_models.py       # Git Bash on the owner's PC: runs under the studio54 launcher
+uv sync --locked             # creates .venv here; never installs into system Python
+uv run --locked python p00_models.py   # with the three variables in the environment
 ```
 
-`run.sh` wraps `~/.config/studio54/run.cmd 9530 -- .venv\Scripts\python.exe <script>`, which injects the three variables. Anywhere else, export them yourself and run `.venv/bin/python <script>`.
+`./run.sh <script> [args]` runs a probe under the studio54 launcher (`~/.config/studio54/run ${S54_AGENT:-omarchy} -- .venv/bin/python <script>`), which injects the three variables without printing them. Alternatively supply environment secrets securely and use `uv run --locked python <script>` from this directory, never system Python.
 
 | Script | What it does | Calls it makes |
 | --- | --- | --- |
@@ -38,7 +40,9 @@ uv sync                      # creates .venv here; never installs into system Py
 
 Run `p01` before `p02`, `p05 audio`, `p06` and `p07` (they read `audio/` and `results/01_clips.json`), and `p06` before `p07` (it reads the voice id).
 
-A full pass cost about $0.12 on the gateway and about 2,000 ElevenLabs characters on 2026-11-04. The gateway budget is shared with other agents, so do not loop these.
+A full pass reportedly cost about $0.12 on the gateway and about 2,000 ElevenLabs characters on 2026-11-04; that is not a current price/usage guarantee. Request counts above describe script defaults and can change with options/errors. The gateway budget is shared, so obtain approval before any paid rerun and do not loop these.
+
+`probe_common.py` uses script-relative `audio/` and `results/`, **not** `SIERRA_RUNS`/`SIERRA_STATE`; a rerun can overwrite historical tracked JSON. Preserve existing results before any authorized run and inspect the diff afterward. Keep new evidence under canonical `/home/mdc/Projects/sierra-auto/.local/runs/voice-probe-<date>` and do not export project results to home/temp/sibling trees. The existing script-local outputs are also within this root; no code/path behavior was changed by these docs. [Workspace](../../docs/WORKSPACE.md).
 
 ## Results
 
@@ -48,6 +52,13 @@ Two things to know when reading them:
 
 - `p01` was run more than once and text-to-speech is not deterministic, so the clips behind `02_stt.json` onward are the last takes (3.55 s and 13.85 s). The clips themselves are not committed (`audio/` is ignored; the long one is over 400 KB).
 - The sentence splitter in `p04` and `p07` was tightened after most runs were recorded. It used to close a sentence when a stream chunk happened to end on `.`, `!` or `?`; it now waits for white space after the terminator. The recorded "first sentence" times are at most one token earlier than the current scripts would report. Only `07_pipeline_allgateway_rerun.json` was recorded with the current rule.
+
+## Next steps
+
+- Preserve dated raw measurements and exact script/model/options/environment identity before an authorized minimal rerun; verify routes/account access, not stale model or latency guarantees.
+- Add human/cabin/device tests separately through the [truck plan](../../docs/TRUCK-TEST-PLAN.md). These probes cannot prove physical mic routing, mobile latency, echo, barge-in, focus or host acceptance.
+- Test every numeric/URL split position in production speech formatting. The tightened probe splitter is **not** proof the Python bridge's reproduced `1.` + `25` decimal bug is fixed.
+- Record errors, sample size, first-byte-versus-audible-output boundaries and cost; do not rank current provider quality/pricing from one historical evening.
 
 ## Timing definitions
 
