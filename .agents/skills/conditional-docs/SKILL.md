@@ -87,6 +87,7 @@ Read only the docs whose conditions match the task in hand. Do not read everythi
 - bridge/README.md
   - Conditions:
     - When choosing bridge test commands or interpreting platform-specific test results
+    - When working on the Python bridge (`bridge/`), its adapters or its deployment
 - tools/voice-probe/README.md
   - Conditions:
     - When running or changing the voice-provider probes

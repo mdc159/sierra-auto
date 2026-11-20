@@ -12,29 +12,19 @@ permissions:
   contents: read
 
 jobs:
-  windows-workspace:
-    runs-on: windows-latest
+  linux-workspace:
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - name: Parse PowerShell scripts
-        shell: pwsh
-        run: |
-          $problems = @()
-          Get-ChildItem scripts -Filter '*.ps1' | ForEach-Object {
-            $tokens = $null
-            $parseErrors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
-            $problems += @($parseErrors)
-          }
-          if ($problems.Count) { $problems | Format-List; throw 'PowerShell parse errors' }
+      - name: Lint shell scripts
+        run: shellcheck scripts/*.sh
       - name: Check workspace and exercise safe lifecycle
-        shell: pwsh
         run: |
-          ./scripts/workspace.ps1 check
-          ./scripts/test-workspace.ps1
+          bash scripts/workspace.sh check
+          bash scripts/test-workspace.sh
       - name: Upload workspace test summary
         if: always()
         uses: actions/upload-artifact@v4

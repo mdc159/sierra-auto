@@ -105,7 +105,7 @@ The voice-switched profiles below are still a proposal.
 
 ## Next steps
 
-Repair bridge identity/framing/redirect boundaries and add portable Windows fixtures before broadening agent access. Record an actual current phone/truck selected-agent exchange; the November 6 desktop/profile response is narrower evidence. Only then add named profiles with stable IDs/history isolation, ambiguity handling and credential-route tests. The sketch below remains a proposal, not shipped behavior.
+Repair bridge identity/framing/redirect boundaries before broadening agent access. Record an actual current phone/truck selected-agent exchange; the November 6 desktop/profile response is narrower evidence. Only then add named profiles with stable IDs/history isolation, ambiguity handling and credential-route tests. The sketch below remains a proposal, not shipped behavior.
 
 ## Proposal: named agent profiles switched by voice
 

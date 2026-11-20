@@ -88,7 +88,7 @@ adb shell am start \
   --es S54_KEYS_PROJECT_ID "<shared-keys-project-id>"
 ```
 
-Leave the last line off if the phone has no shared keys project. On Windows `cmd.exe`, drop the backslashes and put everything on one line.
+Leave the last line off if the phone has no shared keys project.
 
 Hygiene for the PC side: the command line, and therefore the client secret, lands in the PC shell history. Run it from the launcher (which already holds the values) or clear the history line afterwards. The Activity drops the extras from its activity record as soon as it has read them.
 

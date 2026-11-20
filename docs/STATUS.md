@@ -1,5 +1,21 @@
 # Verified status and next steps
 
+## Development platform — 2026-11-20
+
+Development moved from the retired Windows workspace to Linux. The canonical
+checkout is `/home/mdc/Projects/sierra-auto` on the Omarchy box (Dell M6800);
+the toolchain comes from `source .local/omarchy-toolchain/env.sh` (JDK 17,
+SDK platform 36) and workspace/device operations use the bash scripts
+([WORKSPACE.md](WORKSPACE.md)). Validated 2026-11-20 at revision `358e456` on
+`dev/phone-voice-checkpoint`: Android `assembleDebug testDebugUnitTest
+lintDebug` — **616 passed, 2 skipped, lint 0 errors/133 warnings**; bridge —
+**123 passed, 1 skipped, 0 failures** (evidence: `.local/omarchy-validation/`).
+Automated results only: no phone installation, live provider call or truck
+acceptance. The A54 (SM-A546U1, Sierra 0.1.100009) is attached over USB for
+authorized device work. The Windows-era records below keep their dates; the
+four native-Windows bridge failures did not occur on Linux and are preserved
+in workspace history, not claimed fixed in code.
+
 ## Development checkpoint — 2026-11-18
 
 Source work is being checkpointed on `dev/phone-voice-checkpoint`, based on
@@ -220,7 +236,7 @@ Priorities follow the review. Source paths are under `app/src/main/java/com/mdc1
 | P2 | Reconnect/key-off: `obd/live/TruckMonitor.kt` | Physical reconnect exceptions exit before retry branch; repeated missing-ECU cycles can continue while ATRV answers. Classify transient/permanent errors and bound missing-ECU polling. Battery drain was not measured. |
 | P2 | Voice stop/focus: `voice/duplex/ElevenLabsAgentSession.kt`, `DuplexController.kt`, `voice/diagnostics/Microphones.kt`, `voice/Speaker.kt` | Source-only conditional failures: signed-URL HTTP lookup is outside handshake timeout/cancellation; native mic open/close can block Stop on main thread; stale utterance callbacks can release newer focus and speak errors are ignored. Add stalled HTTP/native-device/focus regressions. |
 | P2 | Navigation/location: `car/TalkScreen.kt`, `car/CarLimits.kt`, `places/PhoneLocation.kt` | Source-confirmed: success precedes posted UI handoff; fresh-fix failure falls back without age bound. Propagate actual host result; reject or label stale fixes. |
-| P2 | Device evidence harness: `scripts/smoke.ps1`, `scripts/_window.ps1` | Source-confirmed: mic result discarded, absent car.log can PASS, screenshot fallback captures overlapping desktop pixels (#45). Fix result propagation/missing-evidence states and capture privacy before treating automation as acceptance. Workspace path changes alone do not fix these. |
+| P2 | Device evidence harness: `scripts/smoke.sh` (ported from `smoke.ps1`/`_window.ps1`) | Source-confirmed: mic result discarded, absent car.log can PASS, screenshot fallback can capture unrelated on-screen content (#45). Fix result propagation/missing-evidence states and capture privacy before treating automation as acceptance. Workspace path changes alone do not fix these. |
 | P2 | Numerical speech: `bridge/sierra_bridge/speech.py` | Reproduced: feeding `The cost is 1.` then `25 dollars.` changes `1.25` to `1. 25`. Defer ambiguous punctuation and test every split; affects incrementally fed plain replies too. |
 
 Other specialist hypotheses need targeted tests before elevation: Pi capacity/deadlines, subprocess descendants/output limits, incomplete upstream SSE, tool-contract pass-through, profile history mixing, vault refresh identity races, GM header restoration after timeout, cancelled adapter tests and overlapping non-Play APK downloads. Do not imply all were reproduced. Issue #29's `content:null` decoding is fixed; #16's old permanent RMS cap is no longer the current detector. Issue #23's real release-host coverage remains a gap.
@@ -238,7 +254,7 @@ Earlier evidence has narrower scope: 2026-11-04 desktop voice probes, 2026-11-06
 ## Work order
 
 1. Reproduce/fix the P1 boundaries with small regressions before relying on automation, credential retention or backend isolation.
-2. Repair bridge exit/disconnect and misleading diagnostic/navigation results; make Windows tests portable; expand voice lifecycle/failure tests.
+2. Repair bridge exit/disconnect and misleading diagnostic/navigation results; expand voice lifecycle/failure tests. (The former "make Windows tests portable" item retired with the Windows workspace; see the platform note above.)
 3. Confirm Play provenance, then execute the parked-first [truck acceptance plan](TRUCK-TEST-PLAN.md), retaining redacted evidence under `.local/runs/`.
 4. Validate one real adapter with standard PIDs and key-off/reconnect before adding GM UI, voice vehicle tools or alerts. Unknown is never healthy.
 5. Reconcile issues by evidence, not lane assignment; selectively reassess draft installer work preserved as tag `archive/install-record`. Historical integration scratch scripts/logs are archival, not an authorized unattended release pipeline.

@@ -14,6 +14,15 @@ end-to-end operation in the truck has not yet been established by the current
 evidence. Current changes and remaining application defects are recorded in
 [project status](docs/STATUS.md).
 
+**Platform update 2026-11-20:** development moved to Linux. The canonical
+checkout is `/home/mdc/Projects/sierra-auto` on the Omarchy box (Dell M6800);
+at revision **`358e456`** the full Android check passed **616 tests with 2
+skipped (lint 0 errors/133 warnings)** and the bridge suite passed **123 with
+1 skip and no failures** (evidence: `.local/omarchy-validation/`). These are
+automated results only — no phone or truck acceptance. Windows-era records
+below keep their dates; see
+[workspace history](docs/WORKSPACE.md#history-windows-era-until-2026-11-20).
+
 | Area | Implemented | Remaining acceptance or integration |
 | --- | --- | --- |
 | Phone | Conversation home, Talk/Stop, follow-up listening, transcript, typed messages, Settings and Tailscale shortcuts | Phone and truck acceptance are recorded separately in project status |
@@ -74,7 +83,8 @@ storage. Do not put keys, tokens, keystores or private diagnostic captures in Gi
 
 Use [development → staging → Play internal testing → main](docs/DEVELOPMENT-WORKFLOW.md). Development and staging pushes validate source; publication is an explicit workflow action.
 
-**Canonical Windows root: `D:\Projects\sierra-auto`.** All Sierra Auto source
+**Canonical root: `/home/mdc/Projects/sierra-auto`** on the Linux development
+machine (Omarchy, Dell M6800). All Sierra Auto source
 checkouts, local evidence and experiments belong under this folder. Use the main
 checkout for ordinary work; create a temporary worktree only when isolation or
 simultaneous work requires one.
@@ -83,7 +93,7 @@ simultaneous work requires one.
 app/                    Android app and JVM/Robolectric tests
 bridge/                 Python HTTP bridge, adapters, deployment examples and tests
 docs/                   Current status, operating guides, reference and next steps
-scripts/                Windows device/build/workspace commands
+scripts/                Bash device/build/workspace commands
 tools/voice-probe/       Voice-provider diagnostic utility
 .worktrees/             Ignored, temporary linked worktrees (none retained)
 .local/                 Ignored, local-only evidence and state
@@ -94,13 +104,13 @@ tools/voice-probe/       Voice-provider diagnostic utility
   archive/              Recovery bundle, migration manifest, older integration files
 ```
 
-```powershell
-pwsh -File scripts/workspace.ps1 check
-pwsh -File scripts/workspace.ps1 list
+```bash
+bash scripts/workspace.sh check
+bash scripts/workspace.sh list
 # Only if a second checkout is needed:
-pwsh -File scripts/workspace.ps1 new -Name voice-fix -Branch fix/voice -Ref main
+bash scripts/workspace.sh new voice-fix fix/voice main
 # After preserving/committing source changes:
-pwsh -File scripts/workspace.ps1 remove -Name voice-fix
+bash scripts/workspace.sh remove voice-fix
 ```
 
 The helper rejects out-of-root paths and changed worktrees, preserves build
@@ -134,27 +144,29 @@ checkout, not with an account or session.
 
 ## Build and check
 
-Use PowerShell 7, Git, JDK 17 and Android SDK platform 36. The shared toolchain on
-this PC remains at `D:\Projects\android-toolchain`.
+Use Git, JDK 17 and Android SDK platform 36. On this machine the user-scoped
+toolchain is activated with `source .local/omarchy-toolchain/env.sh` (mise
+Temurin 17.0.21+9; `ANDROID_HOME=$HOME/.local/share/android-sdk`).
 
-```powershell
-$env:JAVA_HOME = 'D:\Projects\android-toolchain\jdk-17'
-$env:ANDROID_HOME = 'D:\Projects\android-toolchain\android-sdk'
-$env:GRADLE_USER_HOME = 'D:\Projects\android-toolchain\gradle-user-home'
-.\gradlew.bat --no-daemon assembleDebug testDebugUnitTest lintDebug
-pwsh -File scripts/test-workspace.ps1
+```bash
+source .local/omarchy-toolchain/env.sh
+./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
+bash scripts/test-workspace.sh
 ```
 
 For the bridge, use a project-local virtual environment:
 
-```powershell
-Set-Location bridge
+```bash
+cd bridge
 uv sync --locked
 uv run --locked pytest -q
 ```
 
-The four known Windows bridge test failures are documented in
-[bridge/README.md](bridge/README.md); do not report that suite as fully passing.
+The Linux baseline above (2026-11-20, `358e456`) passed both suites. The four
+known native-Windows bridge failures belong to the retired Windows workspace
+and are recorded in
+[workspace history](docs/WORKSPACE.md#history-windows-era-until-2026-11-20);
+they did not occur in the Linux run and are not claimed fixed in code.
 Optional Android live API tests require explicit `SIERRA_LIVE_*` configuration
 and can contact paid services. Ordinary validation leaves those unset.
 
@@ -164,7 +176,9 @@ and can contact paid services. Ordinary validation leaves those unset.
    destructive credential-store recovery, authenticated redirects, bridge
    conversation identity and request-body handling.
 2. Repair bridge shutdown/stream cleanup and numerical speech formatting;
-   resolve the four Windows test failures and device-smoke false-pass cases.
+   resolve the device-smoke false-pass cases. The four Windows-era bridge
+   failures no longer occur on Linux (workspace history); they are not claimed
+   fixed in code.
 3. Verify Play installation provenance, microphone selection, Talk and duplex
    behavior on the actual phone/head unit using recorded acceptance checks.
 4. Complete reliable OBD reconnect/no-data semantics, test the physical adapter,

@@ -263,13 +263,13 @@ carContext.startCarApp(
 All of the following comes from [dhu] unless noted otherwise.
 
 - **Install:** Android Studio → SDK Manager → SDK Tools → **Android Auto Desktop Head Unit Emulator**. It installs to `SDK_LOCATION/extras/google/auto/`. On Android 10+ phones, sign in to Play and update Android Auto before the first run.
-- **Connect, ADB tunneling (simplest on Windows):**
+- **Connect, ADB tunneling:**
   1. Enable Android Auto developer mode.
   2. In the Android Auto overflow menu, choose **Start head unit server**.
   3. Make sure **Previously connected cars > Add new cars to Android Auto** is on.
   4. Connect USB, unlock the phone, and run `adb forward tcp:5277 tcp:5277`.
-  5. Run `desktop-head-unit.exe` (Windows) or `./desktop-head-unit` from `SDK_LOCATION/extras/google/auto`.
-- **Connect, Accessory Mode:** `./desktop-head-unit --usb`. On Windows this may need the WinUSB driver and can conflict with adb. Try `adb kill-server` first.
+  5. Run `./desktop-head-unit` from `SDK_LOCATION/extras/google/auto` (`desktop-head-unit.exe` on Windows).
+- **Connect, Accessory Mode:** `./desktop-head-unit --usb`. On Windows this may need the WinUSB driver and can conflict with adb; try `adb kill-server` first. Not used by this project's scripts, which use the adb tunnel.
 - **Flags:** `-c/--config FILE.ini`, `-i/--input touch|rotary|hybrid`, `--adb=HOSTPORT`, `--usb=DEVICE_ID`, `-h/--headless`, `-t` (always on top).
 - **Console commands:** `restrict all` / `restrict none` (simulate driving), `day` / `night`, `mic begin` / `mic play f.wav`, `location …`, `speed …`, `gear 101` (park) / `gear 100` (drive), `parking_brake true|false`, `screenshot f.png`, `keycode back|home|navigation`, `focus audio|video|nav on|off`. Sensors must be enabled in the `[sensors]` section of the `.ini`.
 - **Screen sizes:** 800x480 (default), 1280x720 and 1920x1080, with margins for other aspect ratios. The Sierra's factory screen is 8". Its exact projected resolution is **unverified**, so test at both 800x480 and 1280x720.

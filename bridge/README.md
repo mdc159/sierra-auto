@@ -14,9 +14,11 @@ The **model name in the request selects the adapter**, so one bridge can front s
 
 Standard library only; `pytest` is the sole dev dependency. Python 3.11 or newer, managed with [uv](https://docs.astral.sh/uv/) in a project-local `.venv`. Never install dependencies into system Python.
 
-## Verified as-is and next steps — 2026-11-08, main `210448b`
+## Verified as-is and next steps — Linux 2026-11-20, revision `358e456`
 
-Adapters, auth, plain/SSE routes, speech formatting, logs and Linux service setup exist; this is not a proven reliable/isolation-safe vehicle backend. The review's Linux CI was green. Native Windows suite: **104 tests, 100 passed, 4 failed** (502/504 unreachable fixture expectation, default-encoding UTF-8 log read, two subprocess fixtures omitting `SystemRoot`). `PYTHONUTF8=1` fixed the targeted log test; normal inherited Windows environment passed CLI `--check`, not the whole suite. No paid provider/device/truck calls were run for this docs update.
+Adapters, auth, plain/SSE routes, speech formatting, logs and Linux service setup exist; this is not a proven reliable/isolation-safe vehicle backend. The full offline suite passes on Linux, now the one development platform: `uv sync --locked && uv run --locked pytest -q` — **123 passed, 1 skipped, 0 failures** (evidence: `.local/omarchy-validation/`). Automated results only; no paid provider/device/truck calls were run for this update.
+
+Windows era (until 2026-11-20): the native-Windows suite never passed fully — four environment-specific failures (502/504 unreachable-fixture expectation, default-encoding UTF-8 log read, two subprocess fixtures missing `SystemRoot`); last Windows run 2026-11-18: 119 passed, 4 failed, 1 skipped. Recorded in [workspace history](../docs/WORKSPACE.md); they did not occur on Linux and are not claimed fixed in code.
 
 ## Next steps — confirmed unfixed defects
 
@@ -61,9 +63,9 @@ curl -s http://127.0.0.1:8787/v1/chat/completions \
   -d '{"model":"pi","messages":[{"role":"user","content":"What does the oil life monitor actually measure?"}]}'
 ```
 
-Run offline tests from `bridge/` with `uv run --locked pytest -q`. `.github/workflows/bridge.yml` exercises Linux on relevant pushes. Native Windows failures listed above remain explicit; no new run is implied by this reference.
+Run offline tests from `bridge/` with `uv run --locked pytest -q`. `.github/workflows/bridge.yml` exercises Linux on relevant pushes. The Windows-era failures above are history; the Linux run is the platform record.
 
-For this Windows workspace keep all run logs/results under canonical `D:\Projects\sierra-auto\.local\runs`, reviews under `.local/reviews`, local downloads under `.local/downloads`. Use each project's `.venv`; do not copy keys into those artifact directories. Linux service paths below are deployment examples on the service host, not destinations for this project's consolidation output.
+For this workspace keep all run logs/results under canonical `/home/mdc/Projects/sierra-auto/.local/runs`, reviews under `.local/reviews`, local downloads under `.local/downloads`. Use each project's `.venv`; do not copy keys into those artifact directories. Linux service paths below are deployment examples on the service host, not destinations for this project's local output.
 
 ## Configuration
 

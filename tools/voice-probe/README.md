@@ -4,7 +4,7 @@
 
 Small implemented Python probes for the owner's LiteLLM gateway and ElevenLabs. [Findings](../../docs/VOICE-GATEWAY-CHECK.md) and `results/` are **historical November 4 desktop synthetic-audio measurements**, not current provider availability, account pricing or phone/truck evidence. No probes/live requests were rerun for this documentation update. Current Android integration and remaining defects are in [VOICE](../../docs/VOICE.md), [DUPLEX](../../docs/DUPLEX.md) and [STATUS](../../docs/STATUS.md).
 
-The gateway is reachable only on the owner's Tailscale network, so these run on the owner's PC, not in a cloud session or CI.
+The gateway is reachable only on the owner's Tailscale network, so these run on the owner's Linux box (omarchy), not in a cloud session or CI.
 
 ## Keys
 
@@ -22,10 +22,10 @@ Shared `say()`/`save()` helpers scrub environment credential values whose names 
 
 ```
 uv sync --locked             # creates .venv here; never installs into system Python
-./run.sh p00_models.py       # Git Bash on the owner's PC: runs under the studio54 launcher
+uv run --locked python p00_models.py   # with the three variables in the environment
 ```
 
-`run.sh` wraps `~/.config/studio54/run.cmd 9530 -- .venv\Scripts\python.exe <script>`, which injects the three variables. That launcher is an external credential dependency, not a project artifact directory. On other setups supply environment secrets securely and use `uv run --locked python <script>` from this directory (Windows or Unix), not system Python. Inspect `run.sh` before using its machine-specific launcher path.
+`./run.sh <script> [args]` runs a probe under the studio54 launcher (`~/.config/studio54/run ${S54_AGENT:-omarchy} -- .venv/bin/python <script>`), which injects the three variables without printing them. Alternatively supply environment secrets securely and use `uv run --locked python <script>` from this directory, never system Python.
 
 | Script | What it does | Calls it makes |
 | --- | --- | --- |
@@ -42,7 +42,7 @@ Run `p01` before `p02`, `p05 audio`, `p06` and `p07` (they read `audio/` and `re
 
 A full pass reportedly cost about $0.12 on the gateway and about 2,000 ElevenLabs characters on 2026-11-04; that is not a current price/usage guarantee. Request counts above describe script defaults and can change with options/errors. The gateway budget is shared, so obtain approval before any paid rerun and do not loop these.
 
-`probe_common.py` uses script-relative `audio/` and `results/`, **not** `SIERRA_RUNS`/`SIERRA_STATE`; a rerun can overwrite historical tracked JSON. Preserve existing results before any authorized run and inspect the diff afterward. Keep new evidence under canonical `D:\Projects\sierra-auto\.local\runs\voice-probe-<date>` and do not export project results to home/temp/sibling trees. The existing script-local outputs are also within this root; no code/path behavior was changed by these docs. [Workspace](../../docs/WORKSPACE.md).
+`probe_common.py` uses script-relative `audio/` and `results/`, **not** `SIERRA_RUNS`/`SIERRA_STATE`; a rerun can overwrite historical tracked JSON. Preserve existing results before any authorized run and inspect the diff afterward. Keep new evidence under canonical `/home/mdc/Projects/sierra-auto/.local/runs/voice-probe-<date>` and do not export project results to home/temp/sibling trees. The existing script-local outputs are also within this root; no code/path behavior was changed by these docs. [Workspace](../../docs/WORKSPACE.md).
 
 ## Results
 

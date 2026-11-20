@@ -4,7 +4,7 @@ External libraries, APIs and tools Sierra depends on. One line each: source, the
 
 - https://developer.android.com/training/cars/apps : Android for Cars App Library (templates, POI category, host API levels, CarAudioRecord); app uses `androidx.car.app` 1.7.0
 - https://developer.android.com/jetpack/androidx/releases/car-app : Car App Library release notes and versions
-- https://developer.android.com/training/cars/testing/dhu : Android Auto Desktop Head Unit, used by `scripts/dhu.ps1`
+- https://developer.android.com/training/cars/testing/dhu : Android Auto Desktop Head Unit, used by `scripts/dhu.sh`
 - https://developer.android.com/jetpack/androidx/releases/security : `androidx.security:security-crypto` (EncryptedSharedPreferences for keys)
 - https://square.github.io/okhttp/ : OkHttp 4 HTTP/WebSocket client and MockWebServer used in tests
 - https://kotlinlang.org/docs/coroutines-overview.html : Kotlin coroutines (cancellation, structured concurrency)

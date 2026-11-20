@@ -82,11 +82,12 @@ Bound/cancel private signed-URL HTTP and keep native microphone open/close off t
 
 ## Historical local verification before the pull request
 
-Historical development validation commands (not new passes). Root is now current main; use the authorized workspace helper for isolation if needed, never a sibling checkout. Select a fresh versionCode rather than reusing historical 100004:
+Historical development validation commands (not new passes; the 2026-11-06 run was recorded on the retired Windows workspace). Root is now current main; use the authorized workspace helper for isolation if needed, never a sibling checkout. Select a fresh versionCode rather than reusing historical 100004:
 
-```powershell
-.\gradlew.bat --no-daemon testDebugUnitTest assembleDebug lintDebug
-.\gradlew.bat --no-daemon bundleRelease lintRelease -Pplay=true -PversionCode=<fresh-code>
+```bash
+source .local/omarchy-toolchain/env.sh    # from the repo root
+./gradlew --no-daemon testDebugUnitTest assembleDebug lintDebug
+./gradlew --no-daemon bundleRelease lintRelease -Pplay=true -PversionCode=<fresh-code>
 # From bridge/, using its project-local .venv:
 uv run --locked python -m unittest discover -s tests -p test_phone_profile.py
 ```

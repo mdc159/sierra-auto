@@ -27,7 +27,7 @@ Historical research links are retained below; recheck official guidance when cha
 | Channel | As-is / use | Limits and next steps |
 | --- | --- | --- |
 | **Play internal testing** | Enrolled tester installs/updates through Play. `.github/workflows/play.yml` manually builds signed AAB with `-Pplay=true` and uploads to `internal`. Preferred truck channel. | Confirm phone record and actual host launch. Console processing and review behavior may change; no timing guarantee. |
-| GitHub release + ADB | Signed `sierra-auto.apk`; `scripts/install-phone.ps1` can install latest/tag/local APK and requests Play installer of record. Useful for device development. | Still shell-initiated; can replace previous provenance. Play's current high versionCode blocks ordinary lower-code APK updates. Do not uninstall casually: settings are lost. |
+| GitHub release + ADB | Signed `sierra-auto.apk`; `scripts/install-phone.sh` can install latest/tag/local APK and requests Play installer of record. Useful for device development. | Still shell-initiated; can replace previous provenance. Play's current high versionCode blocks ordinary lower-code APK updates. Do not uninstall casually: settings are lost. |
 | Non-Play Sierra PackageInstaller | Downloads GitHub APK, checks package/signing certificate against installed copy, then starts a session with user confirmation as needed. | Sierra becomes installer/initiator; no demonstrated truck acceptance. Do not promise later silent installs. Source-only updater races need tests. |
 | Non-Play experimental Shizuku | Optional library/button uses shell access to open the system installer requesting Play attribution; Shizuku setup/permission required. | No successful target record demonstrated on this A54 through the button; Samsung/version behavior unverified. Reboot/lifecycle and physical acceptance need separate tests. |
 | Old installer experiment | Preserved as **tag `archive/install-record`** (includes `f52dcdc`); draft PR #44 closed 2026-11-20. | Not main. SystemInstaller/button/tooling claims are unproven; reassess selectively after later Play changes rather than merge unchanged. |
@@ -53,9 +53,10 @@ For rebuilding the setup on an authorized account (consult current Console instr
 2. Enroll in Play App Signing. To preserve compatibility with existing signed GitHub APKs, choose the existing app-signing key and follow Google's PEPK export/upload procedure. Compare actual app-signing and upload certificate fingerprints; do not assume they must stay the same key forever.
 3. First upload may require Console setup before API uploads work. Historical initial code was 100000; **do not reuse it now**. Always choose a versionCode greater than every uploaded/installed version that must be updated. Build with protected `SIGNING_KEYSTORE_PATH`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD` and `-Pplay=true`:
 
-   ```powershell
+   ```bash
    # Example only: select a fresh, authorized version code before running.
-   .\gradlew.bat --no-daemon bundleRelease -PversionCode=<fresh-code> -Pplay=true
+   source .local/omarchy-toolchain/env.sh
+   ./gradlew --no-daemon bundleRelease -PversionCode=<fresh-code> -Pplay=true
    ```
 
    Without release inputs local release builds use debug signing. Never upload that fallback. The workflow checks the bundle certificate and rejects `CN=Android Debug`.
