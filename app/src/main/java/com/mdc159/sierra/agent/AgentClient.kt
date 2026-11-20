@@ -62,12 +62,15 @@ class AgentClient(
     private val config: AgentConfig,
     private val client: OkHttpClient = Http.client,
     private val maxRounds: Int = MAX_ROUNDS,
-    private val roundTimeoutMs: Long = ROUND_TIMEOUT_MS,
+    private val roundTimeoutMs: Long = if (config.usesBridge) BRIDGE_ROUND_TIMEOUT_MS else ROUND_TIMEOUT_MS,
     private val toolTimeoutMs: Long = TOOL_TIMEOUT_MS,
-    private val exchangeBudgetMs: Long = EXCHANGE_BUDGET_MS,
+    private val exchangeBudgetMs: Long = if (config.usesBridge) BRIDGE_EXCHANGE_BUDGET_MS else EXCHANGE_BUDGET_MS,
     /** Monotonic milliseconds; injectable so tests can spend the budget without waiting. */
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
+
+    /** Chat through the bridge may wait long for the first byte; transcription keeps [client]'s bounds. */
+    private val chatClient: OkHttpClient = if (config.usesBridge && client === Http.client) Http.slowClient else client
 
     @Volatile
     private var toolsSupported = true
@@ -82,6 +85,7 @@ class AgentClient(
      * asks for along the way. [listener] hears when each tool starts and ends.
      */
     fun chat(messages: List<ChatMessage>, tools: List<Tool>, listener: ToolListener?): String {
+        if (config.usesBridge && !config.isConfigured) throw AgentException("The bridge agent is not configured. Open Sierra on the phone and connect to Hermes or set up a bridge.")
         val history = messages.toMutableList()
         val byName = tools.associateBy { it.name }
         var offerTools = tools.isNotEmpty() && toolsSupported
@@ -125,15 +129,15 @@ class AgentClient(
 
     private fun request(messages: List<ChatMessage>, tools: List<Tool>, timeoutMs: Long): ChatMessage {
         val body = JSONObject()
-            .put("model", config.model)
+            .put("model", config.chatModel)
             .put("messages", JSONArray().apply { messages.forEach { put(encode(it)) } })
         if (tools.isNotEmpty()) body.put("tools", JSONArray().apply { tools.forEach { put(it.spec()) } })
         val request = Request.Builder()
             .url(config.chatCompletionsUrl())
-            .withAuth(config.apiKey)
+            .withAuth(config.chatKey)
             .post(body.toString().toRequestBody(JSON))
             .build()
-        val json = execute(request, "Agent", timeoutMs)
+        val json = execute(request, "Agent", timeoutMs, chatClient)
         try {
             val message = JSONObject(json).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
             return decode(message)
@@ -197,7 +201,7 @@ class AgentClient(
     private fun Request.Builder.withAuth(key: String): Request.Builder =
         if (key.isBlank()) this else header("Authorization", "Bearer $key")
 
-    private fun execute(request: Request, what: String, timeoutMs: Long = 0): String {
+    private fun execute(request: Request, what: String, timeoutMs: Long = 0, client: OkHttpClient = this.client): String {
         val response: Response = try {
             val call = client.newCall(request)
             if (timeoutMs > 0) call.timeout().timeout(timeoutMs, TimeUnit.MILLISECONDS)
@@ -226,6 +230,14 @@ class AgentClient(
         const val ROUND_TIMEOUT_MS = 30_000L
         const val TOOL_TIMEOUT_MS = 30_000L
         const val EXCHANGE_BUDGET_MS = 60_000L
+
+        /**
+         * The bridge profile: an agent such as Hermes may use its own tools before answering.
+         * Set the bridge's own `timeout_seconds` below the round limit (110 s on victoria), so
+         * the bridge answers with its 504 before the phone gives up.
+         */
+        const val BRIDGE_ROUND_TIMEOUT_MS = 120_000L
+        const val BRIDGE_EXCHANGE_BUDGET_MS = 140_000L
         const val TOO_LONG = "Took too long. Try again."
         private val JSON = "application/json; charset=utf-8".toMediaType()
         private val WAV = "audio/wav".toMediaType()

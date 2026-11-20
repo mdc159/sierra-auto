@@ -24,6 +24,12 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = "0.1.$appVersionCode"
+        // True only for play.yml builds (-Pplay=true): the app then leaves updates to Play.
+        buildConfigField("boolean", "PLAY_BUILD", (findProperty("play") == "true").toString())
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     signingConfigs {
@@ -46,6 +52,12 @@ android {
                 signingConfigs.getByName("debug")
             }
         }
+    }
+
+    // Play refuses UPDATE_PACKAGES_WITHOUT_USER_ACTION. play.yml builds with -Pplay=true, which
+    // overlays src/play/AndroidManifest.xml on release to drop it from the Play bundle only.
+    if (findProperty("play") == "true") {
+        sourceSets.getByName("release").manifest.srcFile("src/play/AndroidManifest.xml")
     }
 
     compileOptions {

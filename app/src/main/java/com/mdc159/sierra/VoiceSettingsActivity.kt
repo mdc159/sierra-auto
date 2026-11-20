@@ -16,6 +16,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import com.mdc159.sierra.agent.ConfigStore
+import com.mdc159.sierra.studio54.Studio54
 import com.mdc159.sierra.voice.convo.SttProvider
 import com.mdc159.sierra.voice.convo.VoiceProvider
 import com.mdc159.sierra.voice.convo.VoiceSettings
@@ -232,7 +233,8 @@ class VoiceSettingsActivity : Activity() {
     private fun testVoice() {
         val settings = current()
         VoiceSettingsStore.save(this, settings)
-        val agent = ConfigStore.load(this)
+        // Signed in to Studio 54, the vault fills the gateway URL and key; the typed ones may be blank.
+        val agent = Studio54.agentConfig(this, ConfigStore.load(this))
         if (!settings.providerIsUsable(gatewayConfigured = agent.baseUrl.isNotBlank())) {
             testResult.text = when (settings.provider) {
                 VoiceProvider.GATEWAY -> "Enter the agent base URL on the main screen first."
@@ -257,7 +259,11 @@ class VoiceSettingsActivity : Activity() {
             testResult.text = when (result) {
                 SpeakResult.Completed -> "OK: ${voice.name} (%.1f s including playback)".format(seconds)
                 SpeakResult.Interrupted -> "Stopped."
-                is SpeakResult.Failed -> "Failed: ${result.message}"
+                is SpeakResult.Failed -> {
+                    // A gateway 401 with a vault key: the key may have rotated, so read the vault again.
+                    if (settings.provider == VoiceProvider.GATEWAY) Studio54.onAgentError(this@VoiceSettingsActivity, RuntimeException(result.message))
+                    "Failed: ${result.message}"
+                }
             }
             testButton.isEnabled = true
             voice.close()

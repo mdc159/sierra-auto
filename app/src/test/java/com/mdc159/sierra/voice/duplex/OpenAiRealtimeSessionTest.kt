@@ -241,6 +241,28 @@ class OpenAiRealtimeSessionTest {
     }
 
     @Test
+    fun closeDuringHandshakeUnblocksStartWithoutConnectedEvent() {
+        server.sendSessionCreated = false
+        server.confirmSessionUpdate = false
+        val s = OpenAiRealtimeSession(config(), tools, testClient, testTiming.copy(handshakeTimeoutMs = 10_000))
+        session = s
+        val pool = java.util.concurrent.Executors.newSingleThreadExecutor()
+        try {
+            val start = pool.submit { s.start(sink) }
+            server.awaitType("session.update")
+            s.close()
+            try {
+                start.get(1, java.util.concurrent.TimeUnit.SECONDS)
+                fail("Stopped handshake must not report a successful connection")
+            } catch (e: java.util.concurrent.ExecutionException) {
+                assertTrue(e.cause is DuplexException)
+            }
+            assertTrue(sink.all<DuplexEvent.Connected>().isEmpty())
+            assertEquals(1, sink.all<DuplexEvent.Ended>().size)
+        } finally { s.close(); pool.shutdownNow() }
+    }
+
+    @Test
     fun handshakeErrorFromServerFailsStart() {
         server.confirmSessionUpdate = false
         server.sendSessionCreated = false
