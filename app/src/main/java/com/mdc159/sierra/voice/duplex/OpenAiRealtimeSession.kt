@@ -77,6 +77,7 @@ class OpenAiRealtimeSession(
     private var responseRequestedAt = 0L
     private var userSpeaking = false
     private var vadResponseDueBy = 0L
+    private var responseCreates = 0
 
     private val userTranscripts = HashMap<String, StringBuilder>()
     private val assistantTranscript = StringBuilder()
@@ -116,12 +117,14 @@ class OpenAiRealtimeSession(
                 "turn_detection",
                 JSONObject()
                     .put("type", "server_vad")
-                    .put("threshold", 0.5)
+                    .put("threshold", 0.6)
                     .put("prefix_padding_ms", 300)
                     .put("silence_duration_ms", 500)
                     .put("create_response", true)
                     .put("interrupt_response", true),
             )
+        // The phone sits a metre or more from the speaker: far-field noise reduction before the VAD.
+        input.put("noise_reduction", JSONObject().put("type", "far_field"))
         if (config.openAiTranscriptionModel.isNotBlank()) {
             input.put("transcription", JSONObject().put("model", config.openAiTranscriptionModel))
         }
@@ -208,8 +211,9 @@ class OpenAiRealtimeSession(
                 else -> {
                     responsePending = false
                     responseRequestedAt = now
-                    DuplexLog.i("openai tx response.create ($why)")
-                    send(JSONObject().put("type", "response.create"))
+                    val eventId = "${EVENT_PREFIX}rc_${++responseCreates}"
+                    DuplexLog.i("openai tx response.create ($why) event=$eventId")
+                    send(JSONObject().put("type", "response.create").put("event_id", eventId))
                 }
             }
         }
@@ -222,7 +226,19 @@ class OpenAiRealtimeSession(
             "error" -> {
                 val err = message.optJSONObject("error")
                 val text = err?.optString("message")?.takeIf { it.isNotBlank() } ?: "Voice service error."
-                DuplexLog.w("openai error type=${err?.optString("type")} code=${err?.optString("code")} handshaking=$isHandshaking message=${DuplexLog.redact(text)}")
+                // event_id names the client event that caused the error; ours are "sierra_…".
+                val cause = err?.takeUnless { it.isNull("event_id") }?.optString("event_id")?.ifBlank { null }
+                val code = err?.optString("code").orEmpty()
+                if (code == "conversation_already_has_active_response" && cause?.startsWith(EVENT_PREFIX) != true) {
+                    // Not our request: observed 2026-11-20 about 70 ms after every
+                    // input_audio_transcription.completed of a spoken turn, while the server's own
+                    // VAD response was already running. The gateway (LiteLLM's realtime transcript
+                    // gate) sends its own response.create then; the server refuses it, and the
+                    // reply in progress is unaffected. Nothing for the owner to see.
+                    DuplexLog.i("openai ignored: a response.create the app did not send was refused (response in progress)")
+                    return
+                }
+                DuplexLog.w("openai error type=${err?.optString("type")} code=$code causeEvent=${DuplexLog.redact(cause ?: "none", 60)} handshaking=$isHandshaking message=${DuplexLog.redact(text)}")
                 // A refused response.create never gets its response.created.
                 synchronized(responseLock) { responseRequestedAt = 0 }
                 if (isHandshaking) handshakeFailed(text) else emit(DuplexEvent.Error(text, fatal = false))
@@ -406,6 +422,9 @@ class OpenAiRealtimeSession(
 
     companion object {
         const val SAMPLE_RATE = 24_000
+
+        /** Prefix of the event_id on requests this app sends, to tell its own errors from others'. */
+        private const val EVENT_PREFIX = "sierra_"
 
         private const val MAX_CANCELLED_IDS = 32
 

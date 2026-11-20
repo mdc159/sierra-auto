@@ -22,6 +22,8 @@ class DuplexController(
     private val focus: FocusHandle,
     mode: DuplexMode,
     guardRatio: Double = 2.0,
+    /** Full duplex: guard the mic during this much of the session's first assistant audio (see [EchoGate]). */
+    fullDuplexWarmupMs: Long = 0,
     private val listener: DuplexListener,
     /** Mic frame length in milliseconds; 40 ms keeps the websocket message rate modest. */
     private val frameMs: Int = 40,
@@ -31,7 +33,7 @@ class DuplexController(
     /** Diagnostic lines (mic levels and end reasons, never audio); the car screen sends them to logcat. */
     private val log: (String) -> Unit = {},
 ) {
-    val gate = EchoGate(mode, ratio = guardRatio)
+    val gate = EchoGate(mode, ratio = guardRatio, fullWarmupMs = fullDuplexWarmupMs)
 
     private val running = AtomicBoolean(false)
     private val stopped = AtomicBoolean(false)
@@ -230,7 +232,9 @@ class DuplexController(
                 log("duplex playback start queuedMs=${buffer.queuedMs}")
             }
             playedBytes += n
-            gate.onPlayback(chunk, n)
+            val warm = gate.inWarmup
+            gate.onPlayback(chunk, n, Resampler.durationMs(n, buffer.sampleRate))
+            if (warm && !gate.inWarmup) log("duplex full-duplex warm-up over: mic open during playback")
             try {
                 sink.write(chunk, n)
             } catch (e: Exception) {

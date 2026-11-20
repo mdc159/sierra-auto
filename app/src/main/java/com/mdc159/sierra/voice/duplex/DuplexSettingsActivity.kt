@@ -388,10 +388,12 @@ class DuplexSettingsActivity : ComponentActivity() {
         c = DuplexController(
             session = session,
             mic = com.mdc159.sierra.voice.diagnostics.Microphones.phone(this),
-            sink = AudioTrackSink(),
-            focus = AndroidFocus(this),
+            // Voice-call path on the loudspeaker, so the platform echo canceller hears the reply.
+            sink = AudioTrackSink(voiceCallAttributes),
+            focus = PhoneCallAudio(this),
             mode = config.mode,
             guardRatio = config.guardRatio,
+            fullDuplexWarmupMs = PHONE_FULL_DUPLEX_WARMUP_MS,
             listener = { event ->
                 logEvent(event)
                 if (event is DuplexEvent.Error) Studio54.onDuplexError(this, config.provider, event.message)
@@ -478,6 +480,9 @@ class DuplexSettingsActivity : ComponentActivity() {
     }
 
     private companion object {
+        /** How much of a session's first reply the phone's echo canceller gets to converge. */
+        const val PHONE_FULL_DUPLEX_WARMUP_MS = 6_000L
+
         /** Bench builds: the command (`start`, `say`, `interrupt`, `stop`). */
         const val EXTRA_BENCH = "bench"
 

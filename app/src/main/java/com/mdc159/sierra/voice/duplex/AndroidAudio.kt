@@ -12,6 +12,7 @@ import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
+import android.os.Build
 import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.NoiseSuppressor
 import androidx.car.app.CarContext
@@ -26,16 +27,28 @@ internal val speechAttributes: AudioAttributes = AudioAttributes.Builder()
     .build()
 
 /**
+ * Voice-call attributes for the phone test: playback on the communication path is what the
+ * platform echo canceller takes as its reference while the mic records VOICE_COMMUNICATION.
+ */
+internal val voiceCallAttributes: AudioAttributes = AudioAttributes.Builder()
+    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+    .build()
+
+/**
  * Exclusive transient focus for the whole conversation: media pauses while Sierra listens
  * and talks, and comes back when the session ends. Focus loss ends the session.
  */
-class AndroidFocus(context: Context) : FocusHandle {
+class AndroidFocus(
+    context: Context,
+    private val attributes: AudioAttributes = speechAttributes,
+) : FocusHandle {
     private val audio = context.applicationContext.getSystemService(AudioManager::class.java)
     private var request: AudioFocusRequest? = null
 
     override fun request(onLoss: () -> Unit): Boolean {
         val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
-            .setAudioAttributes(speechAttributes)
+            .setAudioAttributes(attributes)
             .setOnAudioFocusChangeListener { change ->
                 if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) onLoss()
             }
@@ -47,6 +60,139 @@ class AndroidFocus(context: Context) : FocusHandle {
     override fun abandon() {
         request?.let { audio.abandonAudioFocusRequest(it) }
         request = null
+    }
+}
+
+/**
+ * The phone test's audio session: [AndroidFocus] with voice-call attributes, plus the
+ * platform's communication mode for the session's lifetime, on the built-in loudspeaker.
+ *
+ * Measured 2026-11-20 on a Galaxy A54: in MODE_NORMAL, with USAGE_ASSISTANT playback, the
+ * VOICE_COMMUNICATION record session got only the AOSP software echo canceller, the model
+ * heard its own voice through the loudspeaker and answered itself. In MODE_IN_COMMUNICATION
+ * the device's voice-call processing has the playback as its echo reference.
+ *
+ * The controller calls [abandon] on every ending (stop, error, focus loss, failed start), so
+ * the previous mode and route are always put back. The car keeps plain [AndroidFocus]: there
+ * the audio goes to the head unit, and a phone-call mode would be wrong.
+ */
+class PhoneCallAudio(context: Context) : FocusHandle {
+    private val audio = context.applicationContext.getSystemService(AudioManager::class.java)
+    private val focus = AndroidFocus(context, voiceCallAttributes)
+    private var previousMode: Int? = null
+    private var routed = false
+    private var raisedFrom: Int? = null
+    private var raisedTo = 0
+
+    override fun request(onLoss: () -> Unit): Boolean {
+        if (!focus.request(onLoss)) return false
+        previousMode = audio.mode
+        runCatching { audio.mode = AudioManager.MODE_IN_COMMUNICATION }
+            .onFailure { DuplexLog.w("phone audio: communication mode refused ${it.javaClass.simpleName}") }
+        routed = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val speaker = audio.availableCommunicationDevices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                speaker != null && audio.setCommunicationDevice(speaker)
+            } else {
+                @Suppress("DEPRECATION")
+                audio.isSpeakerphoneOn = true
+                true
+            }
+        }.getOrDefault(false)
+        if (routed) awaitLoudspeakerRoute()
+        matchAssistantVolume()
+        val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audio.communicationDevice?.type?.toString() ?: "none" else "speakerphone"
+        DuplexLog.i(
+            "phone audio: mode=${modeName(audio.mode)} (was ${modeName(previousMode ?: -1)}) loudspeaker=$routed commDeviceType=$device " +
+                "voiceCallVolume=${audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audio.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)} " +
+                "musicVolume=${audio.getStreamVolume(AudioManager.STREAM_MUSIC)}/${audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)}",
+        )
+        return true
+    }
+
+    override fun abandon() {
+        val mode = previousMode
+        previousMode = null
+        if (mode != null) {
+            raisedFrom?.let { from ->
+                // Put back the owner's call volume, unless they changed it during the session.
+                if (audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL) == raisedTo) {
+                    runCatching { audio.setStreamVolume(AudioManager.STREAM_VOICE_CALL, from, 0) }
+                }
+            }
+            raisedFrom = null
+            if (routed) {
+                runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        audio.clearCommunicationDevice()
+                    } else {
+                        @Suppress("DEPRECATION")
+                        audio.isSpeakerphoneOn = false
+                    }
+                }
+            }
+            routed = false
+            runCatching { audio.mode = mode }
+            DuplexLog.i("phone audio: restored mode=${modeName(audio.mode)}")
+        }
+        focus.abandon()
+    }
+
+    /**
+     * The route change is applied asynchronously; until it lands, the voice-call volume read
+     * here is the earpiece's (15/15 on the bench phone), not the loudspeaker's. Wait for it.
+     */
+    private fun awaitLoudspeakerRoute() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            Thread.sleep(200) // no per-attributes route query before API 33
+            return
+        }
+        val deadline = System.currentTimeMillis() + ROUTE_WAIT_MS
+        while (System.currentTimeMillis() < deadline) {
+            val onSpeaker = runCatching {
+                audio.getAudioDevicesForAttributes(voiceCallAttributes).any { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+            }.getOrDefault(true)
+            if (onSpeaker) return
+            Thread.sleep(20)
+        }
+        DuplexLog.w("phone audio: loudspeaker route not confirmed after ${ROUTE_WAIT_MS}ms")
+    }
+
+    /**
+     * On this path the reply plays on the voice-call stream, whose speakerphone level is often
+     * far below the assistant level the owner set (1/15 against 10/15 on the bench phone). Raise
+     * it to the assistant level for the session, so the reply is as loud as before; never lower it.
+     */
+    private fun matchAssistantVolume() {
+        runCatching {
+            val callMax = audio.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
+            val assistant = runCatching { audio.getStreamVolume(STREAM_ASSISTANT) to audio.getStreamMaxVolume(STREAM_ASSISTANT) }
+                .getOrNull()?.takeIf { it.second > 0 }
+                ?: (audio.getStreamVolume(AudioManager.STREAM_MUSIC) to audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
+            val target = Math.round(assistant.first.toDouble() / assistant.second * callMax).toInt().coerceIn(1, callMax)
+            val before = audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
+            if (before < target) {
+                audio.setStreamVolume(AudioManager.STREAM_VOICE_CALL, target, 0)
+                raisedFrom = before
+                raisedTo = audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
+                DuplexLog.i("phone audio: voice-call volume raised $before -> $raisedTo/$callMax to match assistant ${assistant.first}/${assistant.second}")
+            }
+        }.onFailure { DuplexLog.w("phone audio: volume not adjusted ${it.javaClass.simpleName}") }
+    }
+
+    private fun modeName(mode: Int) = when (mode) {
+        AudioManager.MODE_NORMAL -> "NORMAL"
+        AudioManager.MODE_IN_COMMUNICATION -> "IN_COMMUNICATION"
+        AudioManager.MODE_IN_CALL -> "IN_CALL"
+        AudioManager.MODE_RINGTONE -> "RINGTONE"
+        else -> mode.toString()
+    }
+
+    private companion object {
+        /** AudioSystem.STREAM_ASSISTANT; hidden in the SDK, where USAGE_ASSISTANT playback goes. */
+        const val STREAM_ASSISTANT = 11
+
+        const val ROUTE_WAIT_MS = 1_000L
     }
 }
 
@@ -92,6 +238,11 @@ class PhoneMic(override val sampleRate: Int = 16_000, private val context: Conte
             if (builtIn != null) r.setPreferredDevice(builtIn)
             r.startRecording()
             record = r
+            DuplexLog.i(
+                "phone mic: source=VOICE_COMMUNICATION routedType=${r.routedDevice?.type ?: "unknown"} " +
+                    "aec=${effectState(AcousticEchoCanceler.isAvailable(), aec?.enabled, aec?.descriptor?.name, aec?.descriptor?.implementor)} " +
+                    "ns=${effectState(NoiseSuppressor.isAvailable(), ns?.enabled, ns?.descriptor?.name, ns?.descriptor?.implementor)}",
+            )
             context?.let {
                 VoiceDiagnostics.event(it, "Phone audio route", "requested=${if (builtIn != null) "built-in" else "system default"} actualType=${r.routedDevice?.type ?: "unknown"} silenced=${r.activeRecordingConfiguration?.isClientSilenced ?: "unknown"}")
             }
@@ -102,6 +253,9 @@ class PhoneMic(override val sampleRate: Int = 16_000, private val context: Conte
             throw DuplexException("Microphone unavailable.", e)
         }
     }
+
+    private fun effectState(available: Boolean, enabled: Boolean?, name: String?, implementor: String?): String =
+        if (!available) "unavailable" else "${if (enabled == true) "on" else "off"}(${name ?: "?"}/${implementor ?: "?"})"
 
     /** True when the platform echo canceller is attached (for the settings screen). */
     val echoCancellerActive: Boolean get() = aec?.enabled == true
@@ -163,8 +317,11 @@ class CarMicSource(private val carContext: CarContext) : MicSource {
     }
 }
 
-/** Low-latency streaming playback through AudioTrack with the assistant speech attributes. */
-class AudioTrackSink : PcmSink {
+/**
+ * Low-latency streaming playback through AudioTrack: the assistant speech attributes by
+ * default (the car), voice-call attributes for the phone test with [PhoneCallAudio].
+ */
+class AudioTrackSink(private val attributes: AudioAttributes = speechAttributes) : PcmSink {
     private var track: AudioTrack? = null
 
     override fun start(sampleRate: Int) {
@@ -176,7 +333,7 @@ class AudioTrackSink : PcmSink {
         val minBuf = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val t = try {
             AudioTrack.Builder()
-                .setAudioAttributes(speechAttributes)
+                .setAudioAttributes(attributes)
                 .setAudioFormat(format)
                 .setBufferSizeInBytes(maxOf(minBuf, sampleRate * 2 / 10)) // >= 100 ms
                 .setTransferMode(AudioTrack.MODE_STREAM)
@@ -191,6 +348,7 @@ class AudioTrackSink : PcmSink {
         }
         t.play()
         track = t
+        DuplexLog.i("speaker: usage=${attributes.usage} routedType=${t.routedDevice?.type ?: "unknown"}")
     }
 
     override fun write(pcm: ByteArray, length: Int) {
