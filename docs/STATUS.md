@@ -24,12 +24,29 @@ PR → staging → manual Google Play internal testing → acceptance → main. 
 [workflow](DEVELOPMENT-WORKFLOW.md). No Play upload, phone update or truck test
 has been performed as part of this repository checkpoint.
 
-Independent source review identified three open promotion blockers in the phone
-work: the eight-second vault refresh timeout does not cancel underlying blocking
-HTTP; Stop does not reliably cancel production transcription sockets; activity
-recreation loses the conversation identity and visible transcript. Existing fake
-lifecycle tests do not prove those production paths. Keep the PR draft until these
-are resolved and verified. Earlier security/backend defects below remain open.
+**2026-11-20 — promotion blockers fixed in source (revision `bd35bb5`).** The three
+phone blockers and the two related review findings now have fixes with regression
+tests that failed before each fix:
+
+- Vault refresh and both production transcribers (Gateway, ElevenLabs) run OkHttp
+  calls through `Call.executeCancellable`, which keeps `Call.cancel()` armed for the
+  whole response including the body read, on an unconfined guard that does not need
+  a free dispatcher thread. Stalled-header, stalled-body and single-thread-dispatcher
+  regressions cancel in about 0.1–1.5 s instead of OkHttp's 20 s timeout.
+- `PhoneViewModel` keeps the conversation ID and transcript across activity
+  recreation; opening another app still stops the conversation.
+- An agent 401 during a controller (transcriber) turn now reaches the Studio54
+  vault-refresh hook exactly once. No automatic retry: the next Talk uses the refreshed key.
+- `claude.yml` starts from and opens PRs against `staging`; a newly opened
+  `idea-voice` issue no longer triggers the agent without the owner's `idea` label.
+
+Android `assembleDebug testDebugUnitTest lintDebug` at `bd35bb5`: **638 tests, 636
+passed, 2 skipped, lint 0 errors/133 warnings**. Each fix had an independent
+cross-vendor source review with no remaining blocking findings. These are JVM and
+Robolectric results with fakes and local stalled servers; **no phone, Play or truck
+acceptance yet**. Car `TalkScreen` transcription still uses `runInterruptible`
+around a blocking call (outside these blockers; next step). Earlier
+security/backend defects below remain open.
 
 The review also identified raw-URL label disclosure and unrestricted policy-evidence
 output paths; corrections and focused regression checks are part of this checkpoint.
