@@ -35,6 +35,32 @@ class ConversationControllerTest {
         assertFalse(logs.joinToString().contains("sk-private"))
     }
 
+    @Test fun agentFailureIsReportedToTheErrorHookExactlyOnce() = runBlocking {
+        utterance()
+        agent.failWith = AgentException("Agent error 401: bad key")
+        val reported = Collections.synchronizedList(mutableListOf<Exception>())
+        val c = ConversationController(mic, FakeTranscriber("test"), agent, speech, focus,
+            ConversationConfig(endpoint = endpoint, continuous = false, speakErrors = false),
+            onAgentError = { reported += it })
+        withTimeout(5_000) { c.run() }
+        assertEquals(listOf("Agent error 401: bad key"), reported.map { it.message })
+        assertEquals(EndReason.ERROR, (c.state.value as ConversationState.Ended).reason)
+        // The hook is told, not handed the error handling: the failure still ends the turn.
+        assertEquals(1, agent.asked.size)
+    }
+
+    @Test fun transcriptionFailureIsNotReportedAsAnAgentError() = runBlocking {
+        utterance()
+        val t = FakeTranscriber().apply { failWith = AgentException("Transcription error 500") }
+        val reported = Collections.synchronizedList(mutableListOf<Exception>())
+        val c = ConversationController(mic, t, agent, speech, focus,
+            ConversationConfig(endpoint = endpoint, continuous = false, speakErrors = false),
+            onAgentError = { reported += it })
+        withTimeout(5_000) { c.run() }
+        assertTrue("the hook is for the agent only", reported.isEmpty())
+        assertTrue(agent.asked.isEmpty())
+    }
+
     private val mic = FakeMic()
     private val focus = FakeAudioFocus()
     private val speech = FakeSpeechOutput()
