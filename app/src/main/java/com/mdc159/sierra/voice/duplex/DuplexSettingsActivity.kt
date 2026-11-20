@@ -223,6 +223,16 @@ class DuplexSettingsActivity : ComponentActivity() {
      * Bench: loads the system prompt from `files/duplex-instructions.txt` in this app's private
      * files dir (written with `adb shell run-as`), saves it and logs only its length.
      */
+    /**
+     * Bench builds: the last session's uplink PCM (16-bit mono, [rate] Hz, exactly as sent) in
+     * files/$BENCH_UPLINK_FILE, for `adb exec-out run-as … cat files/…`. Overwritten per session.
+     */
+    private fun benchUplinkCapture(rate: Int): java.io.OutputStream? = runCatching {
+        val file = java.io.File(filesDir, BENCH_UPLINK_FILE)
+        DuplexLog.i("bench uplink capture: files/$BENCH_UPLINK_FILE rate=$rate")
+        java.io.BufferedOutputStream(java.io.FileOutputStream(file, false), 64 * 1024)
+    }.getOrNull()
+
     private fun benchInstructions() {
         val file = java.io.File(filesDir, BENCH_INSTRUCTIONS_FILE)
         val text = try {
@@ -401,6 +411,7 @@ class DuplexSettingsActivity : ComponentActivity() {
                 runOnUiThread { if (controller === c && !isDestroyed) onEvent(event) }
             },
             log = DuplexLog::i,
+            uplinkCapture = if (BuildConfig.BENCH_BUILD) benchUplinkCapture(session.inputSampleRate) else null,
         )
         controller = c
         Thread({
@@ -488,6 +499,9 @@ class DuplexSettingsActivity : ComponentActivity() {
 
         /** Bench builds: the typed turn for `start` or `say`. */
         const val EXTRA_BENCH_TEXT = "text"
+
+        /** Bench builds: the last session's uplink audio (see [benchUplinkCapture]). */
+        const val BENCH_UPLINK_FILE = "bench-uplink.pcm"
 
         /** Bench builds: `bench instructions` reads this file from the app's files dir. */
         const val BENCH_INSTRUCTIONS_FILE = "duplex-instructions.txt"

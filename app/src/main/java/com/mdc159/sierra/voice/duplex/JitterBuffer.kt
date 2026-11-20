@@ -6,14 +6,20 @@ package com.mdc159.sierra.voice.duplex
  * Playback waits until [targetMs] of audio has arrived (or the reply is [flush]ed), then
  * plays continuously. If it runs dry before the reply is flushed, that is an underrun:
  * the network is delivering slower than real time. Instead of playing each late packet
- * as it lands (a stutter of short bursts), the target grows by [prefillMs] up to
+ * as it lands (a stutter of short bursts), the target grows by [stepMs] up to
  * [maxPrefillMs] and playback waits to rebuild that much before resuming. The target
  * returns to [prefillMs] when a reply ends or is cleared.
  *
  * [playedMs] counts bytes handed to the speaker since the last [clear], which is what
  * the service needs to know when the driver interrupts.
  */
-class JitterBuffer(val sampleRate: Int, val prefillMs: Long = 300, val maxPrefillMs: Long = 1_500) {
+class JitterBuffer(
+    val sampleRate: Int,
+    val prefillMs: Long = 700,
+    val maxPrefillMs: Long = 2_000,
+    /** How much the target grows after each underrun. */
+    val stepMs: Long = 400,
+) {
     private val lock = Object()
     private var chunks = ArrayDeque<ByteArray>()
     private var headOffset = 0
@@ -87,7 +93,7 @@ class JitterBuffer(val sampleRate: Int, val prefillMs: Long = 300, val maxPrefil
                     target = prefillMs
                 } else {
                     underrunCount++
-                    target = minOf(maxPrefillMs, target + prefillMs)
+                    target = minOf(maxPrefillMs, target + stepMs)
                 }
             }
             return n

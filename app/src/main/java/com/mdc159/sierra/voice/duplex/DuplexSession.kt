@@ -82,4 +82,7 @@ interface DuplexSession {
 
     /** Ends the session. Idempotent. */
     fun close()
+
+    /** Bytes queued for sending but not yet written to the network (uplink backlog), or -1. */
+    val sendQueueBytes: Long get() = -1
 }

@@ -30,9 +30,11 @@ class DuplexController(
     /** Speaker rate. The service rate is used when null (no output resampling). */
     private val speakerRate: Int? = null,
     /** Audio to queue before a reply starts playing; grows after an underrun (see [JitterBuffer]). */
-    private val jitterPrefillMs: Long = 300,
+    private val jitterPrefillMs: Long = 700,
     /** Diagnostic lines (mic levels and end reasons, never audio); the car screen sends them to logcat. */
     private val log: (String) -> Unit = {},
+    /** Bench only: receives exactly the PCM sent upstream (post-gate, post-resample); closed at teardown. */
+    private val uplinkCapture: java.io.OutputStream? = null,
 ) {
     val gate = EchoGate(mode, ratio = guardRatio, fullWarmupMs = fullDuplexWarmupMs)
 
@@ -142,6 +144,7 @@ class DuplexController(
         val micMs = System.currentTimeMillis() - startedAt
         runCatching { sink.stop() }.onFailure { log("duplex teardown: speaker stop failed ${it.javaClass.simpleName}") }
         focus.abandon()
+        uplinkCapture?.let { runCatching { it.close() } }
         log("duplex teardown: mic stopped (${micMs}ms), speaker stopped, focus abandoned (${System.currentTimeMillis() - startedAt}ms total)")
     }
 
@@ -258,7 +261,7 @@ class DuplexController(
             recentIndex = (recentIndex + 1) % recent.size
             recentMicPeakRms = recent.max()
             if (levels.durationMs >= LEVEL_LOG_MS) {
-                log("duplex mic ${levels.summary()} framesSent=$frames gated=$gatedFrames")
+                log("duplex mic ${levels.summary()} framesSent=$frames gated=$gatedFrames uplinkQueuedKb=${session.sendQueueBytes.let { if (it < 0) "?" else (it / 1024).toString() }}")
                 levels = MicLevels(micRate)
                 frames = 0
                 gatedFrames = 0
@@ -267,6 +270,7 @@ class DuplexController(
             frames++
             if (gate.isGated) gatedFrames++
             val out = resampler.process(gated, 0, n)
+            uplinkCapture?.let { runCatching { it.write(out) } }
             session.sendAudio(out)
         }
     }

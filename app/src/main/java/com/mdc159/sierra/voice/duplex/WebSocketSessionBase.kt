@@ -36,6 +36,8 @@ abstract class WebSocketSessionBase(
     @Volatile
     private var socket: WebSocket? = null
 
+    override val sendQueueBytes: Long get() = socket?.queueSize() ?: -1
+
     /** Connection counter; callbacks from an older connection are ignored. */
     @Volatile
     private var generation = 0

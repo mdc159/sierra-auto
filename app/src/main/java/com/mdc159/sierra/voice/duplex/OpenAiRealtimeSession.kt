@@ -79,6 +79,16 @@ class OpenAiRealtimeSession(
     private var vadResponseDueBy = 0L
     private var responseCreates = 0
 
+    /**
+     * Something a new response may answer arrived since the last `response.created`: a
+     * committed driver turn, or a `response.create` this app sent (typed turn, tool result).
+     */
+    private var inputSinceResponse = true
+
+    /** The response the app cancelled as an unrequested duplicate (see "response.created"). */
+    @Volatile
+    private var duplicateResponseId: String? = null
+
     private val userTranscripts = HashMap<String, StringBuilder>()
     private val assistantTranscript = StringBuilder()
 
@@ -211,6 +221,7 @@ class OpenAiRealtimeSession(
                 else -> {
                     responsePending = false
                     responseRequestedAt = now
+                    inputSinceResponse = true
                     val eventId = "${EVENT_PREFIX}rc_${++responseCreates}"
                     DuplexLog.i("openai tx response.create ($why) event=$eventId")
                     send(JSONObject().put("type", "response.create").put("event_id", eventId))
@@ -253,6 +264,7 @@ class OpenAiRealtimeSession(
                 }
                 emit(DuplexEvent.UserStartedSpeaking)
             }
+            "input_audio_buffer.committed" -> synchronized(responseLock) { inputSinceResponse = true }
             "input_audio_buffer.speech_stopped" -> {
                 synchronized(responseLock) {
                     userSpeaking = false
@@ -271,10 +283,13 @@ class OpenAiRealtimeSession(
                 emit(DuplexEvent.UserTranscript(message.optString("transcript").trim(), final = true))
             }
             "response.created" -> {
-                synchronized(responseLock) {
+                val unrequested = synchronized(responseLock) {
                     activeResponseId = message.optJSONObject("response")?.optString("id")?.ifBlank { null } ?: "?"
+                    val fresh = inputSinceResponse || responseRequestedAt != 0L
+                    inputSinceResponse = false
                     responseRequestedAt = 0
                     vadResponseDueBy = 0
+                    !fresh
                 }
                 droppedDeltas = 0
                 cancelledByServer = false
@@ -282,6 +297,17 @@ class OpenAiRealtimeSession(
                 audioReceivedBytes = 0
                 assistantTranscript.setLength(0)
                 DuplexLog.i("openai response created id=$activeResponseId")
+                if (unrequested) {
+                    // Nothing new to answer: observed 2026-11-20 on a slow link, when the gateway's
+                    // own response.create (see "error" above) lands just after the previous reply
+                    // finished generating, so the server accepts it and answers the same turn twice.
+                    val id = activeResponseId
+                    DuplexLog.i("openai cancelling unrequested duplicate response id=$id")
+                    duplicateResponseId = id
+                    cancelledByServer = true
+                    id?.let(::markCancelled)
+                    send(JSONObject().put("type", "response.cancel").apply { if (id != null && id != "?") put("response_id", id) })
+                }
             }
             "response.output_audio.delta", "response.audio.delta" -> {
                 val itemId = message.optString("item_id").ifBlank { null }
@@ -326,7 +352,14 @@ class OpenAiRealtimeSession(
                     activeResponseId = null
                     responsePending
                 }
-                emit(DuplexEvent.AssistantDone(cancelled = status == "cancelled"))
+                val doneId = response?.optString("id")?.ifBlank { null }
+                if (doneId != null && doneId == duplicateResponseId) {
+                    // Its audio was never played; a cancelled AssistantDone would cut the reply
+                    // still playing from the previous response.
+                    duplicateResponseId = null
+                } else {
+                    emit(DuplexEvent.AssistantDone(cancelled = status == "cancelled"))
+                }
                 if (pending) requestResponse("deferred")
             }
             else -> Unit // session.updated-adjacent chatter, rate limits, item lifecycle: not needed.
