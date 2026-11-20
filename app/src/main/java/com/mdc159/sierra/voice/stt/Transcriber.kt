@@ -4,15 +4,19 @@ import com.mdc159.sierra.agent.AgentClient
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.AgentException
 import com.mdc159.sierra.net.Http
+import com.mdc159.sierra.net.await
 import com.mdc159.sierra.voice.Pcm
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
@@ -38,10 +42,35 @@ class GatewayTranscriber(
 
     private val url = AgentConfig.endpoint(baseUrl, "audio/transcriptions")
 
-    override suspend fun transcribe(pcm: ByteArray, sampleRate: Int): String =
-        runInterruptible(ioDispatcher) { transcribeBlocking(pcm, sampleRate) }
+    /**
+     * Cancellable: Stop cancels the caller's coroutine, which aborts the HTTP call at once
+     * (see [com.mdc159.sierra.net.await]); a blocking read could not be released that way.
+     */
+    override suspend fun transcribe(pcm: ByteArray, sampleRate: Int): String = withContext(ioDispatcher) {
+        val response = try {
+            http.newCall(request(pcm, sampleRate)).await()
+        } catch (e: IOException) {
+            // Cancelling the call closes the socket: that is the caller's Stop, not an error.
+            currentCoroutineContext().ensureActive()
+            throw AgentException(Http.describe(e, url), e)
+        } catch (e: IllegalArgumentException) {
+            throw AgentException("Transcription URL is not valid.", e)
+        }
+        response.use { readTranscription(it) }
+    }
 
     fun transcribeBlocking(pcm: ByteArray, sampleRate: Int): String {
+        val response = try {
+            http.newCall(request(pcm, sampleRate)).execute()
+        } catch (e: IOException) {
+            throw AgentException(Http.describe(e, url), e)
+        } catch (e: IllegalArgumentException) {
+            throw AgentException("Transcription URL is not valid.", e)
+        }
+        return response.use { readTranscription(it) }
+    }
+
+    private fun request(pcm: ByteArray, sampleRate: Int): Request {
         val wav = Pcm.toWav(pcm, sampleRate)
         val form = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
@@ -52,27 +81,22 @@ class GatewayTranscriber(
             .build()
         val builder = Request.Builder().url(url).post(form)
         if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
-        val response = try {
-            http.newCall(builder.build()).execute()
+        return builder.build()
+    }
+
+    private fun readTranscription(response: Response): String {
+        val text = try {
+            response.body?.string().orEmpty()
         } catch (e: IOException) {
             throw AgentException(Http.describe(e, url), e)
-        } catch (e: IllegalArgumentException) {
-            throw AgentException("Transcription URL is not valid.", e)
         }
-        response.use {
-            val text = try {
-                it.body?.string().orEmpty()
-            } catch (e: IOException) {
-                throw AgentException(Http.describe(e, url), e)
-            }
-            if (!it.isSuccessful) {
-                throw AgentException("Transcription error ${it.code}: ${AgentClient.errorDetail(text)}".trimEnd(' ', ':'))
-            }
-            return try {
-                JSONObject(text).optString("text").trim()
-            } catch (e: JSONException) {
-                throw AgentException("Transcription reply couldn't be read.", e)
-            }
+        if (!response.isSuccessful) {
+            throw AgentException("Transcription error ${response.code}: ${AgentClient.errorDetail(text)}".trimEnd(' ', ':'))
+        }
+        return try {
+            JSONObject(text).optString("text").trim()
+        } catch (e: JSONException) {
+            throw AgentException("Transcription reply couldn't be read.", e)
         }
     }
 
@@ -100,10 +124,31 @@ class ElevenLabsTranscriber(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : Transcriber {
 
-    override suspend fun transcribe(pcm: ByteArray, sampleRate: Int): String =
-        runInterruptible(ioDispatcher) { transcribeBlocking(pcm, sampleRate) }
+    /**
+     * Cancellable: Stop cancels the caller's coroutine, which aborts the HTTP call at once
+     * (see [com.mdc159.sierra.net.await]); a blocking read could not be released that way.
+     */
+    override suspend fun transcribe(pcm: ByteArray, sampleRate: Int): String = withContext(ioDispatcher) {
+        val response = try {
+            http.newCall(request(pcm, sampleRate)).await()
+        } catch (e: IOException) {
+            // Cancelling the call closes the socket: that is the caller's Stop, not an error.
+            currentCoroutineContext().ensureActive()
+            throw AgentException(Http.describe(e), e)
+        }
+        response.use { readTranscription(it) }
+    }
 
     fun transcribeBlocking(pcm: ByteArray, sampleRate: Int): String {
+        val response = try {
+            http.newCall(request(pcm, sampleRate)).execute()
+        } catch (e: IOException) {
+            throw AgentException(Http.describe(e), e)
+        }
+        return response.use { readTranscription(it) }
+    }
+
+    private fun request(pcm: ByteArray, sampleRate: Int): Request {
         val wav = Pcm.toWav(pcm, sampleRate)
         val form = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
@@ -111,30 +156,26 @@ class ElevenLabsTranscriber(
             .apply { if (languageCode.isNotBlank()) addFormDataPart("language_code", languageCode) }
             .addFormDataPart("file", "speech.wav", wav.toRequestBody(WAV))
             .build()
-        val request = Request.Builder()
+        return Request.Builder()
             .url("${baseUrl.trimEnd('/')}/v1/speech-to-text")
             .header("xi-api-key", apiKey)
             .post(form)
             .build()
-        val response = try {
-            http.newCall(request).execute()
+    }
+
+    private fun readTranscription(response: Response): String {
+        val text = try {
+            response.body?.string().orEmpty()
         } catch (e: IOException) {
             throw AgentException(Http.describe(e), e)
         }
-        response.use {
-            val text = try {
-                it.body?.string().orEmpty()
-            } catch (e: IOException) {
-                throw AgentException(Http.describe(e), e)
-            }
-            if (!it.isSuccessful) {
-                throw AgentException("Transcription error ${it.code}: ${AgentClient.errorDetail(text)}".trimEnd(' ', ':'))
-            }
-            return try {
-                JSONObject(text).optString("text").trim()
-            } catch (e: JSONException) {
-                throw AgentException("Transcription reply couldn't be read.", e)
-            }
+        if (!response.isSuccessful) {
+            throw AgentException("Transcription error ${response.code}: ${AgentClient.errorDetail(text)}".trimEnd(' ', ':'))
+        }
+        return try {
+            JSONObject(text).optString("text").trim()
+        } catch (e: JSONException) {
+            throw AgentException("Transcription reply couldn't be read.", e)
         }
     }
 

@@ -1,6 +1,13 @@
 package com.mdc159.sierra.net
 
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
+import okhttp3.Response
+import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -52,4 +59,27 @@ object Http {
             else -> e.message?.takeIf { it.isNotBlank() }?.take(120) ?: "Network error."
         }
     }
+}
+
+/**
+ * Runs one call without blocking a thread, and aborts the call when the calling coroutine is
+ * cancelled: `withTimeout`/`Job.cancel()` release the socket at once instead of waiting out
+ * OkHttp's own timeouts. Blocking `Call.execute()` cannot do this — a thread interrupt does
+ * not abort an OkHttp socket read — so every production call that runs inside a cancellable
+ * coroutine (vault reads, transcription) awaits the call through this helper.
+ *
+ * The caller owns the returned [Response] and must close it, for example with `use`.
+ */
+suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
+    enqueue(object : Callback {
+        override fun onResponse(call: Call, response: Response) {
+            // If cancellation won the race, close the body nobody is waiting for.
+            continuation.resume(response) { _, body, _ -> body.close() }
+        }
+
+        override fun onFailure(call: Call, e: IOException) {
+            continuation.resumeWithException(e)
+        }
+    })
+    continuation.invokeOnCancellation { cancel() }
 }

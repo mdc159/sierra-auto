@@ -1,7 +1,14 @@
 package com.mdc159.sierra.net
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import okhttp3.Request
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.io.IOException
 import java.io.InterruptedIOException
@@ -52,5 +59,59 @@ class HttpTest {
     @Test
     fun userAgentIdentifiesTheAppWithoutSecrets() {
         assertEquals("SierraAuto/0.1 (personal Android Auto app; github.com/mdc159/sierra-auto)", Http.USER_AGENT)
+    }
+
+    @Test
+    fun awaitDeliversTheResponse() = runBlocking {
+        val server = MockWebServer().apply { start() }
+        try {
+            server.enqueue(MockResponse().setBody("""{"text":" ok "}"""))
+            Http.client.newCall(Request.Builder().url(server.url("/v1")).build()).await().use {
+                assertEquals(200, it.code)
+                assertEquals("""{"text":" ok "}""", it.body!!.string())
+            }
+            assertEquals("/v1", server.takeRequest().path)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun awaitSurfacesConnectionFailures() {
+        val server = MockWebServer().apply { start() }
+        val url = server.url("/").toString()
+        server.shutdown() // nothing is listening on that port any more
+        try {
+            runBlocking { Http.client.newCall(Request.Builder().url(url).build()).await() }
+            fail("expected IOException")
+        } catch (e: IOException) {
+            // expected: the connection is refused
+        }
+    }
+
+    /**
+     * The whole point of the helper: cancelling the calling coroutine must cancel the call
+     * itself, so the socket is released at once and the server sees the connection close.
+     * Production timeouts are used, so a blocking implementation would stall ~20 s.
+     */
+    @Test
+    fun cancellingTheCallerCancelsTheCallAndClosesTheConnection() {
+        val stalled = StalledConnectionServer().start()
+        try {
+            val startedAt = System.nanoTime()
+            runBlocking {
+                val call = Http.client.newCall(Request.Builder().url(stalled.url).build())
+                val job = launch { call.await() }
+                delay(300) // let the request reach the stalled server
+                job.cancel()
+                job.join()
+                assertTrue("the call was not cancelled", call.isCanceled())
+            }
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+            assertTrue("await returned after ${elapsedMs}ms", elapsedMs < 2_500)
+            assertTrue("the connection stayed open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
+        }
     }
 }
