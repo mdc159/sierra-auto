@@ -51,6 +51,9 @@ class DuplexController(
     @Volatile
     private var outResampler: Resampler? = null
 
+    /** Reply item whose audio is being queued (session event thread only). */
+    private var currentItemId: String? = null
+
     /** Loudest 40 ms mic frame over the last second, for the barge-in log. */
     @Volatile
     private var recentMicPeakRms = 0.0
@@ -148,10 +151,10 @@ class DuplexController(
         log("duplex teardown: mic stopped (${micMs}ms), speaker stopped, focus abandoned (${System.currentTimeMillis() - startedAt}ms total)")
     }
 
-    /** Empties the speaker path. Returns how many ms of the current reply were played. */
+    /** Empties the speaker path. Returns how many ms of the current reply item were played. */
     private fun cutPlayback(): Long {
         val buffer = jitter ?: return 0
-        val played = buffer.playedMs
+        val played = buffer.itemPlayedMs
         buffer.clear()
         sink.discard()
         outResampler?.reset()
@@ -164,6 +167,10 @@ class DuplexController(
             is DuplexEvent.AssistantAudio -> {
                 val resampled = outResampler?.process(event.pcm) ?: event.pcm
                 noteDelta(Resampler.durationMs(event.pcm.size, session.outputSampleRate))
+                if (event.itemId != currentItemId) {
+                    currentItemId = event.itemId
+                    jitter?.markItemStart()
+                }
                 jitter?.offer(resampled)
             }
             is DuplexEvent.UserStartedSpeaking -> {

@@ -81,6 +81,17 @@ abstract class WebSocketSessionBase(
     /** [close] was called. Abort whatever the session still has running elsewhere (tools). */
     protected open fun onClose() {}
 
+    /** A frame the subclass handles but that is too frequent to log by type (latency probes). */
+    protected open fun isQuietFrame(message: JSONObject): Boolean = false
+
+    /** Extra state for the receive-gap line (probes outstanding, audio sent): what the subclass knows. */
+    protected open fun stallContext(): String = ""
+
+    /** When the socket reader last handed a frame over ([System.nanoTime] ms); 0 before the first. */
+    @Volatile
+    protected var lastRxAtMs = 0L
+        private set
+
     override fun start(listener: DuplexListener) {
         this.listener = listener
         connect()
@@ -96,6 +107,7 @@ abstract class WebSocketSessionBase(
         val request = buildRequest()
         if (closed.get()) throw DuplexException("Conversation stopped.")
         val gen = ++generation
+        lastRxAtMs = 0
         val startedAt = System.currentTimeMillis()
         // Host and path only: the query can carry a signed token.
         DuplexLog.i("session connecting provider=$provider gen=$gen host=${request.url.host} path=${request.url.encodedPath} auth=${request.header("Authorization") != null}")
@@ -239,8 +251,17 @@ abstract class WebSocketSessionBase(
             onSocketOpen(webSocket)
         }
 
+        // Receive time vs handling: onMessage runs on OkHttp's reader thread as soon as a frame is
+        // read, and the handler runs inline. A long gap between frames with short handlers means
+        // the frames did not reach the phone; a slow handler means the phone held them up.
+        private var prevType = "?"
+        private var prevHandlerMs = 0L
+
         override fun onMessage(webSocket: WebSocket, text: String) {
             if (!current || closed.get()) return
+            val rxAt = System.nanoTime() / 1_000_000
+            val gap = if (lastRxAtMs == 0L) 0 else rxAt - lastRxAtMs
+            lastRxAtMs = rxAt
             val json = try {
                 JSONObject(text)
             } catch (e: Exception) {
@@ -248,13 +269,22 @@ abstract class WebSocketSessionBase(
                 emit(DuplexEvent.Error("Unreadable message from the voice service.", fatal = false))
                 return
             }
-            logType(json.optString("type").ifBlank { json.keys().asSequence().firstOrNull() ?: "?" })
+            val type = json.optString("type").ifBlank { json.keys().asSequence().firstOrNull() ?: "?" }
+            val quiet = isQuietFrame(json)
+            if (gap >= RX_GAP_LOG_MS) {
+                flushRepeats()
+                DuplexLog.i("rx gap gapMs=$gap prev=$prevType prevHandlerMs=$prevHandlerMs next=${if (quiet) "probe" else type} ${stallContext()}")
+            }
+            if (!quiet) logType(type)
             try {
                 onJson(json)
             } catch (e: Exception) {
                 DuplexLog.w("rx handler failed type=${json.optString("type", "?")} error=${e.javaClass.simpleName}")
                 emit(DuplexEvent.Error("Could not handle a ${json.optString("type", "?")} message.", fatal = false))
             }
+            prevHandlerMs = System.nanoTime() / 1_000_000 - rxAt
+            prevType = if (quiet) "probe" else type
+            if (prevHandlerMs >= SLOW_HANDLER_LOG_MS) DuplexLog.w("rx slow handler type=$type handlerMs=$prevHandlerMs")
         }
 
         override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
@@ -288,5 +318,13 @@ abstract class WebSocketSessionBase(
             }
             connectionLost(reason)
         }
+    }
+
+    private companion object {
+        /** A receive gap this long is logged; with probes every 2 s a healthy link never shows one. */
+        const val RX_GAP_LOG_MS = 2_500L
+
+        /** A handler this slow on the reader thread delays every frame behind it. */
+        const val SLOW_HANDLER_LOG_MS = 100L
     }
 }

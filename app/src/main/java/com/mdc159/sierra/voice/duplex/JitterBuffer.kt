@@ -27,12 +27,26 @@ class JitterBuffer(
     private var started = false
     private var flushed = false
     private var consumedBytes = 0L
+    private var itemBaseBytes = 0L
     private var closed = false
     private var target = prefillMs
     private var underrunCount = 0
 
     val queuedMs: Long get() = synchronized(lock) { Resampler.durationMs(queuedBytes, sampleRate) }
     val playedMs: Long get() = synchronized(lock) { Resampler.durationMs(consumedBytes.toInt(), sampleRate) }
+
+    /**
+     * How much of the reply item started by [markItemStart] has been played. [playedMs] runs on
+     * across replies that end without a cut (a tool call's preface, then its answer), so it cannot
+     * place a truncate inside the second one.
+     */
+    val itemPlayedMs: Long get() = synchronized(lock) {
+        Resampler.durationMs((consumedBytes - itemBaseBytes).coerceAtLeast(0).toInt(), sampleRate)
+    }
+
+    /** The audio offered next starts a new reply item. */
+    fun markItemStart() = synchronized(lock) { itemBaseBytes = consumedBytes + queuedBytes }
+
     val isEmpty: Boolean get() = synchronized(lock) { queuedBytes == 0 }
 
     /** Audio playback currently waits for before (re)starting. */
@@ -112,6 +126,7 @@ class JitterBuffer(
         headOffset = 0
         queuedBytes = 0
         consumedBytes = 0
+        itemBaseBytes = 0
         started = false
         flushed = false
         target = prefillMs
