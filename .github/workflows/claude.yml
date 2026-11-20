@@ -1,7 +1,7 @@
 # M5 idea loop: an issue labeled `idea` (or any @claude mention) runs a cloud
 # Claude Code agent. The agent implements the change on a claude/... branch and
-# opens a PR. build.yml then builds the PR, and merging to main publishes the
-# APK release.
+# opens a PR into staging. build.yml validates it; promotion to Play and main
+# follows docs/DEVELOPMENT-WORKFLOW.md.
 #
 # Auth: Claude subscription OAuth token (secret CLAUDE_CODE_OAUTH_TOKEN, made
 # with `claude setup-token`). There is deliberately no ANTHROPIC_API_KEY path.
@@ -33,11 +33,13 @@ jobs:
   claude:
     # Only spin up a runner for real triggers. An issue opened with the `idea`
     # label also fires `labeled`, so skip the `opened` event in that case to
-    # avoid running twice.
+    # avoid running twice. Voice-filed issues (`idea-voice`) carry model-written
+    # text, so they only run after the owner adds `idea`, never on `opened`.
     if: |
       (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'idea') ||
       (github.event_name == 'issues' && github.event.action == 'opened' &&
         !contains(github.event.issue.labels.*.name, 'idea') &&
+        !contains(github.event.issue.labels.*.name, 'idea-voice') &&
         (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))) ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
@@ -103,7 +105,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           label_trigger: idea
           trigger_phrase: "@claude"
-          base_branch: main
+          base_branch: staging
           additional_permissions: |
             actions: read
           claude_args: |
@@ -115,11 +117,11 @@ jobs:
             For a feature request, answer every question in the Feature idea checklist of docs/android-auto-constraints.md. If the idea breaks a constraint, such as keyboard input while driving, more than 5 templates in a task, video or animation, or templates the POI category cannot use, do not implement it. Explain why in your comment and suggest a version that fits.
 
             Rules:
-            - Never push to main. Work only on the branch the action created for you.
+            - Never push to main or staging. Work only on the branch the action created for you.
             - Keep the change small and focused on the issue.
             - Before pushing, run: ./gradlew --no-daemon assembleDebug testDebugUnitTest
               and fix any failure.
             - Never commit secrets, keystores, API keys or tokens. The repository is public.
             - You cannot edit files under .github/workflows. If the idea needs that, say so.
-            - If you were triggered from an issue: when your commits are pushed, open a pull request against main with gh pr create, using --base main and --head set to your branch. Write a clear title, and a body that summarizes the change, lists the checklist answers, and says Closes #ISSUE with the real issue number. Then put the PR link in your comment.
+            - If you were triggered from an issue: when your commits are pushed, open a pull request against staging with gh pr create, using --base staging and --head set to your branch. Write a clear title, and a body that summarizes the change, lists the checklist answers, and says Closes #ISSUE with the real issue number. Then put the PR link in your comment.
             - If you were triggered from an existing pull request: push to that PR branch only. Do not run gh pr create and do not open a second PR.'

@@ -1,17 +1,17 @@
 # Idea loop (M5)
 
-As of **2026-11-08, main `210448b`**: issue filing and issue-to-PR automation exist; approval, CI and publication are separate. **The intended voice-idea review gate is bypassable:** `FileIdeaTool` preserves model-supplied title/body, and a newly opened `idea-voice` issue containing `@claude` can trigger `claude.yml` without the owner adding `idea`. Source-confirmed in the review, not exercised by creating an issue. Do not rely on that label as a security boundary until fixed. This documentation change fixes no workflow code.
+As of **2026-11-20, `dev/phone-voice-checkpoint`**: issue filing and issue-to-PR automation exist; approval, CI and publication are separate. `claude.yml` now starts from `staging` and opens its PRs against `staging`, matching the [delivery workflow](DEVELOPMENT-WORKFLOW.md). A newly opened `idea-voice` issue no longer triggers the agent even if its model-written text contains `@claude`; voice ideas run only after the owner adds `idea`. `FileIdeaTool` still preserves model-supplied title/body. Source change only; not yet exercised by filing an issue. History: until this change (main `210448b`) the `opened` path could bypass the owner gate.
 
 Intended human-reviewed flow (set up/use only while parked):
 
 ```
 GitHub issue labeled `idea`  →  .github/workflows/claude.yml (Claude Code agent)
   →  branch claude/issue-N-…  +  pull request  →  build.yml builds and tests the PR
-  →  owner reviews/merges  →  build.yml publishes a signed APK release from main
-  →  separate manual play.yml workflow uploads a Play-internal AAB
+  →  owner reviews/merges into staging  →  manual play.yml uploads a Play-internal AAB
+  →  phone/truck acceptance  →  staging promoted to main
 ```
 
-The agent reads `docs/PLAN.md` and `docs/android-auto-constraints.md` first. It also runs the feature idea checklist. If an idea can't work in Android Auto, it explains why in the issue instead of writing code. It never pushes to `main`. It cannot edit `.github/workflows/` (the Claude GitHub App has no workflow permission).
+The agent reads `docs/PLAN.md` and `docs/android-auto-constraints.md` first. It also runs the feature idea checklist. If an idea can't work in Android Auto, it explains why in the issue instead of writing code. It never pushes to `main` or `staging`. It cannot edit `.github/workflows/` (the Claude GitHub App has no workflow permission).
 
 ## Use it today (GitHub mobile app)
 
