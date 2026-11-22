@@ -108,6 +108,7 @@ class AgentCancellationTest {
                 override fun status(args: JSONObject) = "Running blocker…"
                 val started = CountDownLatch(1)
                 @Volatile var interrupted = false
+                val exited = CountDownLatch(1)
                 override fun run(args: JSONObject): String {
                     started.countDown()
                     return try {
@@ -117,6 +118,8 @@ class AgentCancellationTest {
                         interrupted = true
                         Thread.currentThread().interrupt()
                         "{}"
+                    } finally {
+                        exited.countDown()
                     }
                 }
             }
@@ -145,6 +148,9 @@ class AgentCancellationTest {
                 assertTrue("the tool never started", blocker.started.await(5, TimeUnit.SECONDS))
                 withTimeout(2_000) { job.cancelAndJoin() }
                 assertTrue(job.isCancelled)
+                // shutdownNow() interrupts the tool thread without waiting for it, so wait
+                // (bounded) for the tool to leave before reading what it saw.
+                assertTrue("the blocked tool never left", blocker.exited.await(2, TimeUnit.SECONDS))
                 assertTrue("the blocked tool's thread was not interrupted", blocker.interrupted)
                 assertEquals("a later tool in the same response ran after Stop", 0, secondCalls.get())
                 assertEquals("another round was requested after Stop", 1, server.requestCount)
