@@ -10,9 +10,11 @@ import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import androidx.car.app.testing.TestCarContext
 import androidx.car.app.testing.TestScreenManager
+import androidx.lifecycle.Lifecycle
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.History
 import com.mdc159.sierra.car.CarTestHost.titleText
+import com.mdc159.sierra.net.StalledConnectionServer
 import com.mdc159.sierra.voice.Pcm
 import com.mdc159.sierra.voice.stt.MicLevels
 import okhttp3.mockwebserver.Dispatcher
@@ -44,6 +46,37 @@ import java.util.concurrent.TimeUnit
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class TalkScreenTest {
+
+    /**
+     * Stop/back during a stalled agent reply: destroying the screen cancels its job, and
+     * that must abort the in-flight HTTP call at once (the socket closes) instead of
+     * waiting out OkHttp's own ~20 s timeouts.
+     */
+    @Test fun stopDuringAStalledAgentReplyClosesTheSocketAtOnce() {
+        val stalled = StalledConnectionServer().start()
+        try {
+            CarTestHost.installConfig(
+                carContext,
+                AgentConfig(
+                    baseUrl = stalled.url,
+                    apiKey = "k",
+                    model = "m",
+                    sttUrl = server.url("/v1").toString(),
+                ),
+            )
+            CarTestHost.grant(Manifest.permission.RECORD_AUDIO)
+            carContext.fakeHost.setMicrophoneInputData(ByteArrayInputStream(speechThenSilence(800, 2_500)))
+            val screen = TalkScreen(carContext, session, tools = emptyList())
+            val controller = CarTestHost.show(screen)
+
+            CarTestHost.await(what = "agent request to reach the stalled server") { stalled.clientConnectedWithin(0) }
+            controller.moveToState(Lifecycle.State.DESTROYED) // back/stop: the screen's job is cancelled
+            Thread.sleep(500) // let the request sit well inside the stalled read
+            assertTrue("the stalled agent call kept its socket open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
+        }
+    }
 
     @Test fun explicitPhoneMicWithoutTranscriptionNeverFallsBackToCarMic() {
         CarTestHost.installConfig(carContext, AgentConfig(profile = com.mdc159.sierra.agent.AgentProfile.BRIDGE,

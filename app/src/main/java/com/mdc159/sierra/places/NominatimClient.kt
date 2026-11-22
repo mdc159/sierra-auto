@@ -1,6 +1,11 @@
 package com.mdc159.sierra.places
 
 import com.mdc159.sierra.net.Http
+import com.mdc159.sierra.net.executeCancellable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -33,17 +38,42 @@ class NominatimClient(
             .take(limit)
     }
 
-    private fun get(url: HttpUrl): String {
-        val request = Request.Builder()
+    /** [search] with the caller's cancellation wired to the request (see [PlaceSource.searchCancellable]). */
+    override suspend fun searchCancellable(category: PlaceCategory, lat: Double, lng: Double, limit: Int): List<NearbyPlace> {
+        val all = category.nominatimTerms.flatMapIndexed { i, term ->
+            if (i > 0) delay(requestSpacingMs)
+            parse(getCancellable(buildUrl(baseUrl, term, lat, lng, category.radiusMeters)), category, lat, lng)
+        }
+        return Geo.dedupeAndSort(all)
+            .filter { it.distanceMeters <= category.radiusMeters * 1.5 }
+            .take(limit)
+    }
+
+    private fun request(url: HttpUrl): Request =
+        Request.Builder()
             .url(url)
             .header("User-Agent", Http.USER_AGENT)
             .header("Accept", "application/json")
             .build()
-        client.newCall(request).execute().use { response ->
+
+    private fun get(url: HttpUrl): String {
+        client.newCall(request(url)).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Places server error (${response.code}).")
             return response.body?.string() ?: throw IOException("Empty places response.")
         }
     }
+
+    private suspend fun getCancellable(url: HttpUrl): String =
+        try {
+            client.newCall(request(url)).executeCancellable(Dispatchers.IO) { response ->
+                if (!response.isSuccessful) throw IOException("Places server error (${response.code}).")
+                response.body?.string() ?: throw IOException("Empty places response.")
+            }
+        } catch (e: IOException) {
+            // Cancelling the call closes the socket: that is the caller leaving, not a server failure.
+            currentCoroutineContext().ensureActive()
+            throw e
+        }
 
     companion object {
         fun buildUrl(baseUrl: String, term: String, lat: Double, lng: Double, radiusMeters: Int): HttpUrl =

@@ -24,8 +24,10 @@ import com.mdc159.sierra.car.CarTestHost.gridItems
 import com.mdc159.sierra.car.CarTestHost.rows
 import com.mdc159.sierra.car.CarTestHost.textLines
 import com.mdc159.sierra.car.CarTestHost.titleText
+import com.mdc159.sierra.net.StalledConnectionServer
 import com.mdc159.sierra.places.NearbyPlace
 import com.mdc159.sierra.places.NearbyPlaces
+import com.mdc159.sierra.places.NominatimClient
 import com.mdc159.sierra.places.PlaceCategory
 import com.mdc159.sierra.places.PlaceSource
 import org.junit.After
@@ -274,6 +276,30 @@ class CarScreensTest {
             CarTestHost.show(detail)
             val pane = detail.onGetTemplate().asPane()
             assertTrue(pane.pane.rows.size in 1..2)
+        }
+    }
+
+    /**
+     * Leaving the list during a stalled places search: destroying the screen cancels its
+     * job, and that must abort the in-flight HTTP call at once (the socket closes) instead
+     * of waiting out the places client's own timeouts.
+     */
+    @Test
+    fun placeListLeavingDuringAStalledSearchClosesTheSocketAtOnce() {
+        val stalled = StalledConnectionServer().start()
+        try {
+            CarTestHost.grant(Manifest.permission.ACCESS_FINE_LOCATION)
+            simulateLocation(38.5, -121.5)
+            val nominatim = NominatimClient(baseUrl = stalled.url + "search", requestSpacingMs = 0)
+            val screen = PlaceListScreen(carContext, PlaceCategory.FUEL, NearbyPlaces(listOf(nominatim)))
+            val controller = CarTestHost.show(screen)
+
+            CarTestHost.await(what = "places request to reach the stalled server") { stalled.clientConnectedWithin(0) }
+            Thread.sleep(500) // let the request sit well inside the stalled read
+            controller.moveToState(Lifecycle.State.DESTROYED) // leaving the screen cancels its job
+            assertTrue("the stalled places search kept its socket open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
         }
     }
 
