@@ -35,7 +35,7 @@ object DuplexConfigStore {
             prefs?.let { return it }
             if (openError != null) return null
             return try {
-                open(context.applicationContext).also { prefs = it }
+                opener(context.applicationContext).also { prefs = it }
             } catch (e: Exception) {
                 // Keystore and file errors carry no setting values; the saved file is kept.
                 val why = "${e.javaClass.simpleName}: ${DuplexLog.redact(e.message, 120)}"
@@ -56,6 +56,22 @@ object DuplexConfigStore {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         )
+    }
+
+    /**
+     * Test seam (internal, production keeps [open]): how the store file is opened. JVM
+     * tests inject an open failure or a plain SharedPreferences, because the host has no
+     * AndroidKeyStore.
+     */
+    internal var opener: (Context) -> SharedPreferences = ::open
+
+    /** Test seam (internal): forgets the cached open result so the next [load] tries again. */
+    internal fun resetForTest() {
+        synchronized(this) {
+            prefs = null
+            openError = null
+            inMemory = null
+        }
     }
 
     fun load(context: Context): DuplexConfig {
