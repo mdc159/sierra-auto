@@ -116,6 +116,17 @@ class UpdateActivity : ComponentActivity() {
             })
         }
 
+        if (BuildConfig.BENCH_BUILD) {
+            // A bench (debug) build is a different package and signer from every published
+            // release, so there is nothing on GitHub or Play it could install over itself.
+            for (i in sideloadFrom until form.childCount) form.getChildAt(i).visibility = View.GONE
+            heading("Bench build")
+            form.addView(TextView(this).apply {
+                text = "This copy ($packageName) is a debug build installed beside Sierra. " +
+                    "It is updated only by installing a new build over USB."
+            })
+        }
+
         heading("Log")
         log = line()
 
@@ -179,6 +190,7 @@ class UpdateActivity : ComponentActivity() {
     }
 
     private fun check() {
+        if (BuildConfig.BENCH_BUILD) return
         checkButton.isEnabled = false
         latest.text = "Checking…"
         lifecycleScope.launch {

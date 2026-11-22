@@ -237,7 +237,7 @@ class ElevenLabsAgentSession(
      * that from the audio we send. A tap therefore mutes the rest of this reply locally
      * until the agent's next turn.
      */
-    override fun interrupt(playedMs: Long) {
+    override fun interrupt(cut: PlaybackCut) {
         // Right after a server-side interruption the event-id filter already does the job.
         if (System.currentTimeMillis() - lastServerInterruptAt < 2_000) return
         muteUntilNextTurn.set(true)

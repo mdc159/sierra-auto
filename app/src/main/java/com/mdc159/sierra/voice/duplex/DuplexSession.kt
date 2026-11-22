@@ -49,6 +49,25 @@ fun interface DuplexListener {
 }
 
 /**
+ * What the speaker had played when playback was cut. [playedMs] runs on across reply items
+ * that end without a cut (a tool call's preface, then its answer), so the playhead — not the
+ * latest enqueued item — decides which item was audible and where.
+ *
+ *  - [itemId] is the item the playhead was inside; the service forgets its unplayed rest
+ *    after [playedMs].
+ *  - [unheardItemIds] are the items queued after it whose audio never played at all; the
+ *    service treats them as truncated to nothing, not as fully heard.
+ */
+class PlaybackCut(
+    /** The reply item the playhead was inside when playback stopped; null if unknown. */
+    val itemId: String?,
+    /** How much of [itemId] had come out of the speaker. */
+    val playedMs: Long,
+    /** Items queued after [itemId] whose audio never played. */
+    val unheardItemIds: List<String>,
+)
+
+/**
  * One full-duplex voice conversation with a realtime service.
  *
  * Lifecycle: [start] connects and handshakes (blocking, throws [DuplexException]), then
@@ -72,14 +91,21 @@ interface DuplexSession {
     fun sendAudio(pcm: ByteArray, offset: Int = 0, length: Int = pcm.size)
 
     /**
-     * The driver interrupted by tapping (not by speaking). [playedMs] is how much of the
-     * current reply has actually come out of the speaker, so the service can forget the rest.
+     * The driver interrupted (a tap, or the service heard them speak). [cut] describes what
+     * was actually audible — the item the playhead was in and how much of it had played,
+     * plus items queued but never heard — so the service can forget the rest.
      */
-    fun interrupt(playedMs: Long)
+    fun interrupt(cut: PlaybackCut)
+
+    /** Simple form: the caller knows only how much of the current reply had played. */
+    fun interrupt(playedMs: Long) = interrupt(PlaybackCut(itemId = null, playedMs = playedMs, unheardItemIds = emptyList()))
 
     /** Sends a typed message as if spoken, where the service supports it. */
     fun sendText(text: String)
 
     /** Ends the session. Idempotent. */
     fun close()
+
+    /** Bytes queued for sending but not yet written to the network (uplink backlog), or -1. */
+    val sendQueueBytes: Long get() = -1
 }

@@ -25,9 +25,18 @@ object Duplex {
             .build()
     }
 
-    fun session(config: DuplexConfig, tools: ToolRegistry, client: OkHttpClient = this.client): DuplexSession =
+    /**
+     * [credentials], when given, is asked on every OpenAI Realtime connect for the current
+     * base URL and key (see [OpenAiRealtimeSession]); ElevenLabs ignores it.
+     */
+    fun session(
+        config: DuplexConfig,
+        tools: ToolRegistry,
+        client: OkHttpClient = this.client,
+        credentials: (() -> DuplexConfig)? = null,
+    ): DuplexSession =
         when (config.provider) {
-            DuplexProvider.OPENAI_REALTIME -> OpenAiRealtimeSession(config, tools, client)
+            DuplexProvider.OPENAI_REALTIME -> OpenAiRealtimeSession(config, tools, client, credentials = credentials)
             DuplexProvider.ELEVENLABS -> ElevenLabsAgentSession(config, tools, client)
         }
 
@@ -43,19 +52,43 @@ object Duplex {
 class ConfiguredAgentBridge(context: Context) : AgentBridge {
     private val app = context.applicationContext
 
+    /** The exchange in flight, so [cancel] can close its socket. One bridge serves one session. */
+    @Volatile
+    private var active: AgentClient? = null
+
+    @Volatile
+    private var cancelled = false
+
+    override fun cancel() {
+        cancelled = true
+        active?.cancel()
+    }
+
     override fun ask(question: String): String {
+        if (cancelled) throw IllegalStateException("Conversation stopped.")
         // Same settings Talk uses: signed in to Studio 54, the gateway address and key come from the vault.
         val config = Studio54.agentConfig(app, ConfigStore.load(app))
         if (!config.isConfigured) throw IllegalStateException("The owner's agent is not set up on the phone.")
         com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics.event(app, "ask_agent", "request sent; target=${config.targetLabel}")
+        val client = AgentClient(config)
+        active = client
+        // Stop may have landed between the check above and the assignment.
+        if (cancelled) client.cancel()
         return try {
-            AgentClient(config).chat(listOf(ChatMessage("system", Conversation.SYSTEM_PROMPT), ChatMessage("user", question))).also {
+            client.chat(listOf(ChatMessage("system", Conversation.SYSTEM_PROMPT), ChatMessage("user", question))).also {
                 com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics.event(app, "ask_agent", "reply received; characters=${it.length}")
             }
         } catch (e: Exception) {
+            if (cancelled) {
+                // Stopped by the owner: not a failure, and not a reason to re-read the vault.
+                com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics.event(app, "ask_agent", "cancelled by stop")
+                throw IllegalStateException("Conversation stopped.", e)
+            }
             com.mdc159.sierra.voice.diagnostics.VoiceDiagnostics.failure(app, "ask_agent failed", e)
             Studio54.onAgentError(app, e, config.profile)
             throw e
+        } finally {
+            active = null
         }
     }
 }

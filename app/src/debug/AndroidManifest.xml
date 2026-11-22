@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bench app overlay (debug builds only, com.mdc159.sierra.blitz).
+     The full-duplex test screen is exported so the PC can open and drive it over USB with
+     `adb shell am start` (see "Driving the phone test from adb" in docs/DUPLEX.md). DUMP is
+     signature|privileged|development: the adb shell holds it and ordinary apps cannot, so
+     no other app can start it; this app's own explicit intents are always allowed.
+     singleTop so a second `am start` reaches the open screen instead of stacking a copy.
+     Release builds keep the screen unexported and ignore the bench extras. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <activity
+            android:name="com.mdc159.sierra.voice.duplex.DuplexSettingsActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:permission="android.permission.DUMP"
+            tools:replace="android:exported" />
+    </application>
+</manifest>

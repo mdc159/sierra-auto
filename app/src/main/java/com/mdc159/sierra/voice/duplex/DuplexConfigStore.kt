@@ -15,19 +15,34 @@ object DuplexConfigStore {
     @Volatile
     private var prefs: SharedPreferences? = null
 
-    private fun prefs(context: Context): SharedPreferences {
+    /**
+     * Why the encrypted store could not be opened in this run of the app, or null. While set,
+     * [load] and [save] work on a copy in memory, starting from the defaults: the file on disk
+     * is left exactly as it is (it is never deleted), and the next start of the app tries again.
+     */
+    @Volatile
+    var openError: String? = null
+        private set
+
+    /** The settings for this run when the store is unavailable. */
+    @Volatile
+    private var inMemory: DuplexConfig? = null
+
+    /** The encrypted store, or null when it cannot be opened in this run (see [openError]). */
+    private fun prefs(context: Context): SharedPreferences? {
         prefs?.let { return it }
         synchronized(this) {
             prefs?.let { return it }
-            val app = context.applicationContext
-            val created = try {
-                open(app)
+            if (openError != null) return null
+            return try {
+                opener(context.applicationContext).also { prefs = it }
             } catch (e: Exception) {
-                app.deleteSharedPreferences(FILE)
-                open(app)
+                // Keystore and file errors carry no setting values; the saved file is kept.
+                val why = "${e.javaClass.simpleName}: ${DuplexLog.redact(e.message, 120)}"
+                openError = why
+                DuplexLog.w("duplex settings store could not be opened; using defaults in memory for this run, file kept ($why)")
+                null
             }
-            prefs = created
-            return created
         }
     }
 
@@ -43,9 +58,25 @@ object DuplexConfigStore {
         )
     }
 
+    /**
+     * Test seam (internal, production keeps [open]): how the store file is opened. JVM
+     * tests inject an open failure or a plain SharedPreferences, because the host has no
+     * AndroidKeyStore.
+     */
+    internal var opener: (Context) -> SharedPreferences = ::open
+
+    /** Test seam (internal): forgets the cached open result so the next [load] tries again. */
+    internal fun resetForTest() {
+        synchronized(this) {
+            prefs = null
+            openError = null
+            inMemory = null
+        }
+    }
+
     fun load(context: Context): DuplexConfig {
-        val p = prefs(context)
         val defaults = DuplexConfig()
+        val p = prefs(context) ?: return inMemory ?: defaults
         return DuplexConfig(
             provider = enumOr(p.getString("provider", null), defaults.provider),
             mode = enumOr(p.getString("mode", null), defaults.mode),
@@ -63,7 +94,12 @@ object DuplexConfigStore {
     }
 
     fun save(context: Context, c: DuplexConfig) {
-        prefs(context).edit()
+        val p = prefs(context)
+        if (p == null) {
+            inMemory = c
+            return
+        }
+        p.edit()
             .putString("provider", c.provider.name)
             .putString("mode", c.mode.name)
             .putString("openai_base_url", c.openAiBaseUrl.trim())

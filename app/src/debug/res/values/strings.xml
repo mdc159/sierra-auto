@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds install beside the Play app as com.mdc159.sierra.blitz (see app/build.gradle.kts);
+     the label tells the two apart on the phone and in Android Auto. -->
+<resources>
+    <string name="app_name">Sierra Blitz</string>
+</resources>

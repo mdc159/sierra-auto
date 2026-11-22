@@ -36,6 +36,8 @@ abstract class WebSocketSessionBase(
     @Volatile
     private var socket: WebSocket? = null
 
+    override val sendQueueBytes: Long get() = socket?.queueSize() ?: -1
+
     /** Connection counter; callbacks from an older connection are ignored. */
     @Volatile
     private var generation = 0
@@ -76,6 +78,20 @@ abstract class WebSocketSessionBase(
     /** The connection dropped and a new one is about to be made. Reset per-connection state. */
     protected open fun onBeforeReconnect() {}
 
+    /** [close] was called. Abort whatever the session still has running elsewhere (tools). */
+    protected open fun onClose() {}
+
+    /** A frame the subclass handles but that is too frequent to log by type (latency probes). */
+    protected open fun isQuietFrame(message: JSONObject): Boolean = false
+
+    /** Extra state for the receive-gap line (probes outstanding, audio sent): what the subclass knows. */
+    protected open fun stallContext(): String = ""
+
+    /** When the socket reader last handed a frame over ([System.nanoTime] ms); 0 before the first. */
+    @Volatile
+    protected var lastRxAtMs = 0L
+        private set
+
     override fun start(listener: DuplexListener) {
         this.listener = listener
         connect()
@@ -91,6 +107,10 @@ abstract class WebSocketSessionBase(
         val request = buildRequest()
         if (closed.get()) throw DuplexException("Conversation stopped.")
         val gen = ++generation
+        lastRxAtMs = 0
+        val startedAt = System.currentTimeMillis()
+        // Host and path only: the query can carry a signed token.
+        DuplexLog.i("session connecting provider=$provider gen=$gen host=${request.url.host} path=${request.url.encodedPath} auth=${request.header("Authorization") != null}")
         val ws = client.newWebSocket(request, SocketListener(gen))
         if (closed.get()) { ws.cancel(); throw DuplexException("Conversation stopped.") }
         if (generation == gen && socket == null) socket = ws
@@ -98,17 +118,21 @@ abstract class WebSocketSessionBase(
         if (closed.get()) { ws.cancel(); throw DuplexException("Conversation stopped.") }
         handshakeFailure?.let {
             ws.cancel()
+            DuplexLog.w("session handshake failed gen=$gen after=${System.currentTimeMillis() - startedAt}ms: ${DuplexLog.redact(it)}")
             throw DuplexException(it)
         }
         if (!inTime) {
             if (onHandshakeTimeout()) {
                 handshake = null
+                DuplexLog.w("session handshake unconfirmed gen=$gen after=${timing.handshakeTimeoutMs}ms; continuing")
                 return
             }
             ws.cancel()
+            DuplexLog.w("session handshake timeout gen=$gen after=${timing.handshakeTimeoutMs}ms")
             throw DuplexException("The voice service did not answer in time.")
         }
         handshake = null
+        DuplexLog.i("session configured gen=$gen after=${System.currentTimeMillis() - startedAt}ms")
     }
 
     /** Subclasses call this when the service confirms the session is ready. */
@@ -137,9 +161,13 @@ abstract class WebSocketSessionBase(
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
+        DuplexLog.i("session close: local close requested (handshaking=$isHandshaking socket=${socket != null})")
         handshake?.countDown()
         socket?.close(1000, "User ended conversation")
-        toolExecutor.shutdownNow()
+        val abandoned = toolExecutor.shutdownNow().size
+        // Interrupting the tool thread does not unblock a socket read; the tool is told itself.
+        runCatching { onClose() }
+        DuplexLog.i("session close: socket closing, running tool cancelled (queued tools dropped=$abandoned)")
         end("Ended")
     }
 
@@ -147,6 +175,7 @@ abstract class WebSocketSessionBase(
 
     private fun end(reason: String) {
         if (ended.compareAndSet(false, true)) {
+            DuplexLog.i("session ended reason=${DuplexLog.redact(reason)}")
             try {
                 listener.onEvent(DuplexEvent.Ended(reason))
             } catch (_: Exception) {
@@ -166,6 +195,7 @@ abstract class WebSocketSessionBase(
             try {
                 for (attempt in 1..timing.maxReconnects) {
                     if (closed.get()) return@Thread
+                    DuplexLog.w("session reconnect attempt=$attempt/${timing.maxReconnects} reason=${DuplexLog.redact(reason)}")
                     emit(DuplexEvent.Reconnecting(attempt, reason))
                     try {
                         Thread.sleep(timing.reconnectDelayMs * attempt)
@@ -179,6 +209,7 @@ abstract class WebSocketSessionBase(
                         emit(DuplexEvent.Connected(provider))
                         return@Thread
                     } catch (e: DuplexException) {
+                        DuplexLog.w("session reconnect attempt=$attempt failed: ${DuplexLog.redact(e.message)}")
                         emit(DuplexEvent.Error(e.message ?: "Reconnect failed.", fatal = false))
                     }
                 }
@@ -193,25 +224,67 @@ abstract class WebSocketSessionBase(
     private inner class SocketListener(private val gen: Int) : WebSocketListener() {
         private val current: Boolean get() = gen == generation
 
+        // Server event types for logcat: each change of type is logged, a run of the same
+        // type (audio deltas) is logged once with its length. Socket reader thread only.
+        private var lastType: String? = null
+        private var repeats = 0
+
+        private fun logType(type: String) {
+            if (type == lastType) {
+                repeats++
+                return
+            }
+            flushRepeats()
+            lastType = type
+            DuplexLog.i("rx $type")
+        }
+
+        private fun flushRepeats() {
+            if (repeats > 0) DuplexLog.i("rx $lastType x${repeats + 1} in a row")
+            repeats = 0
+        }
+
         override fun onOpen(webSocket: WebSocket, response: Response) {
             if (!current || closed.get()) { webSocket.cancel(); return }
+            DuplexLog.i("session socket open gen=$gen http=${response.code}")
             socket = webSocket
             onSocketOpen(webSocket)
         }
 
+        // Receive time vs handling: onMessage runs on OkHttp's reader thread as soon as a frame is
+        // read, and the handler runs inline. A long gap between frames with short handlers means
+        // the frames did not reach the phone; a slow handler means the phone held them up.
+        private var prevType = "?"
+        private var prevHandlerMs = 0L
+
         override fun onMessage(webSocket: WebSocket, text: String) {
             if (!current || closed.get()) return
+            val rxAt = System.nanoTime() / 1_000_000
+            val gap = if (lastRxAtMs == 0L) 0 else rxAt - lastRxAtMs
+            lastRxAtMs = rxAt
             val json = try {
                 JSONObject(text)
             } catch (e: Exception) {
+                DuplexLog.w("rx unreadable text frame chars=${text.length}")
                 emit(DuplexEvent.Error("Unreadable message from the voice service.", fatal = false))
                 return
             }
+            val type = json.optString("type").ifBlank { json.keys().asSequence().firstOrNull() ?: "?" }
+            val quiet = isQuietFrame(json)
+            if (gap >= RX_GAP_LOG_MS) {
+                flushRepeats()
+                DuplexLog.i("rx gap gapMs=$gap prev=$prevType prevHandlerMs=$prevHandlerMs next=${if (quiet) "probe" else type} ${stallContext()}")
+            }
+            if (!quiet) logType(type)
             try {
                 onJson(json)
             } catch (e: Exception) {
+                DuplexLog.w("rx handler failed type=${json.optString("type", "?")} error=${e.javaClass.simpleName}")
                 emit(DuplexEvent.Error("Could not handle a ${json.optString("type", "?")} message.", fatal = false))
             }
+            prevHandlerMs = System.nanoTime() / 1_000_000 - rxAt
+            prevType = if (quiet) "probe" else type
+            if (prevHandlerMs >= SLOW_HANDLER_LOG_MS) DuplexLog.w("rx slow handler type=$type handlerMs=$prevHandlerMs")
         }
 
         override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
@@ -219,10 +292,13 @@ abstract class WebSocketSessionBase(
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            flushRepeats()
+            DuplexLog.i("session socket closing gen=$gen code=$code reason=${DuplexLog.redact(reason)}")
             webSocket.close(code, reason)
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+            DuplexLog.i("session socket closed gen=$gen code=$code reason=${DuplexLog.redact(reason)} local=${closed.get()}")
             if (!current || closed.get()) return
             if (code == 1000) {
                 end(reason.ifBlank { "The voice service ended the conversation." })
@@ -232,6 +308,8 @@ abstract class WebSocketSessionBase(
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+            flushRepeats()
+            DuplexLog.w("session socket failure gen=$gen http=${response?.code ?: "none"} error=${t.javaClass.simpleName}: ${DuplexLog.redact(t.message)} local=${closed.get()}")
             if (!current || closed.get()) return
             val reason = when {
                 response != null && response.code != 101 ->
@@ -240,5 +318,13 @@ abstract class WebSocketSessionBase(
             }
             connectionLost(reason)
         }
+    }
+
+    private companion object {
+        /** A receive gap this long is logged; with probes every 2 s a healthy link never shows one. */
+        const val RX_GAP_LOG_MS = 2_500L
+
+        /** A handler this slow on the reader thread delays every frame behind it. */
+        const val SLOW_HANDLER_LOG_MS = 100L
     }
 }

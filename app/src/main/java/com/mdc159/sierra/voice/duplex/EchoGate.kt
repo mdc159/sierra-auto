@@ -9,7 +9,12 @@ import kotlin.math.sqrt
  * active (and for [hangoverMs] after), unless the mic is at least [ratio] times louder
  * than what is being played, which means the driver is talking over it.
  *
- * In [DuplexMode.FULL_DUPLEX] the gate is open and frames pass untouched.
+ * In [DuplexMode.FULL_DUPLEX] the gate is open and frames pass untouched, except during
+ * [fullWarmupMs] of the session's first assistant audio, when it behaves as in guarded mode.
+ * On the phone's loudspeaker the platform echo canceller needs a few seconds of the
+ * assistant's voice to converge (2026-11-20, Galaxy A54: the first reply of every session
+ * leaked into the mic for 2–8 s, later replies did not), and one leaked second is enough for
+ * the service to answer itself. Talking over that first stretch still works if louder.
  *
  * Pure JVM, so the thresholds can be tuned by unit tests and then by the truck test plan
  * in docs/DUPLEX.md.
@@ -21,7 +26,15 @@ class EchoGate(
     /** Below this mic RMS nothing counts as speech, whatever the playback level. */
     private val floorRms: Double = 400.0,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** Full duplex only: guarded behaviour until this much assistant audio has played. 0 = never. */
+    private val fullWarmupMs: Long = 0,
 ) {
+    @Volatile
+    private var playedTotalMs = 0L
+
+    /** True while full duplex is still in its warm-up (see [fullWarmupMs]). */
+    val inWarmup: Boolean get() = mode == DuplexMode.FULL_DUPLEX && playedTotalMs < fullWarmupMs
+
     @Volatile
     private var playbackRms = 0.0
 
@@ -34,8 +47,9 @@ class EchoGate(
         private set
 
     /** Call with each chunk the speaker is about to play, so the gate knows the level. */
-    fun onPlayback(pcm: ByteArray, length: Int = pcm.size) {
+    fun onPlayback(pcm: ByteArray, length: Int = pcm.size, durationMs: Long = 0) {
         if (length <= 0) return
+        playedTotalMs += durationMs
         playbackRms = rms(pcm, length)
         lastPlaybackAt = clock()
     }
@@ -51,7 +65,7 @@ class EchoGate(
      */
     fun process(pcm: ByteArray, length: Int = pcm.size): ByteArray {
         val frame = if (length == pcm.size) pcm else pcm.copyOf(length)
-        if (mode == DuplexMode.FULL_DUPLEX) {
+        if (mode == DuplexMode.FULL_DUPLEX && !inWarmup) {
             isGated = false
             return frame
         }

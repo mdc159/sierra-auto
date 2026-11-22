@@ -1,5 +1,62 @@
 # Verified status and next steps
 
+## Staging consolidation — 2026-11-22
+
+**Play internal 0.1.100010** (staging `5159924`) was installed on the A54 from
+Play on 2026-11-20. Installer and initiator are both `com.android.vending`, and
+the signing certificate is unchanged. The app opened with its settings kept,
+and Check connection reached Hermes through the bridge. No spoken Talk turn,
+Stop during a real stall, rotation, Desktop Head Unit or truck test has been done.
+
+**PR #55** (merged, staging `5867984`) fixed three defects found after 100010:
+
+- The agent and Studio 54 settings stores no longer delete themselves when
+  the encrypted file cannot be opened. They keep the file, record a redacted
+  `openError`, use an in-memory copy for that run, and try again on the next
+  start.
+- Stop and back on the car screens abort stalled transcription, chat and place
+  requests through `Call.executeCancellable`. A running agent tool is
+  interrupted, and later tools in that response are skipped.
+- On a cold start the phone home screen shows "Checking connection…" until the
+  vault values load, instead of a brief "Not connected yet".
+
+**Full-duplex port** (`feat/duplex-port`): the `dev/blitz` bench fixes are
+ported as code-only commits. The commit that deleted the tests on blitz is not
+included, and the fixes now have regression tests:
+
+- the phone's voice-call audio path, so the echo canceller works
+- jitter-buffer prefill and rebuffering
+- response matching by id and cancelling the gateway's duplicate replies
+- deferred tool replies
+- Stop cancelling an in-flight `ask_agent` call
+- a fresh key on reconnect
+- the duplex settings store keeping its file
+- the debug build installing beside Play as `com.mdc159.sierra.blitz`
+
+Review fixes on top:
+
+- the deferred-request race
+- truncating the item that was audible
+- restoring the speakerphone setting or the prior communication device
+- restoring audio on every exit path
+
+**Full-duplex evidence.** The voice fixes were verified on the bench by an
+agent-driven laptop-speaker loop, not a human voice:
+
+- On Wi-Fi: 0 underruns, 0 reconnects, barge-in in about 0.8 s, and
+  `ask_agent` through Hermes in 9–14 s.
+- Open: an unlocated upstream stall of 13–24 s, a reconnect starting a fresh
+  conversation, no live-voice barge-in proof, and car or Desktop Head Unit
+  untested.
+
+`MODIFY_AUDIO_SETTINGS` is new. The far-field noise reduction and VAD 0.6
+settings are shared with the car path.
+
+**Next steps:** on the A54, a spoken Talk turn and reply, Stop while listening
+and while transcribing, rotation mid-conversation, and a live Full-duplex
+session; then the Desktop Head Unit and the truck, including a weak-LTE run;
+then staging → main.
+
 ## Development platform — 2026-11-20
 
 Development moved from the retired Windows workspace to Linux. The canonical

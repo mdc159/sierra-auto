@@ -13,6 +13,13 @@ interface DuplexTool {
 
     @Throws(Exception::class)
     fun invoke(arguments: JSONObject): String
+
+    /**
+     * The session is ending: abort an [invoke] that is still running (close its socket) so
+     * it returns or throws promptly. Called from another thread. Tools that finish quickly
+     * need not implement it.
+     */
+    fun cancel() {}
 }
 
 /** The tools offered to a session, looked up by name when the service calls one. */
@@ -23,11 +30,29 @@ class ToolRegistry(tools: List<DuplexTool> = emptyList()) {
 
     operator fun get(name: String): DuplexTool? = byName[name]
 
+    /** Aborts any tool that is still running. The session calls this when it is closed. */
+    fun cancel() {
+        byName.values.forEach { runCatching { it.cancel() } }
+    }
+
     /**
      * Runs [name] with [argumentsJson]. Never throws: an unknown tool or a tool failure
      * becomes an error result so the model can tell the driver.
      */
     fun run(name: String, argumentsJson: String): ToolOutcome {
+        val startedAt = System.currentTimeMillis()
+        DuplexLog.i("tool start name=$name argChars=${argumentsJson.length}")
+        val outcome = invoke(name, argumentsJson)
+        val took = System.currentTimeMillis() - startedAt
+        if (outcome.isError) {
+            DuplexLog.w("tool end name=$name ok=false ms=$took error=${DuplexLog.redact(outcome.result)}")
+        } else {
+            DuplexLog.i("tool end name=$name ok=true ms=$took resultChars=${outcome.result.length}")
+        }
+        return outcome
+    }
+
+    private fun invoke(name: String, argumentsJson: String): ToolOutcome {
         val tool = byName[name] ?: return ToolOutcome("Unknown tool: $name", isError = true)
         val args = try {
             if (argumentsJson.isBlank()) JSONObject() else JSONObject(argumentsJson)
@@ -63,6 +88,9 @@ fun interface AgentBridge {
     /** Blocking. Returns the agent's answer, or throws with a short message. */
     @Throws(Exception::class)
     fun ask(question: String): String
+
+    /** Aborts an [ask] that is still waiting, from another thread. */
+    fun cancel() {}
 }
 
 /** Built-in tool: hands a hard question to the owner's agent and returns its answer. */
@@ -80,6 +108,8 @@ class AskAgentTool(private val bridge: AgentBridge) : DuplexTool {
         if (question.isEmpty()) throw IllegalArgumentException("ask_agent needs a question.")
         return bridge.ask(question)
     }
+
+    override fun cancel() = bridge.cancel()
 
     companion object {
         const val NAME = "ask_agent"

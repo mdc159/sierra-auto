@@ -27,7 +27,7 @@ enum class DuplexMode {
  */
 data class DuplexConfig(
     val provider: DuplexProvider = DuplexProvider.OPENAI_REALTIME,
-    val mode: DuplexMode = DuplexMode.GUARDED,
+    val mode: DuplexMode = DEFAULT_MODE,
 
     /** OpenAI-compatible base URL, with or without `/v1`. The gateway or OpenAI itself. */
     val openAiBaseUrl: String = DEFAULT_OPENAI_BASE_URL,
@@ -56,6 +56,13 @@ data class DuplexConfig(
         }
 
     companion object {
+        /**
+         * Used until a mode has been saved. Guarded for the truck; the bench app (debug build)
+         * starts in full duplex, because the phone test runs through the phone's echo canceller.
+         */
+        val DEFAULT_MODE: DuplexMode =
+            if (com.mdc159.sierra.BuildConfig.BENCH_BUILD) DuplexMode.FULL_DUPLEX else DuplexMode.GUARDED
+
         const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
         const val DEFAULT_OPENAI_MODEL = "gpt-realtime"
         const val DEFAULT_OPENAI_VOICE = "marin"

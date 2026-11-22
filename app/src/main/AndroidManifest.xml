@@ -7,6 +7,8 @@
     <!-- Required to use PlaceListMapTemplate (host-drawn map). -->
     <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Phone duplex test: communication mode and the loudspeaker as communication device. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

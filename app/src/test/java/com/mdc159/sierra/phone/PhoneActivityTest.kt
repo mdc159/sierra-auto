@@ -143,12 +143,12 @@ class PhoneActivityTest {
     @Test
     fun phoneActivityIsTheLauncherAndSettingsIsNot() {
         val context = application()
-        val launch = context.packageManager.getLaunchIntentForPackage("com.mdc159.sierra")
+        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
         assertNotNull(launch)
         assertEquals("com.mdc159.sierra.phone.PhoneActivity", launch!!.component!!.className)
 
         val resolved = context.packageManager.resolveActivity(
-            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage("com.mdc159.sierra"),
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage(context.packageName),
             0,
         )
         assertEquals("com.mdc159.sierra.phone.PhoneActivity", resolved?.activityInfo?.name)
