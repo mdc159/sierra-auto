@@ -10,6 +10,8 @@ class Studio54Status(
     val lastFetched: Long?,
     val servingFromCache: Boolean,
     val lastError: String?,
+    /** Why the encrypted store could not be opened this run, or null. No credential values. */
+    val storeError: String? = null,
 )
 
 /** Outcome of one [VaultSecretSource.refresh]. */
@@ -132,6 +134,7 @@ class VaultSecretSource(
             lastFetched = live?.fetchedAt,
             servingFromCache = live != null && lastRefreshFailed,
             lastError = lastError,
+            storeError = store.openError,
         )
     }
 

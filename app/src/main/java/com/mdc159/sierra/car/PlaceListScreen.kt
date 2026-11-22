@@ -29,10 +29,8 @@ import com.mdc159.sierra.places.PlaceCategory
 import com.mdc159.sierra.places.displayDetail
 import com.mdc159.sierra.places.displayName
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runInterruptible
 
 /**
  * Host-drawn map plus a list of nearby places in one category.
@@ -79,10 +77,8 @@ class PlaceListScreen(
             } else {
                 val limit = CarLimits.placeListLimit(carContext)
                 try {
-                    // runInterruptible lets cancellation interrupt the blocking HTTP calls.
-                    val places = runInterruptible(Dispatchers.IO) {
-                        placeSource.search(category, location.latitude, location.longitude, limit)
-                    }
+                    // Cancellable: leaving the screen must abort a stalled search at once.
+                    val places = placeSource.searchCancellable(category, location.latitude, location.longitude, limit)
                     State.Loaded(location.latitude, location.longitude, places)
                 } catch (e: CancellationException) {
                     throw e

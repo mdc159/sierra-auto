@@ -59,7 +59,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 
 /**
@@ -185,15 +184,14 @@ class TalkScreen(
                         return@launch
                     }
                     setState(State.Thinking)
-                    runInterruptible(Dispatchers.IO) { client.transcribe(wav) }
+                    // Cancellable: Stop/back must abort the upload and the stalled read at once.
+                    client.transcribeCancellable(wav)
                 } else {
                     PhoneRecognizer.recognize(carContext).also { setState(State.Thinking) }
                 }
                 if (heard.isBlank()) throw AgentException("Didn't catch that.")
 
-                val reply = runInterruptible(Dispatchers.IO) {
-                    client.chat(session.conversation.messagesFor(heard), tools, toolListener)
-                }
+                val reply = client.chatCancellable(session.conversation.messagesFor(heard), tools, toolListener)
                 hideToolStatus()
                 session.conversation.record(heard, reply)
                 withContext(Dispatchers.IO) { runCatching { History.add(carContext, heard, reply) } }
@@ -244,7 +242,8 @@ class TalkScreen(
             override suspend fun reply(userText: String): String {
                 VoiceDiagnostics.event(carContext, "Agent", "request sent")
                 val reply = try {
-                    runInterruptible(Dispatchers.IO) { client.chat(session.conversation.messagesFor(userText), tools, toolListener) }
+                    // Cancellable: Stop/back must abort a stalled reply at once, not at the timeouts.
+                    client.chatCancellable(session.conversation.messagesFor(userText), tools, toolListener)
                 } catch (e: AgentException) {
                     VoiceDiagnostics.failure(carContext, "Agent failed", e)
                     Studio54.onAgentError(carContext, e, config.profile)

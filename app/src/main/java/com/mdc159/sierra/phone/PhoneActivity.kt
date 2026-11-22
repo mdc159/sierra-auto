@@ -273,7 +273,7 @@ class PhoneActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         Studio54.start(this)
-        refreshAgentCard()
+        refreshAgentCardOnStart()
         refreshButtons()
     }
 
@@ -653,6 +653,23 @@ class PhoneActivity : ComponentActivity() {
         if (hint != null) showHint(c) else {
             hintLine.visibility = View.GONE
             hintLine.text = ""
+        }
+    }
+
+    /**
+     * Cold start: the effective settings are not known until they are loaded (the vault
+     * refresh may even be what produces them), so onStart must not render a guess — on a
+     * bridge phone that flashed "Not connected yet — open Settings…" every launch until
+     * the values landed. The agent line says only that the connection is being checked
+     * until the first load completes; later starts reuse the loaded values.
+     */
+    private fun refreshAgentCardOnStart() {
+        if (model.settingsLoaded) return refreshAgentCard()
+        agentLine.text = Tailnet.CHECKING
+        lifecycleScope.launch {
+            val config = effectiveConfig()
+            model.settingsLoaded = true
+            refreshAgentCard(config)
         }
     }
 

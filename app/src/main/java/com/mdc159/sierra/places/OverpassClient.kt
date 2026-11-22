@@ -1,6 +1,10 @@
 package com.mdc159.sierra.places
 
 import com.mdc159.sierra.net.Http
+import com.mdc159.sierra.net.executeCancellable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -38,17 +42,48 @@ class OverpassClient(
         throw IOException(Http.describe(lastError ?: IOException("no endpoint")), lastError)
     }
 
-    private fun post(endpoint: String, query: String): String {
-        val request = Request.Builder()
+    /** [search] with the caller's cancellation wired to each endpoint's request. */
+    override suspend fun searchCancellable(category: PlaceCategory, lat: Double, lng: Double, limit: Int): List<NearbyPlace> {
+        val query = buildQuery(category, lat, lng, category.radiusMeters)
+        var lastError: IOException? = null
+        for (endpoint in endpoints) {
+            try {
+                val body = postCancellable(endpoint, query)
+                return parse(body, category, lat, lng).take(limit)
+            } catch (e: IOException) {
+                lastError = e
+            } catch (e: JSONException) {
+                lastError = IOException("Places server sent a bad response.", e)
+            }
+        }
+        throw IOException(Http.describe(lastError ?: IOException("no endpoint")), lastError)
+    }
+
+    private fun request(endpoint: String, query: String): Request =
+        Request.Builder()
             .url(endpoint)
             .header("User-Agent", Http.USER_AGENT)
             .post(FormBody.Builder().add("data", query).build())
             .build()
-        client.newCall(request).execute().use { response ->
+
+    private fun post(endpoint: String, query: String): String {
+        client.newCall(request(endpoint, query)).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Places server busy (${response.code}).")
             return response.body?.string() ?: throw IOException("Empty places response.")
         }
     }
+
+    private suspend fun postCancellable(endpoint: String, query: String): String =
+        try {
+            client.newCall(request(endpoint, query)).executeCancellable(Dispatchers.IO) { response ->
+                if (!response.isSuccessful) throw IOException("Places server busy (${response.code}).")
+                response.body?.string() ?: throw IOException("Empty places response.")
+            }
+        } catch (e: IOException) {
+            // Cancelling the call closes the socket: that is the caller leaving, not a server failure.
+            currentCoroutineContext().ensureActive()
+            throw e
+        }
 
     companion object {
         val DEFAULT_ENDPOINTS = listOf(

@@ -3,6 +3,7 @@ package com.mdc159.sierra.car
 import android.Manifest
 import android.location.Location
 import android.location.LocationManager
+import android.os.Looper
 import android.os.SystemClock
 import androidx.car.app.CarContext
 import androidx.car.app.constraints.ConstraintManager
@@ -24,8 +25,10 @@ import com.mdc159.sierra.car.CarTestHost.gridItems
 import com.mdc159.sierra.car.CarTestHost.rows
 import com.mdc159.sierra.car.CarTestHost.textLines
 import com.mdc159.sierra.car.CarTestHost.titleText
+import com.mdc159.sierra.net.StalledConnectionServer
 import com.mdc159.sierra.places.NearbyPlace
 import com.mdc159.sierra.places.NearbyPlaces
+import com.mdc159.sierra.places.NominatimClient
 import com.mdc159.sierra.places.PlaceCategory
 import com.mdc159.sierra.places.PlaceSource
 import org.junit.After
@@ -277,6 +280,30 @@ class CarScreensTest {
         }
     }
 
+    /**
+     * Leaving the list during a stalled places search: destroying the screen cancels its
+     * job, and that must abort the in-flight HTTP call at once (the socket closes) instead
+     * of waiting out the places client's own timeouts.
+     */
+    @Test
+    fun placeListLeavingDuringAStalledSearchClosesTheSocketAtOnce() {
+        val stalled = StalledConnectionServer().start()
+        try {
+            CarTestHost.grant(Manifest.permission.ACCESS_FINE_LOCATION)
+            simulateLocation(38.5, -121.5)
+            val nominatim = NominatimClient(baseUrl = stalled.url + "search", requestSpacingMs = 0)
+            val screen = PlaceListScreen(carContext, PlaceCategory.FUEL, NearbyPlaces(listOf(nominatim)))
+            val controller = CarTestHost.show(screen)
+
+            CarTestHost.await(what = "places request to reach the stalled server") { stalled.clientConnectedWithin(0) }
+            Thread.sleep(500) // let the request sit well inside the stalled read
+            controller.moveToState(Lifecycle.State.DESTROYED) // leaving the screen cancels its job
+            assertTrue("the stalled places search kept its socket open", stalled.clientClosedWithin(2_000))
+        } finally {
+            stalled.shutdown()
+        }
+    }
+
     @Test
     fun placeListSourceFailureShowsRetryAndMapsRows() {
         CarTestHost.grant(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -349,6 +376,32 @@ class CarScreensTest {
         controller.moveToState(Lifecycle.State.DESTROYED)
         gate.countDown()
         CarTestHost.await(what = "interrupt") { source.interrupted.get() }
+    }
+
+    /**
+     * Only each HTTP body read moved off Main; the parse/dedupe/sort after it ran on the
+     * screen's Main-dispatched lifecycleScope. The search must now run off Main, or a big
+     * Nominatim/Overpass answer janks the car UI thread.
+     */
+    @Test
+    fun placeListSearchRunsOffTheMainThread() {
+        CarTestHost.grant(Manifest.permission.ACCESS_FINE_LOCATION)
+        simulateLocation(38.5, -121.5)
+        val source = object : PlaceSource {
+            val calls = java.util.concurrent.atomic.AtomicInteger()
+            @Volatile var ranOnMain: Boolean? = null
+            override fun search(category: PlaceCategory, lat: Double, lng: Double, limit: Int): List<NearbyPlace> =
+                throw AssertionError("the screen must use searchCancellable")
+            override suspend fun searchCancellable(category: PlaceCategory, lat: Double, lng: Double, limit: Int): List<NearbyPlace> {
+                calls.incrementAndGet()
+                ranOnMain = Looper.myLooper() == Looper.getMainLooper()
+                return listOf(place("Shell", 800.0))
+            }
+        }
+        val screen = PlaceListScreen(carContext, PlaceCategory.FUEL, NearbyPlaces(listOf(source)))
+        CarTestHost.show(screen)
+        CarTestHost.await(what = "load off the main thread") { loadedRows(screen) == 1 }
+        assertEquals("the search (parse/dedupe/sort) ran on the main thread", false, source.ranOnMain)
     }
 
     // ---- Place detail --------------------------------------------------------------------

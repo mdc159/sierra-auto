@@ -17,6 +17,7 @@ import kotlin.concurrent.thread
 class StalledConnectionServer {
 
     private val server = ServerSocket()
+    private val firstClientConnected = CountDownLatch(1)
     private val firstClientClosed = CountDownLatch(1)
     @Volatile
     private var client: Socket? = null
@@ -30,6 +31,7 @@ class StalledConnectionServer {
             runCatching {
                 val socket = server.accept()
                 client = socket
+                firstClientConnected.countDown()
                 val input = socket.getInputStream()
                 val buffer = ByteArray(8192)
                 try {
@@ -44,6 +46,10 @@ class StalledConnectionServer {
         }
         return this
     }
+
+    /** True when the first client connected within [timeoutMillis]. */
+    fun clientConnectedWithin(timeoutMillis: Long): Boolean =
+        firstClientConnected.await(timeoutMillis, TimeUnit.MILLISECONDS)
 
     /** True when the first client closed its connection within [timeoutMillis]. */
     fun clientClosedWithin(timeoutMillis: Long): Boolean =

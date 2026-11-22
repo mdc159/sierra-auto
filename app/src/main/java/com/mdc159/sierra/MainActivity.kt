@@ -40,6 +40,7 @@ import com.mdc159.sierra.update.UpdateActivity
 class MainActivity : ComponentActivity() {
 
     private lateinit var status: TextView
+    private lateinit var storeNote: TextView
     private lateinit var baseUrl: EditText
     private lateinit var apiKey: EditText
     private lateinit var model: EditText
@@ -91,6 +92,13 @@ class MainActivity : ComponentActivity() {
         form.addView(TextView(this).apply {
             text = "Set up your agent here, then open Sierra in Android Auto."
         })
+        // A keystore failure must be visible, not silent: this run edits an in-memory copy.
+        storeNote = TextView(this).apply {
+            text = "Settings store unavailable — changes apply to this run only. " +
+                "The saved settings are kept and retried next start."
+            visibility = View.GONE
+        }
+        form.addView(storeNote)
 
         heading("Who answers")
         form.addView(Button(this).apply {
@@ -215,6 +223,7 @@ class MainActivity : ComponentActivity() {
 
         setContentView(ScrollView(this).apply { addView(form) })
         loadConfig()
+        showStoreNote()
         refreshPermissions()
         requestMissing()
     }
@@ -223,6 +232,13 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshPermissions()
         showVaultHints()
+        showStoreNote()
+    }
+
+    /** Shows the store note once the first read has decided whether the store opened. */
+    private fun showStoreNote() {
+        if (!::storeNote.isInitialized) return
+        storeNote.visibility = if (ConfigStore.openError != null) View.VISIBLE else View.GONE
     }
 
     /** When Studio 54 supplies the base URL and key, say so instead of showing example values. */
