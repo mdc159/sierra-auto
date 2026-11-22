@@ -81,6 +81,9 @@ class PhoneCallAudio(context: Context) : FocusHandle {
     private val focus = AndroidFocus(context, voiceCallAttributes)
     private var previousMode: Int? = null
     private var routed = false
+    /** The route the session replaced: the speakerphone flag before S, the communication device from S on. */
+    private var previousSpeakerphone: Boolean? = null
+    private var previousCommDevice: AudioDeviceInfo? = null
     private var raisedFrom: Int? = null
     private var raisedTo = 0
 
@@ -91,9 +94,14 @@ class PhoneCallAudio(context: Context) : FocusHandle {
             .onFailure { DuplexLog.w("phone audio: communication mode refused ${it.javaClass.simpleName}") }
         routed = runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                previousCommDevice = audio.communicationDevice
                 val speaker = audio.availableCommunicationDevices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
                 speaker != null && audio.setCommunicationDevice(speaker)
             } else {
+                // Snapshot before switching: the owner (or another app) may have routed the
+                // speakerphone already, and the session puts back exactly what it found.
+                @Suppress("DEPRECATION")
+                previousSpeakerphone = audio.isSpeakerphoneOn
                 @Suppress("DEPRECATION")
                 audio.isSpeakerphoneOn = true
                 true
@@ -124,14 +132,19 @@ class PhoneCallAudio(context: Context) : FocusHandle {
             if (routed) {
                 runCatching {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        audio.clearCommunicationDevice()
+                        // Back to the device found before the session (another app's routing,
+                        // say), not to none.
+                        val prior = previousCommDevice
+                        if (prior != null) audio.setCommunicationDevice(prior) else audio.clearCommunicationDevice()
                     } else {
                         @Suppress("DEPRECATION")
-                        audio.isSpeakerphoneOn = false
+                        audio.isSpeakerphoneOn = previousSpeakerphone ?: false
                     }
                 }
             }
             routed = false
+            previousCommDevice = null
+            previousSpeakerphone = null
             runCatching { audio.mode = mode }
             DuplexLog.i("phone audio: restored mode=${modeName(audio.mode)}")
         }
