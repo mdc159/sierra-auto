@@ -247,13 +247,14 @@ class OpenAiRealtimeSession(
         timer.scheduleWithFixedDelay({ runCatching { probeTick() } }, PROBE_INTERVAL_MS, PROBE_INTERVAL_MS, TimeUnit.MILLISECONDS)
     }
 
-    private fun probeTick() {
+    /** Runs on the probe timer; internal so a regression test can run it at a chosen point. */
+    internal fun probeTick() {
         if (isClosed || isHandshaking) return
         // A deferred request whose expected reply never came (a turn the server did not answer).
         val retry = synchronized(responseLock) {
             responsePending && activeResponseId == null && !userSpeaking && System.currentTimeMillis() >= vadResponseDueBy
         }
-        if (retry) requestResponse("deferred, no reply came")
+        if (retry) claimPendingResponse("deferred, no reply came")
         val now = System.nanoTime() / 1_000_000
         probesOutstanding.entries.removeIf { (id, at) ->
             (now - at >= PROBE_GIVE_UP_MS).also { if (it) DuplexLog.w("probe lost id=$id after ${now - at}ms") }
@@ -331,12 +332,26 @@ class OpenAiRealtimeSession(
      *    2026-11-20: a tool answer was never spoken), so the result gets its own response;
      *  - otherwise: send it now.
      */
-    private fun requestResponse(why: String) {
-        synchronized(responseLock) {
-            val now = System.currentTimeMillis()
-            // Ours is tagged (metadata), so it is known when it arrives; the wait is only a safety net.
-            val requested = ownRequestId != null && now - responseRequestedAt < RESPONSE_CREATE_WAIT_MS
-            when {
+    private fun requestResponse(why: String) = synchronized(responseLock) { requestResponseLocked(why) }
+
+    /**
+     * Claims the deferred request, if it is still pending, and sends it (or defers it
+     * again) under the same lock. `response.done` and a probe tick can both see the same
+     * pending request; whoever claims it first sends the one `response.create` it stands
+     * for, and the other's claim finds nothing left. Without the claim each would ask for
+     * its own response, and the one unanswered turn would be answered twice — the extra
+     * reply tagged as the app's own request, past the duplicate canceller.
+     */
+    private fun claimPendingResponse(why: String): Unit = synchronized(responseLock) {
+        if (responsePending) requestResponseLocked(why)
+    }
+
+    /** Sends or defers a `response.create`. The caller holds [responseLock]. */
+    private fun requestResponseLocked(why: String) {
+        val now = System.currentTimeMillis()
+        // Ours is tagged (metadata), so it is known when it arrives; the wait is only a safety net.
+        val requested = ownRequestId != null && now - responseRequestedAt < RESPONSE_CREATE_WAIT_MS
+        when {
                 activeResponseId != null || requested -> {
                     responsePending = true
                     DuplexLog.i("openai response.create deferred ($why): response ${activeResponseId ?: "requested"} in progress")
@@ -361,7 +376,6 @@ class OpenAiRealtimeSession(
                             .put("response", JSONObject().put("metadata", JSONObject().put(METADATA_KEY, eventId))),
                     )
                 }
-            }
         }
     }
 
@@ -541,11 +555,10 @@ class OpenAiRealtimeSession(
                 }
                 DuplexLog.i("openai response done id=$doneId status=$status${if (reason.isBlank()) "" else " reason=$reason"} audioMs=${Resampler.durationMs(audioReceivedBytes.toInt(), SAMPLE_RATE)} droppedDeltas=$droppedDeltas")
                 val isDuplicate = doneId != null && doneId == duplicateResponseId
-                val pending = synchronized(responseLock) {
+                synchronized(responseLock) {
                     activeResponseId = null
                     // Cancelled before it said or did anything: the input it was for is still unanswered.
                     if (status == "cancelled" && !activeHadOutput && !isDuplicate) inputSinceResponse = true
-                    responsePending
                 }
                 if (isDuplicate) {
                     // Its audio was never played; a cancelled AssistantDone would cut the reply
@@ -554,7 +567,10 @@ class OpenAiRealtimeSession(
                 } else {
                     emit(DuplexEvent.AssistantDone(cancelled = status == "cancelled"))
                 }
-                if (pending) requestResponse("deferred")
+                // Claim the deferred request, if any, atomically with sending it: a probe tick
+                // may have drained it while the lock was open above, and asking again would
+                // answer the turn twice.
+                claimPendingResponse("deferred")
             }
             else -> Unit // session.updated-adjacent chatter, rate limits, item lifecycle: not needed.
         }

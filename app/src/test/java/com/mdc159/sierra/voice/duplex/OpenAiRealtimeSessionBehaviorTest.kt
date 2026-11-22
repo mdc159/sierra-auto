@@ -47,10 +47,11 @@ class OpenAiRealtimeSessionBehaviorTest {
     private fun connect(
         tools: ToolRegistry = ToolRegistry(emptyList()),
         credentials: (() -> DuplexConfig)? = null,
+        listener: DuplexListener = sink,
     ): OpenAiRealtimeSession {
         val s = OpenAiRealtimeSession(config(), tools, testClient, testTiming, credentials)
         session = s
-        s.start(sink)
+        s.start(listener)
         return s
     }
 
@@ -447,6 +448,60 @@ class OpenAiRealtimeSessionBehaviorTest {
         done("resp_3")
         sink.await<DuplexEvent.AssistantDone>()
         server.awaitType("response.create") // the tool answer gets its own response after it
+    }
+
+    /**
+     * response.done snapshots responsePending under responseLock, then unlocks before it
+     * asks for the deferred response. A probe tick that drains the pending request inside
+     * that gap (it sends the tagged response.create itself) must consume it: done asking
+     * again re-defers behind the probe's own request, and when that answer finishes, a
+     * third response.create goes out. The tool's one pending result would be answered
+     * twice, the second reply tagged as the app's own request (past the duplicate
+     * canceller). The claim of a pending request must be atomic with the send.
+     */
+    @Test
+    fun aDeferredRequestDrainedByTheProbeInDonesGapIsNotAskedForAgain() {
+        val bridge = BlockingBridge()
+        val held = java.util.concurrent.atomic.AtomicReference<OpenAiRealtimeSession?>()
+        val racing = object : DuplexListener {
+            override fun onEvent(event: DuplexEvent) {
+                // The done of resp_2 is emitting: this callback runs inside the gap
+                // response.done leaves between releasing responseLock and asking for the
+                // deferred response. Run the probe timer's work exactly there.
+                if (event is DuplexEvent.AssistantDone && sink.all<DuplexEvent.AssistantDone>().size == 1) {
+                    held.get()?.probeTick()
+                }
+                sink.onEvent(event)
+            }
+        }
+        held.set(connect(ToolRegistry(listOf(AskAgentTool(bridge))), listener = racing))
+
+        created("resp_1") // the tool call's preface
+        functionCall("call_9")
+        assertTrue(bridge.started.await(2, TimeUnit.SECONDS))
+        done("resp_1")
+        sink.await<DuplexEvent.AssistantDone>()
+
+        // The driver asks something else while the tool runs; its result returns mid-reply
+        // and is deferred (the server refuses a second response.create).
+        committed()
+        created("resp_2")
+        delta("resp_2", "item_b")
+        sink.await<DuplexEvent.AssistantAudio> { it.itemId == "item_b" }
+        bridge.finish()
+        server.await { it.optString("type") == "conversation.item.create" && it.optJSONObject("item")?.optString("type") == "function_call_output" }
+        server.noMessage("response.create", 250) // deferred behind the active resp_2
+
+        done("resp_2") // -> the racing listener runs probeTick() inside done's gap
+        sink.await<DuplexEvent.AssistantDone> { sink.all<DuplexEvent.AssistantDone>().size >= 2 }
+        val toolAnswer = server.awaitType("response.create") // claimed by the probe, once
+        val tag = toolAnswer.getJSONObject("response").getJSONObject("metadata").getString(metadataKey)
+
+        created("resp_tool", tag = tag)
+        done("resp_tool")
+        sink.await<DuplexEvent.AssistantDone> { sink.all<DuplexEvent.AssistantDone>().size >= 3 }
+        // Only one pending result existed: no second response.create may follow the answer.
+        server.noMessage("response.create", 400)
     }
 
     // ---- stop / tools / credentials ------------------------------------------------------
