@@ -64,6 +64,47 @@ class AndroidFocus(
 }
 
 /**
+ * The AudioManager surface [PhoneCallAudio] touches, as an interface so unit tests can
+ * inject a failure at a chosen call. The app itself always uses [CallAudioOps.Platform].
+ */
+interface CallAudioOps {
+    var mode: Int
+
+    /** The pre-S speakerphone flag, deprecated from S on. */
+    var speakerphoneOn: Boolean
+    val communicationDevice: AudioDeviceInfo?
+    val availableCommunicationDevices: List<AudioDeviceInfo>
+
+    fun setCommunicationDevice(device: AudioDeviceInfo): Boolean
+    fun clearCommunicationDevice()
+    fun streamVolume(stream: Int): Int
+    fun maxStreamVolume(stream: Int): Int
+    fun setStreamVolume(stream: Int, volume: Int, flags: Int)
+    fun devicesForAttributes(attributes: AudioAttributes): List<AudioDeviceInfo>
+
+    /** Delegates every call to the platform [AudioManager]. */
+    @SuppressLint("NewApi") // every method runs behind PhoneCallAudio's Build.VERSION guards
+    class Platform(private val audio: AudioManager) : CallAudioOps {
+        override var mode: Int
+            get() = audio.mode
+            set(value) { audio.mode = value }
+
+        override var speakerphoneOn: Boolean
+            get() = @Suppress("DEPRECATION") audio.isSpeakerphoneOn
+            set(value) { @Suppress("DEPRECATION") audio.isSpeakerphoneOn = value }
+
+        override val communicationDevice: AudioDeviceInfo? get() = audio.communicationDevice
+        override val availableCommunicationDevices: List<AudioDeviceInfo> get() = audio.availableCommunicationDevices
+        override fun setCommunicationDevice(device: AudioDeviceInfo): Boolean = audio.setCommunicationDevice(device)
+        override fun clearCommunicationDevice() = audio.clearCommunicationDevice()
+        override fun streamVolume(stream: Int): Int = audio.getStreamVolume(stream)
+        override fun maxStreamVolume(stream: Int): Int = audio.getStreamMaxVolume(stream)
+        override fun setStreamVolume(stream: Int, volume: Int, flags: Int) = audio.setStreamVolume(stream, volume, flags)
+        override fun devicesForAttributes(attributes: AudioAttributes): List<AudioDeviceInfo> = audio.getAudioDevicesForAttributes(attributes)
+    }
+}
+
+/**
  * The phone test's audio session: [AndroidFocus] with voice-call attributes, plus the
  * platform's communication mode for the session's lifetime, on the built-in loudspeaker.
  *
@@ -76,8 +117,12 @@ class AndroidFocus(
  * the previous mode and route are always put back. The car keeps plain [AndroidFocus]: there
  * the audio goes to the head unit, and a phone-call mode would be wrong.
  */
-class PhoneCallAudio(context: Context) : FocusHandle {
-    private val audio = context.applicationContext.getSystemService(AudioManager::class.java)
+class PhoneCallAudio(
+    context: Context,
+    private val ops: CallAudioOps = CallAudioOps.Platform(
+        context.applicationContext.getSystemService(AudioManager::class.java),
+    ),
+) : FocusHandle {
     private val focus = AndroidFocus(context, voiceCallAttributes)
     private var previousMode: Int? = null
     private var routed = false
@@ -89,72 +134,104 @@ class PhoneCallAudio(context: Context) : FocusHandle {
 
     override fun request(onLoss: () -> Unit): Boolean {
         if (!focus.request(onLoss)) return false
-        previousMode = audio.mode
-        runCatching { audio.mode = AudioManager.MODE_IN_COMMUNICATION }
-            .onFailure { DuplexLog.w("phone audio: communication mode refused ${it.javaClass.simpleName}") }
-        routed = runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                previousCommDevice = audio.communicationDevice
-                val speaker = audio.availableCommunicationDevices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
-                speaker != null && audio.setCommunicationDevice(speaker)
-            } else {
-                // Snapshot before switching: the owner (or another app) may have routed the
-                // speakerphone already, and the session puts back exactly what it found.
-                @Suppress("DEPRECATION")
-                previousSpeakerphone = audio.isSpeakerphoneOn
-                @Suppress("DEPRECATION")
-                audio.isSpeakerphoneOn = true
-                true
-            }
-        }.getOrDefault(false)
-        if (routed) awaitLoudspeakerRoute()
-        matchAssistantVolume()
-        val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audio.communicationDevice?.type?.toString() ?: "none" else "speakerphone"
-        DuplexLog.i(
-            "phone audio: mode=${modeName(audio.mode)} (was ${modeName(previousMode ?: -1)}) loudspeaker=$routed commDeviceType=$device " +
-                "voiceCallVolume=${audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audio.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)} " +
-                "musicVolume=${audio.getStreamVolume(AudioManager.STREAM_MUSIC)}/${audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)}",
-        )
-        return true
+        try {
+            previousMode = ops.mode
+            runCatching { ops.mode = AudioManager.MODE_IN_COMMUNICATION }
+                .onFailure { DuplexLog.w("phone audio: communication mode refused ${it.javaClass.simpleName}") }
+            routed = runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    previousCommDevice = ops.communicationDevice
+                    val speaker = ops.availableCommunicationDevices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                    speaker != null && ops.setCommunicationDevice(speaker)
+                } else {
+                    // Snapshot before switching: the owner (or another app) may have routed the
+                    // speakerphone already, and the session puts back exactly what it found.
+                    previousSpeakerphone = ops.speakerphoneOn
+                    ops.speakerphoneOn = true
+                    true
+                }
+            }.getOrDefault(false)
+            if (routed) awaitLoudspeakerRoute()
+            matchAssistantVolume()
+            val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ops.communicationDevice?.type?.toString() ?: "none" else "speakerphone"
+            DuplexLog.i(
+                "phone audio: mode=${modeName(ops.mode)} (was ${modeName(previousMode ?: -1)}) loudspeaker=$routed commDeviceType=$device " +
+                    "voiceCallVolume=${ops.streamVolume(AudioManager.STREAM_VOICE_CALL)}/${ops.maxStreamVolume(AudioManager.STREAM_VOICE_CALL)} " +
+                    "musicVolume=${ops.streamVolume(AudioManager.STREAM_MUSIC)}/${ops.maxStreamVolume(AudioManager.STREAM_MUSIC)}",
+            )
+            return true
+        } catch (e: Exception) {
+            // Setup failed after the focus was taken and, perhaps, after the mode, route or
+            // volume had already been changed: put every one of them back and release the
+            // focus, or a failed start leaves the phone in communication mode on speaker.
+            DuplexLog.w("phone audio: setup failed (${e.javaClass.simpleName}); restoring")
+            undo()
+            focus.abandon()
+            throw e
+        }
     }
 
     override fun abandon() {
+        undo()
+        focus.abandon()
+    }
+
+    /**
+     * Puts back what [request] changed, if anything. The volume, the route and the mode are
+     * restored each on its own — one of them failing (a dying audio HAL, say) must not skip
+     * the others, or one bad call leaves the phone in communication mode.
+     */
+    private fun undo() {
         val mode = previousMode
         previousMode = null
-        if (mode != null) {
-            raisedFrom?.let { from ->
-                // Put back the owner's call volume, unless they changed it during the session.
-                if (audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL) == raisedTo) {
-                    runCatching { audio.setStreamVolume(AudioManager.STREAM_VOICE_CALL, from, 0) }
-                }
+        if (mode == null) return
+        restoreVolume()
+        restoreRoute()
+        restoreMode(mode)
+    }
+
+    private fun restoreVolume() {
+        val from = raisedFrom ?: return
+        raisedFrom = null
+        runCatching {
+            // Put back the owner's call volume, unless they changed it during the session.
+            if (ops.streamVolume(AudioManager.STREAM_VOICE_CALL) == raisedTo) {
+                ops.setStreamVolume(AudioManager.STREAM_VOICE_CALL, from, 0)
             }
-            raisedFrom = null
-            if (routed) {
-                runCatching {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        // Back to the device found before the session (another app's routing,
-                        // say), not to none. That device can be gone by now (the Bluetooth
-                        // headset hung up mid-session): restoring it then fails or returns
-                        // false, and clearing is the only way to release the speaker this
-                        // session claimed.
-                        val prior = previousCommDevice
-                        val restored = prior != null &&
-                            audio.availableCommunicationDevices.any { it.id == prior.id && it.type == prior.type } &&
-                            audio.setCommunicationDevice(prior)
-                        if (!restored) audio.clearCommunicationDevice()
-                    } else {
-                        @Suppress("DEPRECATION")
-                        audio.isSpeakerphoneOn = previousSpeakerphone ?: false
-                    }
-                }
+        }.onFailure { DuplexLog.w("phone audio: voice-call volume not restored (${it.javaClass.simpleName})") }
+    }
+
+    private fun restoreRoute() {
+        val wasRouted = routed
+        val priorDevice = previousCommDevice
+        val priorSpeakerphone = previousSpeakerphone
+        routed = false
+        previousCommDevice = null
+        previousSpeakerphone = null
+        if (!wasRouted) return
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // Back to the device found before the session (another app's routing, say),
+                // not to none. That device can be gone by now (the Bluetooth headset hung
+                // up mid-session): restoring it then fails or returns false, and clearing
+                // is the only way to release the speaker this session claimed.
+                val restored = priorDevice != null &&
+                    ops.availableCommunicationDevices.any { it.id == priorDevice.id && it.type == priorDevice.type } &&
+                    ops.setCommunicationDevice(priorDevice)
+                if (!restored) ops.clearCommunicationDevice()
+            } else {
+                ops.speakerphoneOn = priorSpeakerphone ?: false
             }
-            routed = false
-            previousCommDevice = null
-            previousSpeakerphone = null
-            runCatching { audio.mode = mode }
-            DuplexLog.i("phone audio: restored mode=${modeName(audio.mode)}")
+        }.onFailure {
+            DuplexLog.w("phone audio: route not restored (${it.javaClass.simpleName}); clearing the communication device")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) runCatching { ops.clearCommunicationDevice() }
         }
-        focus.abandon()
+    }
+
+    private fun restoreMode(mode: Int) {
+        runCatching { ops.mode = mode }
+            .onFailure { DuplexLog.w("phone audio: mode not restored (${it.javaClass.simpleName})") }
+        DuplexLog.i("phone audio: restored mode=${modeName(mode)}")
     }
 
     /**
@@ -168,9 +245,9 @@ class PhoneCallAudio(context: Context) : FocusHandle {
         }
         val deadline = System.currentTimeMillis() + ROUTE_WAIT_MS
         while (System.currentTimeMillis() < deadline) {
-            val onSpeaker = runCatching {
-                audio.getAudioDevicesForAttributes(voiceCallAttributes).any { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
-            }.getOrDefault(true)
+            // A failure here propagates to request's undo-and-rethrow: an audio service too
+            // sick to answer a route query must not leave the session half set up.
+            val onSpeaker = ops.devicesForAttributes(voiceCallAttributes).any { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
             if (onSpeaker) return
             Thread.sleep(20)
         }
@@ -184,16 +261,19 @@ class PhoneCallAudio(context: Context) : FocusHandle {
      */
     private fun matchAssistantVolume() {
         runCatching {
-            val callMax = audio.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
-            val assistant = runCatching { audio.getStreamVolume(STREAM_ASSISTANT) to audio.getStreamMaxVolume(STREAM_ASSISTANT) }
+            val callMax = ops.maxStreamVolume(AudioManager.STREAM_VOICE_CALL)
+            val assistant = runCatching { ops.streamVolume(STREAM_ASSISTANT) to ops.maxStreamVolume(STREAM_ASSISTANT) }
                 .getOrNull()?.takeIf { it.second > 0 }
-                ?: (audio.getStreamVolume(AudioManager.STREAM_MUSIC) to audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
+                ?: (ops.streamVolume(AudioManager.STREAM_MUSIC) to ops.maxStreamVolume(AudioManager.STREAM_MUSIC))
             val target = Math.round(assistant.first.toDouble() / assistant.second * callMax).toInt().coerceIn(1, callMax)
-            val before = audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
+            val before = ops.streamVolume(AudioManager.STREAM_VOICE_CALL)
             if (before < target) {
-                audio.setStreamVolume(AudioManager.STREAM_VOICE_CALL, target, 0)
+                // Remember what to undo before changing it: a failure between the set and the
+                // read-back must not leave the raised volume stranded (see undo).
                 raisedFrom = before
-                raisedTo = audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
+                raisedTo = target
+                ops.setStreamVolume(AudioManager.STREAM_VOICE_CALL, target, 0)
+                runCatching { raisedTo = ops.streamVolume(AudioManager.STREAM_VOICE_CALL) }
                 DuplexLog.i("phone audio: voice-call volume raised $before -> $raisedTo/$callMax to match assistant ${assistant.first}/${assistant.second}")
             }
         }.onFailure { DuplexLog.w("phone audio: volume not adjusted ${it.javaClass.simpleName}") }

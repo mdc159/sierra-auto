@@ -111,6 +111,17 @@ private class FakeFocus(private val grant: Boolean = true) : FocusHandle {
     }
 }
 
+/** A handle whose request throws (PhoneCallAudio rethrows after undoing its own changes). */
+private class ThrowingFocus : FocusHandle {
+    val abandons = AtomicInteger()
+
+    override fun request(onLoss: () -> Unit): Boolean = throw IllegalStateException("audio focus crashed")
+
+    override fun abandon() {
+        abandons.incrementAndGet()
+    }
+}
+
 class DuplexControllerTest {
 
     @Test fun fatalProviderErrorsDoNotEnterTheMicLog() {
@@ -243,6 +254,28 @@ class DuplexControllerTest {
             assertEquals("Couldn't get the audio. Try again.", e.message)
         }
         assertEquals(0, mic.started.get())
+    }
+
+    /**
+     * focus.request sits before the try that guards the rest of start: a handle that throws
+     * out of it (after taking the audio, say) must get the same cleanup as a refused focus,
+     * not leak whatever it had already changed.
+     */
+    @Test
+    fun focusRequestThrowingFailsStartAndCleansUp() {
+        val focus = ThrowingFocus()
+        val c = DuplexController(session, mic, sink, focus, DuplexMode.GUARDED, listener = events)
+        try {
+            c.start()
+            fail("expected failure")
+        } catch (e: DuplexException) {
+            assertEquals("Couldn't get the audio. Try again.", e.message)
+        }
+        assertEquals("the handle that half-took the audio must be abandoned", 1, focus.abandons.get())
+        assertTrue(session.closed.await(2, TimeUnit.SECONDS))
+        assertEquals(0, mic.started.get())
+        assertFalse(c.isRunning)
+        assertTrue("the caller renders the error; no normal Ended may precede it", events.all<DuplexEvent.Ended>().isEmpty())
     }
 
     @Test

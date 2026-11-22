@@ -80,7 +80,21 @@ class DuplexController(
         synchronized(lifecycleLock) {
             if (stopped.get() || !running.compareAndSet(false, true)) return
             log("duplex start: requesting audio focus; mode=${gate.mode} provider=${session.provider}")
-            if (!focus.request(onLoss = { stop("Audio focus lost") })) {
+            val granted = try {
+                focus.request(onLoss = { stop("Audio focus lost") })
+            } catch (e: Exception) {
+                // The handle can fail out of request after taking the audio (PhoneCallAudio
+                // sets the mode and route once it has the focus, and undoes its own part):
+                // the same cleanup as a refused focus, so nothing it changed survives.
+                log("duplex start failed: focus request threw ${e.javaClass.simpleName}: ${DuplexLog.redact(e.message)}")
+                stopped.set(true)
+                // The caller renders startup errors. Do not emit a misleading normal Ended first.
+                endedForwarded.set(true)
+                cleanup()
+                session.close()
+                throw DuplexException("Couldn't get the audio. Try again.", e)
+            }
+            if (!granted) {
                 log("duplex start failed: audio focus refused")
                 stopped.set(true)
                 cleanup()
