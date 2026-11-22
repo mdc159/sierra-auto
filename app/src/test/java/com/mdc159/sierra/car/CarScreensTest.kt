@@ -3,6 +3,7 @@ package com.mdc159.sierra.car
 import android.Manifest
 import android.location.Location
 import android.location.LocationManager
+import android.os.Looper
 import android.os.SystemClock
 import androidx.car.app.CarContext
 import androidx.car.app.constraints.ConstraintManager
@@ -375,6 +376,32 @@ class CarScreensTest {
         controller.moveToState(Lifecycle.State.DESTROYED)
         gate.countDown()
         CarTestHost.await(what = "interrupt") { source.interrupted.get() }
+    }
+
+    /**
+     * Only each HTTP body read moved off Main; the parse/dedupe/sort after it ran on the
+     * screen's Main-dispatched lifecycleScope. The search must now run off Main, or a big
+     * Nominatim/Overpass answer janks the car UI thread.
+     */
+    @Test
+    fun placeListSearchRunsOffTheMainThread() {
+        CarTestHost.grant(Manifest.permission.ACCESS_FINE_LOCATION)
+        simulateLocation(38.5, -121.5)
+        val source = object : PlaceSource {
+            val calls = java.util.concurrent.atomic.AtomicInteger()
+            @Volatile var ranOnMain: Boolean? = null
+            override fun search(category: PlaceCategory, lat: Double, lng: Double, limit: Int): List<NearbyPlace> =
+                throw AssertionError("the screen must use searchCancellable")
+            override suspend fun searchCancellable(category: PlaceCategory, lat: Double, lng: Double, limit: Int): List<NearbyPlace> {
+                calls.incrementAndGet()
+                ranOnMain = Looper.myLooper() == Looper.getMainLooper()
+                return listOf(place("Shell", 800.0))
+            }
+        }
+        val screen = PlaceListScreen(carContext, PlaceCategory.FUEL, NearbyPlaces(listOf(source)))
+        CarTestHost.show(screen)
+        CarTestHost.await(what = "load off the main thread") { loadedRows(screen) == 1 }
+        assertEquals("the search (parse/dedupe/sort) ran on the main thread", false, source.ranOnMain)
     }
 
     // ---- Place detail --------------------------------------------------------------------
