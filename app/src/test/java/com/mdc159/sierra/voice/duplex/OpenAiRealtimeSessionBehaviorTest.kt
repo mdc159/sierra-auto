@@ -208,6 +208,33 @@ class OpenAiRealtimeSessionBehaviorTest {
         assertEquals(0, b.getInt("audio_end_ms"))
     }
 
+    /**
+     * The 100 ms end-slack exists for the item the playhead reached: played to within
+     * 100 ms of its end means the driver missed nothing, so no truncate is sent. It must
+     * not cover an item that never played at all: after response.done, with A=400 ms and
+     * B=80 ms queued, cutting A at 150 ms skipped B whole (0 >= 80 - 100) and left B's
+     * unheard transcript in the model's context. An unheard target is always truncated
+     * to 0, however short it is.
+     */
+    @Test
+    fun aShortUnheardItemAfterResponseDoneIsStillTruncatedToNothing() {
+        val s = connect()
+        created("resp_1")
+        delta("resp_1", "item_a", ms = 400)
+        delta("resp_1", "item_b", ms = 80)
+        sink.await<DuplexEvent.AssistantAudio> { it.itemId == "item_b" }
+        done("resp_1") // the reply completed; both items sit in the playback queue
+        assertFalse(sink.await<DuplexEvent.AssistantDone>().cancelled)
+
+        s.interrupt(PlaybackCut(itemId = "item_a", playedMs = 150, unheardItemIds = listOf("item_b")))
+        val a = server.awaitType("conversation.item.truncate")
+        assertEquals("item_a", a.getString("item_id"))
+        assertEquals(150, a.getInt("audio_end_ms"))
+        val b = server.awaitType("conversation.item.truncate")
+        assertEquals("item_b", b.getString("item_id"))
+        assertEquals(0, b.getInt("audio_end_ms"))
+    }
+
     // ---- late and repeated response.done ----------------------------------------------
 
     /**

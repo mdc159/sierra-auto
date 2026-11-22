@@ -659,8 +659,12 @@ class OpenAiRealtimeSession(
             markCancelled(active)
         }
         val targets = LinkedHashMap<String, Long>()
+        val unheard = HashSet<String>()
         if (cut.itemId != null) targets[cut.itemId] = cut.playedMs
-        cut.unheardItemIds.forEach { targets[it] = 0L }
+        cut.unheardItemIds.forEach {
+            targets[it] = 0L
+            unheard += it
+        }
         if (targets.isEmpty()) {
             // No item info from the caller: a single-item reply, the latest item at its offset.
             val itemId = audioItemId
@@ -671,13 +675,20 @@ class OpenAiRealtimeSession(
             targets[itemId] = cut.playedMs
         } else {
             // Audio that crossed in flight with the cut: the playhead never reached it.
-            audioItemId?.takeIf { it !in targets }?.let { targets[it] = 0L }
+            audioItemId?.takeIf { it !in targets }?.let {
+                targets[it] = 0L
+                unheard += it
+            }
         }
         for ((itemId, playedMs) in targets) {
             if (!truncatedItemIds.add(itemId)) continue
             markCancelled(itemId)
             val receivedMs = itemReceivedMs(itemId)
-            if (activeResponseId == null && playedMs >= receivedMs - TRUNCATE_SLACK_MS) {
+            // The end-slack is the playhead item's alone: played to within TRUNCATE_SLACK_MS of
+            // everything received means the driver missed nothing. An unheard item never played
+            // at all — one shorter than the slack must still be truncated to 0, or its unheard
+            // transcript stays in the model's context.
+            if (itemId !in unheard && activeResponseId == null && playedMs >= receivedMs - TRUNCATE_SLACK_MS) {
                 // That item had played to its end: nothing the driver missed, nothing to truncate.
                 DuplexLog.i("openai interrupt: item $itemId already played to the end (playedMs=$playedMs receivedMs=$receivedMs), no truncate")
                 continue
