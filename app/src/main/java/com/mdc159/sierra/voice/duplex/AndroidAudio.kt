@@ -133,9 +133,15 @@ class PhoneCallAudio(context: Context) : FocusHandle {
                 runCatching {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         // Back to the device found before the session (another app's routing,
-                        // say), not to none.
+                        // say), not to none. That device can be gone by now (the Bluetooth
+                        // headset hung up mid-session): restoring it then fails or returns
+                        // false, and clearing is the only way to release the speaker this
+                        // session claimed.
                         val prior = previousCommDevice
-                        if (prior != null) audio.setCommunicationDevice(prior) else audio.clearCommunicationDevice()
+                        val restored = prior != null &&
+                            audio.availableCommunicationDevices.any { it.id == prior.id && it.type == prior.type } &&
+                            audio.setCommunicationDevice(prior)
+                        if (!restored) audio.clearCommunicationDevice()
                     } else {
                         @Suppress("DEPRECATION")
                         audio.isSpeakerphoneOn = previousSpeakerphone ?: false

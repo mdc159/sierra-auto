@@ -84,6 +84,29 @@ class PhoneCallAudioRouteTest {
 
     @Test
     @Config(sdk = [31])
+    fun sAndUpClearsTheDeviceWhenThePriorOneDisappearedMidSession() {
+        val audio = audio()
+        val speaker = AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER).build()
+        val headset = AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_BLUETOOTH_SCO).build()
+        org.robolectric.Shadows.shadowOf(audio).setAvailableCommunicationDevices(listOf(headset, speaker))
+        audio.setCommunicationDevice(headset) // another app's routing, before the session
+
+        val phone = PhoneCallAudio(context())
+        assertTrue(phone.request({}))
+        assertEquals(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, audio.communicationDevice?.type)
+
+        // The Bluetooth headset disconnects while the session runs: the prior device is gone.
+        org.robolectric.Shadows.shadowOf(audio).setAvailableCommunicationDevices(listOf(speaker))
+        phone.abandon()
+
+        assertNull(
+            "the prior device is gone; restoring it must fall back to clearing, not leave the session's speaker selected",
+            audio.communicationDevice,
+        )
+    }
+
+    @Test
+    @Config(sdk = [31])
     fun sAndUpClearsTheDeviceItSetWhenThereWasNoneBefore() {
         val audio = audio()
         val speaker = AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER).build()
