@@ -69,8 +69,7 @@ object CarTestHost {
     fun installConfig(context: Context, config: AgentConfig?) {
         val prefs = context.getSharedPreferences("sierra_test_agent_config", Context.MODE_PRIVATE)
         prefs.edit().clear().commit()
-        val field = ConfigStore::class.java.getDeclaredField("prefs").apply { isAccessible = true }
-        field.set(ConfigStore, prefs)
+        ConfigStore.resetForTest { _ -> prefs }
         if (config != null) ConfigStore.save(context, config)
     }
 

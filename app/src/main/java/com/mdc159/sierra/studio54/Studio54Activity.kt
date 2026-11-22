@@ -151,6 +151,9 @@ class Studio54Activity : ComponentActivity() {
             }
         }
         s.lastError?.let { lines += "Last error: $it" }
+        s.storeError?.let {
+            lines += "Settings store unavailable ($it). The saved sign-in is kept; Sierra retries next start."
+        }
         view.text = lines.joinToString("\n")
     }
 
