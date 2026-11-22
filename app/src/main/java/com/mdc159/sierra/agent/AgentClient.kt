@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
@@ -99,7 +100,10 @@ class AgentClient(
     suspend fun chatCancellable(messages: List<ChatMessage>): String =
         chatCancellable(messages, emptyList(), null)
 
-    /** [chat] with tools and a tool listener, cancellable the same way as [chatCancellable]. */
+    /**
+     * [chat] with tools and a tool listener, cancellable the same way as [chatCancellable];
+     * cancelling also interrupts the running tool and skips the rest of its response.
+     */
     suspend fun chatCancellable(messages: List<ChatMessage>, tools: List<Tool>, listener: ToolListener?): String =
         withContext(Dispatchers.IO) { exchange(messages, tools, listener) }
 
@@ -148,6 +152,8 @@ class AgentClient(
             }
             history += reply
             for (call in reply.toolCalls) {
+                // Stop/back: never start the next tool of this response once cancelled.
+                currentCoroutineContext().ensureActive()
                 val result = runTool(byName[call.name], call, listener, deadline.slice(toolTimeoutMs))
                 history += ChatMessage("tool", result, toolCallId = call.id)
             }
@@ -188,8 +194,14 @@ class AgentClient(
         }
     }
 
-    /** Runs one tool off this thread so a hung tool cannot hang the exchange. Never throws for tool failures. */
-    private fun runTool(tool: Tool?, call: ToolCall, listener: ToolListener?, timeoutMs: Long): String {
+    /**
+     * Runs one tool off this thread so a hung tool cannot hang the exchange, and so the
+     * caller's Stop reaches it: the wait for the result is interruptible ([runInterruptible]
+     * around the blocking `Future.get`), and unwinding cancels the future and shuts the
+     * executor down, interrupting a blocked tool instead of waiting out its timeout.
+     * Never throws for tool failures.
+     */
+    private suspend fun runTool(tool: Tool?, call: ToolCall, listener: ToolListener?, timeoutMs: Long): String {
         if (tool == null) return ToolSchema.error("Unknown tool ${call.name}. Answer without it.")
         val args = parseArguments(call.arguments)
             ?: return ToolSchema.error("The arguments for ${call.name} were not a JSON object.")
@@ -198,20 +210,32 @@ class AgentClient(
         try {
             val future = executor.submit<String> { tool.run(args) }
             return try {
-                future.get(timeoutMs, TimeUnit.MILLISECONDS)
+                runInterruptible(Dispatchers.IO) { future.get(timeoutMs, TimeUnit.MILLISECONDS) }
             } catch (e: TimeoutException) {
                 future.cancel(true)
                 ToolSchema.error("${call.name} timed out. Tell the driver it took too long.")
             } catch (e: ExecutionException) {
-                when (val cause = e.cause) {
-                    is ToolException -> ToolSchema.error(cause.message ?: "The tool failed.")
-                    else -> ToolSchema.error("${call.name} failed: ${Http.describe(cause ?: e)}")
-                }
+                ToolSchema.error(toolFailureMessage(call.name, e))
             }
         } finally {
             executor.shutdownNow()
             listener?.onToolEnd()
         }
+    }
+
+    /**
+     * The error line the model sees for a failed tool: its own [ToolException] message when
+     * the failure chain carries one, else a short generic line. The whole chain is searched,
+     * not just the direct cause — crossing a suspension boundary (the interruptible wait)
+     * can re-chain a copied exception, same as [rejectsTools].
+     */
+    private fun toolFailureMessage(name: String, e: Throwable): String {
+        var t: Throwable? = e
+        while (t != null) {
+            if (t is ToolException) return t.message ?: "The tool failed."
+            t = t.cause
+        }
+        return "$name failed: ${Http.describe(e.cause ?: e)}"
     }
 
     fun transcribe(wav: ByteArray): String = runBlocking { transcribeCancellable(wav) }

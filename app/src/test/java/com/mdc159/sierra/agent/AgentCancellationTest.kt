@@ -1,5 +1,7 @@
 package com.mdc159.sierra.agent
 
+import com.mdc159.sierra.agent.tools.Tool
+import com.mdc159.sierra.agent.tools.ToolSchema
 import com.mdc159.sierra.net.StalledBodyServer
 import com.mdc159.sierra.net.StalledConnectionServer
 import kotlinx.coroutines.CoroutineScope
@@ -10,13 +12,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class AgentCancellationTest {
     @Test fun cancellingPhoneRequestClosesAStalledBridgeCall() = runBlocking {
@@ -72,6 +79,78 @@ class AgentCancellationTest {
             }
         } finally {
             stalled.shutdown()
+        }
+    }
+
+    /**
+     * Stop/back during a tool must end the exchange at once: the tool's own 30 s timeout
+     * must not decide when cancellation unwinds. The red run of this test (plain
+     * withContext(IO) around a blocking Future.get) sat in cancelAndJoin until the tool
+     * timed out, the tool thread was never interrupted, and the second tool call in the
+     * same response still ran.
+     */
+    @Test fun cancellingDuringAToolInterruptsItAndSkipsTheRestOfThatResponse() {
+        val server = MockWebServer()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":null,
+                   "tool_calls":[
+                     {"id":"a","type":"function","function":{"name":"blocker","arguments":"{}"}},
+                     {"id":"b","type":"function","function":{"name":"second","arguments":"{}"}}]}}]}""",
+            ),
+        )
+        server.start()
+        try {
+            val blocker = object : Tool {
+                override val name = "blocker"
+                override val description = "blocks until interrupted"
+                override val parameters = ToolSchema.obj("query" to ToolSchema.string("q"), required = listOf("query"))
+                override fun status(args: JSONObject) = "Running blocker…"
+                val started = CountDownLatch(1)
+                @Volatile var interrupted = false
+                override fun run(args: JSONObject): String {
+                    started.countDown()
+                    return try {
+                        Thread.sleep(60_000)
+                        "{}"
+                    } catch (e: InterruptedException) {
+                        interrupted = true
+                        Thread.currentThread().interrupt()
+                        "{}"
+                    }
+                }
+            }
+            val secondCalls = AtomicInteger(0)
+            val second = object : Tool {
+                override val name = "second"
+                override val description = "must never run after Stop"
+                override val parameters = ToolSchema.obj("query" to ToolSchema.string("q"), required = listOf("query"))
+                override fun status(args: JSONObject) = "Running second…"
+                override fun run(args: JSONObject): String {
+                    secondCalls.incrementAndGet()
+                    return "{}"
+                }
+            }
+            val client = AgentClient(
+                AgentConfig(baseUrl = server.url("/v1").toString(), apiKey = "k", model = "m"),
+                OkHttpClient(),
+                maxRounds = 4,
+                roundTimeoutMs = 30_000,
+                toolTimeoutMs = 30_000, // only Stop may end this tool, not its own timeout
+            )
+            runBlocking {
+                val job = CoroutineScope(Dispatchers.IO).launch {
+                    client.chatCancellable(listOf(ChatMessage("user", "go")), listOf(blocker, second), null)
+                }
+                assertTrue("the tool never started", blocker.started.await(5, TimeUnit.SECONDS))
+                withTimeout(2_000) { job.cancelAndJoin() }
+                assertTrue(job.isCancelled)
+                assertTrue("the blocked tool's thread was not interrupted", blocker.interrupted)
+                assertEquals("a later tool in the same response ran after Stop", 0, secondCalls.get())
+                assertEquals("another round was requested after Stop", 1, server.requestCount)
+            }
+        } finally {
+            server.shutdown()
         }
     }
 }
