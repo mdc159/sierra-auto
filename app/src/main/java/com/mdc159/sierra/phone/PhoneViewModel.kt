@@ -29,4 +29,11 @@ internal class PhoneViewModel : ViewModel() {
      * was built for: switching endpoints afterwards must still clear it.
      */
     var endpointKey: String? = null
+
+    /**
+     * True once the effective settings have been loaded once (cold start). Until then the
+     * agent line shows a neutral "checking" state instead of guessing from half-loaded
+     * values; a recreation keeps the loaded state, so only the true first start waits.
+     */
+    var settingsLoaded: Boolean = false
 }

@@ -146,6 +146,13 @@ object PhoneStatus {
 object Tailnet {
     const val PACKAGE = "com.tailscale.ipn"
 
+    /**
+     * The agent line while the effective settings are still being resolved (typed values
+     * plus the Studio 54 vault overlay, refreshed when stale). A neutral loading state:
+     * the real label follows once loading finishes.
+     */
+    const val CHECKING = "Checking connection…"
+
     private val CGNAT = Regex("^100\\.(6[4-9]|[7-9]\\d|1[01]\\d|12[0-7])\\.\\d{1,3}\\.\\d{1,3}$")
     private val PRIVATE_172 = Regex("^172\\.(1[6-9]|2\\d|3[01])\\.\\d{1,3}\\.\\d{1,3}$")
 
