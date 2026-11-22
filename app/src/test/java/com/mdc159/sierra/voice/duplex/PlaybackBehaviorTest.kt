@@ -2,6 +2,7 @@ package com.mdc159.sierra.voice.duplex
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
@@ -239,7 +240,7 @@ class DuplexPlaybackWiringTest {
         }
 
         override fun sendAudio(pcm: ByteArray, offset: Int, length: Int) {}
-        override fun interrupt(playedMs: Long) {}
+        override fun interrupt(cut: PlaybackCut) {}
         override fun sendText(text: String) {}
         override fun close() {}
     }
@@ -268,5 +269,147 @@ class DuplexPlaybackWiringTest {
     private class GrantedFocus : FocusHandle {
         override fun request(onLoss: () -> Unit) = true
         override fun abandon() {}
+    }
+}
+
+/**
+ * The item marker vs the playhead: two reply items queued (a tool preface, then its
+ * answer) and the driver barges in while the first still plays. The interrupt must
+ * report the audible item's played offset; the marker used to describe the latest
+ * enqueued item, so the interrupt reported 0 and the service truncated the second
+ * item to 0 while keeping the audible one as fully heard.
+ */
+class DuplexInterruptWhileASecondItemIsQueuedTest {
+
+    private val session = RecordingSession()
+    private val sink = PacedSink()
+    private val events = EventSink()
+
+    @Test
+    fun bargeInWhileTheFirstOfTwoItemsPlaysReportsItsPlayedOffset() {
+        val c = DuplexController(session, IdleMic(), sink, GrantedFocus(), DuplexMode.FULL_DUPLEX, listener = events, jitterPrefillMs = 0)
+        c.start()
+        events.await<DuplexEvent.Connected>()
+        session.listener.onEvent(DuplexEvent.AssistantAudio(silence(1_000, 24_000), 24_000, "a"))
+        assertTrue(sink.firstWrite.await(2, TimeUnit.SECONDS))
+        Thread.sleep(150) // some of item "a" has played; "b" arrives while it is still audible
+        session.listener.onEvent(DuplexEvent.AssistantAudio(silence(600, 24_000), 24_000, "b"))
+        session.listener.onEvent(DuplexEvent.UserStartedSpeaking)
+        val cut = session.cuts.poll(2, TimeUnit.SECONDS) ?: throw AssertionError("no interrupt")
+        assertEquals("the audible item was not named", "a", cut.itemId)
+        assertTrue("the audible item's played offset was not reported (got ${cut.playedMs}ms)", cut.playedMs in 20..900)
+        assertEquals("the queued item never played; it must be reported unheard", listOf("b"), cut.unheardItemIds)
+        events.await<DuplexEvent.UserStartedSpeaking>()
+        c.stop()
+    }
+
+    private class RecordingSession : DuplexSession {
+        override val provider = DuplexProvider.OPENAI_REALTIME
+        override val inputSampleRate = 24_000
+        override val outputSampleRate = 24_000
+        lateinit var listener: DuplexListener
+        val cuts = LinkedBlockingQueue<PlaybackCut>()
+        override fun start(listener: DuplexListener) {
+            this.listener = listener
+            listener.onEvent(DuplexEvent.Connected(provider))
+        }
+        override fun sendAudio(pcm: ByteArray, offset: Int, length: Int) {}
+        override fun interrupt(cut: PlaybackCut) { cuts.put(cut) }
+        override fun sendText(text: String) {}
+        override fun close() {}
+    }
+
+    /** Drains at real time like AudioTrack.write, so the buffer keeps a playhead mid-item. */
+    private class PacedSink : PcmSink {
+        val firstWrite = CountDownLatch(1)
+        override fun start(sampleRate: Int) {}
+        override fun write(pcm: ByteArray, length: Int) {
+            firstWrite.countDown()
+            Thread.sleep(20)
+        }
+        override fun discard() {}
+        override fun stop() {}
+    }
+
+    private class IdleMic(override val sampleRate: Int = 16_000) : MicSource {
+        override fun start() {}
+        override fun read(dest: ByteArray): Int { Thread.sleep(20); return 0 }
+        override fun stop() {}
+    }
+
+    private class GrantedFocus : FocusHandle {
+        override fun request(onLoss: () -> Unit) = true
+        override fun abandon() {}
+    }
+}
+
+/**
+ * The item boundaries against the playhead: a cut must name the item the playhead is
+ * inside at its played offset, and the items after it as never heard. The marker used to
+ * describe the latest enqueued item, so a cut during the first of two queued items
+ * reported 0 played.
+ */
+class JitterBufferItemCutTest {
+
+    @Test
+    fun theCutNamesTheItemThePlayheadIsInside() {
+        val jb = JitterBuffer(24_000, prefillMs = 0)
+        jb.markItemStart("a")
+        jb.offer(silence(1_000, 24_000))
+        jb.markItemStart("b") // still buffered when the driver interrupts
+        jb.offer(silence(600, 24_000))
+        assertEquals(300, play(jb, 300)) // the playhead is 300 ms into item "a"
+
+        val cut = jb.itemCut()
+        assertEquals("a", cut.itemId)
+        assertEquals(300, cut.playedMs)
+        assertEquals(listOf("b"), cut.unheardItemIds)
+    }
+
+    /** At a boundary the earlier item counts as fully played; the cut starts the next at 0. */
+    @Test
+    fun atAnItemBoundaryTheEarlierItemCountsAsFullyPlayed() {
+        val jb = JitterBuffer(24_000, prefillMs = 0)
+        jb.markItemStart("a")
+        jb.offer(silence(1_000, 24_000))
+        jb.markItemStart("b")
+        jb.offer(silence(600, 24_000))
+        assertEquals(1_000, play(jb, 1_000)) // all of "a", none of "b"
+
+        val cut = jb.itemCut()
+        assertEquals("b", cut.itemId)
+        assertEquals(0, cut.playedMs)
+        assertTrue(cut.unheardItemIds.isEmpty())
+    }
+
+    @Test
+    fun aBufferWithNothingOfferedCutsAtNothing() {
+        val jb = JitterBuffer(24_000)
+        val cut = jb.itemCut()
+        assertNull(cut.itemId)
+        assertEquals(0, cut.playedMs)
+        assertTrue(cut.unheardItemIds.isEmpty())
+    }
+
+    /** A cut empties the buffer; the items before it must not leak into the next cut. */
+    @Test
+    fun clearForgetsTheItems() {
+        val jb = JitterBuffer(24_000, prefillMs = 0)
+        jb.markItemStart("a")
+        jb.offer(silence(50, 24_000))
+        jb.clear()
+        assertNull(jb.itemCut().itemId)
+
+        jb.markItemStart("b")
+        jb.offer(silence(100, 24_000))
+        val cut = jb.itemCut()
+        assertEquals("b", cut.itemId)
+        assertTrue(cut.unheardItemIds.isEmpty())
+    }
+
+    /** Reads exactly [ms] of audio; returns the ms actually read. */
+    private fun play(jb: JitterBuffer, ms: Long): Long {
+        val n = jb.read(ByteArray(Resampler.bytesForMs(ms, jb.sampleRate)), timeoutMs = 200)
+        return Resampler.durationMs(n, jb.sampleRate)
     }
 }

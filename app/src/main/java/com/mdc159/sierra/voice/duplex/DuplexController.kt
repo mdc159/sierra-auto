@@ -118,9 +118,9 @@ class DuplexController(
 
     /** The driver tapped to interrupt. Cuts playback and tells the service. */
     fun tapInterrupt() {
-        val played = cutPlayback()
-        log("duplex tap interrupt: playback cut playedMs=$played")
-        session.interrupt(played)
+        val cut = cutPlayback()
+        log("duplex tap interrupt: playback cut item=${cut.itemId ?: "none"} playedMs=${cut.playedMs} unheard=${cut.unheardItemIds.joinToString(",")}")
+        session.interrupt(cut)
     }
 
     /** Types a message into the conversation (phone testing). */
@@ -151,15 +151,15 @@ class DuplexController(
         log("duplex teardown: mic stopped (${micMs}ms), speaker stopped, focus abandoned (${System.currentTimeMillis() - startedAt}ms total)")
     }
 
-    /** Empties the speaker path. Returns how many ms of the current reply item were played. */
-    private fun cutPlayback(): Long {
-        val buffer = jitter ?: return 0
-        val played = buffer.itemPlayedMs
+    /** Empties the speaker path. Returns what had been audible when it was cut. */
+    private fun cutPlayback(): PlaybackCut {
+        val buffer = jitter ?: return PlaybackCut(null, 0, emptyList())
+        val cut = buffer.itemCut()
         buffer.clear()
         sink.discard()
         outResampler?.reset()
         gate.onPlaybackStopped()
-        return played
+        return cut
     }
 
     private fun onSessionEvent(event: DuplexEvent) {
@@ -169,7 +169,7 @@ class DuplexController(
                 noteDelta(Resampler.durationMs(event.pcm.size, session.outputSampleRate))
                 if (event.itemId != currentItemId) {
                     currentItemId = event.itemId
-                    jitter?.markItemStart()
+                    jitter?.markItemStart(event.itemId)
                 }
                 jitter?.offer(resampled)
             }
@@ -177,9 +177,9 @@ class DuplexController(
                 // The service already cancelled its reply; match it locally and tell it where we were.
                 val queued = jitter?.queuedMs ?: 0
                 logReplyAudio("barge-in")
-                val played = cutPlayback()
-                log("duplex barge-in: playback cut playedMs=$played droppedQueuedMs=$queued gated=${gate.isGated} warmup=${gate.inWarmup} micPeakRms1s=${recentMicPeakRms.toInt()}")
-                session.interrupt(played)
+                val cut = cutPlayback()
+                log("duplex barge-in: playback cut item=${cut.itemId ?: "none"} playedMs=${cut.playedMs} unheard=${cut.unheardItemIds.size} droppedQueuedMs=$queued gated=${gate.isGated} warmup=${gate.inWarmup} micPeakRms1s=${recentMicPeakRms.toInt()}")
+                session.interrupt(cut)
             }
             is DuplexEvent.AssistantDone -> {
                 jitter?.flush()

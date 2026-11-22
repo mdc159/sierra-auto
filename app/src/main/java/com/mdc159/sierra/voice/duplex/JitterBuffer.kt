@@ -10,8 +10,9 @@ package com.mdc159.sierra.voice.duplex
  * [maxPrefillMs] and playback waits to rebuild that much before resuming. The target
  * returns to [prefillMs] when a reply ends or is cleared.
  *
- * [playedMs] counts bytes handed to the speaker since the last [clear], which is what
- * the service needs to know when the driver interrupts.
+ * [playedMs] counts bytes handed to the speaker since the last [clear]; [itemCut] places
+ * the playhead among the queued reply items, which is what the service needs to know
+ * when the driver interrupts.
  */
 class JitterBuffer(
     val sampleRate: Int,
@@ -27,7 +28,9 @@ class JitterBuffer(
     private var started = false
     private var flushed = false
     private var consumedBytes = 0L
-    private var itemBaseBytes = 0L
+    private var offeredBytes = 0L
+    private val itemStarts = ArrayList<Long>()
+    private val itemIds = ArrayList<String?>()
     private var closed = false
     private var target = prefillMs
     private var underrunCount = 0
@@ -36,16 +39,39 @@ class JitterBuffer(
     val playedMs: Long get() = synchronized(lock) { Resampler.durationMs(consumedBytes.toInt(), sampleRate) }
 
     /**
-     * How much of the reply item started by [markItemStart] has been played. [playedMs] runs on
-     * across replies that end without a cut (a tool call's preface, then its answer), so it cannot
-     * place a truncate inside the second one.
+     * Where the playhead is among the queued items, for an interrupt. [playedMs] runs on
+     * across reply items that end without a cut (a tool call's preface, then its answer),
+     * so the playhead — not the latest enqueued item — decides which item was audible:
+     * the cut names the item the playhead is inside at its played offset, and the items
+     * after it as never heard. Items are forgotten at [clear].
      */
-    val itemPlayedMs: Long get() = synchronized(lock) {
-        Resampler.durationMs((consumedBytes - itemBaseBytes).coerceAtLeast(0).toInt(), sampleRate)
+    fun itemCut(): PlaybackCut = synchronized(lock) {
+        if (itemStarts.isEmpty()) return PlaybackCut(null, 0, emptyList())
+        // The last item that began at or before the playhead: at a boundary the earlier item
+        // was fully played and the playhead sits at the start of the next one.
+        var index = itemStarts.size - 1
+        while (index > 0 && itemStarts[index] > consumedBytes) index--
+        val unheard = ArrayList<String>()
+        for (i in index + 1 until itemIds.size) itemIds[i]?.let(unheard::add)
+        PlaybackCut(
+            itemIds[index],
+            Resampler.durationMs((consumedBytes - itemStarts[index]).coerceAtLeast(0).toInt(), sampleRate),
+            unheard,
+        )
     }
 
-    /** The audio offered next starts a new reply item. */
-    fun markItemStart() = synchronized(lock) { itemBaseBytes = consumedBytes + queuedBytes }
+    /**
+     * The audio offered next starts a new reply item, [id]. An empty item (marked, then no
+     * audio before the next mark) is replaced, so [itemCut] still names the right one.
+     */
+    fun markItemStart(id: String?) = synchronized(lock) {
+        if (itemStarts.isNotEmpty() && itemStarts.last() == offeredBytes) {
+            itemIds[itemIds.size - 1] = id
+        } else {
+            itemStarts.add(offeredBytes)
+            itemIds.add(id)
+        }
+    }
 
     val isEmpty: Boolean get() = synchronized(lock) { queuedBytes == 0 }
 
@@ -61,6 +87,7 @@ class JitterBuffer(
             if (closed) return
             chunks.addLast(pcm)
             queuedBytes += pcm.size
+            offeredBytes += pcm.size
             flushed = false
             lock.notifyAll()
         }
@@ -120,13 +147,15 @@ class JitterBuffer(
         return Resampler.durationMs(queuedBytes, sampleRate) >= target
     }
 
-    /** Drops everything queued and resets [playedMs]. Used on interruption. */
+    /** Drops everything queued, resets [playedMs] and forgets the item boundaries. Used on interruption. */
     fun clear() = synchronized(lock) {
         chunks = ArrayDeque()
         headOffset = 0
         queuedBytes = 0
         consumedBytes = 0
-        itemBaseBytes = 0
+        offeredBytes = 0
+        itemStarts.clear()
+        itemIds.clear()
         started = false
         flushed = false
         target = prefillMs

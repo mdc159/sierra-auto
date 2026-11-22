@@ -19,6 +19,7 @@ private class FakeSession(
     override val provider = DuplexProvider.OPENAI_REALTIME
     lateinit var listener: DuplexListener
     val audio = LinkedBlockingQueue<ByteArray>()
+    val cuts = LinkedBlockingQueue<PlaybackCut>()
     val interrupts = LinkedBlockingQueue<Long>()
     val closed = CountDownLatch(1)
     var failStart: String? = null
@@ -33,8 +34,9 @@ private class FakeSession(
         audio.put(pcm.copyOfRange(offset, offset + length))
     }
 
-    override fun interrupt(playedMs: Long) {
-        interrupts.put(playedMs)
+    override fun interrupt(cut: PlaybackCut) {
+        cuts.put(cut)
+        interrupts.put(cut.playedMs)
     }
 
     override fun sendText(text: String) {}

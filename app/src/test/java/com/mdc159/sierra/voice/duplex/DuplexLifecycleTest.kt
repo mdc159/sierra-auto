@@ -15,7 +15,7 @@ class DuplexLifecycleTest {
         var onStart: () -> Unit = {}
         override fun start(listener: DuplexListener) { onStart() }
         override fun sendAudio(pcm: ByteArray, offset: Int, length: Int) {}
-        override fun interrupt(playedMs: Long) {}
+        override fun interrupt(cut: PlaybackCut) {}
         override fun sendText(text: String) {}
         override fun close() { closes.incrementAndGet() }
     }

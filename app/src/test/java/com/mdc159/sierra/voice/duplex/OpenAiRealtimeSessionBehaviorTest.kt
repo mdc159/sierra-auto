@@ -185,6 +185,29 @@ class OpenAiRealtimeSessionBehaviorTest {
         assertEquals(1, sink.all<DuplexEvent.AssistantAudio>().size)
     }
 
+    /**
+     * The audible item vs the latest one: items A and B of one reply are both in flight
+     * (a tool preface, then its answer); the driver interrupts 150 ms into A. The service
+     * must forget the rest of A after those 150 ms and all of B: truncating the latest
+     * item instead left A fully heard in the model's context and cut B at an offset the
+     * driver never heard.
+     */
+    @Test
+    fun interruptDuringTwoItemsTruncatesTheAudibleItemAtItsOffsetAndBToNothing() {
+        val s = connect()
+        created("resp_1")
+        delta("resp_1", "item_a", ms = 400)
+        delta("resp_1", "item_b", ms = 400)
+        sink.await<DuplexEvent.AssistantAudio> { it.itemId == "item_b" }
+        s.interrupt(PlaybackCut(itemId = "item_a", playedMs = 150, unheardItemIds = listOf("item_b"))) // the playhead sits 150 ms into item_a
+        val a = server.awaitType("conversation.item.truncate")
+        assertEquals("item_a", a.getString("item_id"))
+        assertEquals(150, a.getInt("audio_end_ms"))
+        val b = server.awaitType("conversation.item.truncate")
+        assertEquals("item_b", b.getString("item_id"))
+        assertEquals(0, b.getInt("audio_end_ms"))
+    }
+
     // ---- late and repeated response.done ----------------------------------------------
 
     /**

@@ -65,8 +65,15 @@ class OpenAiRealtimeSession(
     @Volatile
     private var audioReceivedBytes = 0L
 
-    @Volatile
-    private var truncatedItemId: String? = null
+    /** Items already truncated by an interrupt: a second cut must not truncate them again. */
+    private val truncatedItemIds: MutableSet<String> = Collections.synchronizedSet(LinkedHashSet())
+
+    /**
+     * Audio received per item id, and each item's content index, to clamp a truncate to
+     * what that item actually contains. Written on the socket thread, read by interrupt().
+     */
+    private val itemAudioBytes = LinkedHashMap<String, Long>()
+    private val itemContentIndexes = HashMap<String, Int>()
 
     /**
      * Response and item ids whose remaining audio must not be played: cancelled by the
@@ -218,7 +225,11 @@ class OpenAiRealtimeSession(
         cancelledByServer = false
         audioItemId = null
         audioReceivedBytes = 0
-        truncatedItemId = null
+        truncatedItemIds.clear()
+        synchronized(itemAudioBytes) {
+            itemAudioBytes.clear()
+            itemContentIndexes.clear()
+        }
         assistantTranscript.setLength(0)
         cancelledIds.clear()
         doneIds.clear()
@@ -321,6 +332,25 @@ class OpenAiRealtimeSession(
             while (cancelledIds.size > MAX_CANCELLED_IDS) cancelledIds.remove(cancelledIds.first())
         }
     }
+
+    /** Remembers how much audio each item brought, to clamp its truncate. */
+    private fun noteItemAudio(itemId: String, contentIndex: Int, bytes: Int) {
+        synchronized(itemAudioBytes) {
+            itemAudioBytes[itemId] = (itemAudioBytes[itemId] ?: 0L) + bytes
+            itemContentIndexes[itemId] = contentIndex
+            while (itemAudioBytes.size > MAX_CANCELLED_IDS) {
+                val eldest = itemAudioBytes.keys.first()
+                itemAudioBytes.remove(eldest)
+                itemContentIndexes.remove(eldest)
+            }
+        }
+    }
+
+    private fun itemReceivedMs(itemId: String): Long = synchronized(itemAudioBytes) {
+        Resampler.durationMs((itemAudioBytes[itemId] ?: 0L).toInt(), SAMPLE_RATE)
+    }
+
+    private fun itemContentIdx(itemId: String): Int = synchronized(itemAudioBytes) { itemContentIndexes[itemId] } ?: audioContentIndex
 
     /**
      * Asks for a reply, unless one is already being made: the server refuses a second
@@ -513,6 +543,7 @@ class OpenAiRealtimeSession(
                     audioContentIndex = message.optInt("content_index", 0)
                 }
                 audioReceivedBytes += pcm.size
+                if (itemId != null) noteItemAudio(itemId, message.optInt("content_index", audioContentIndex), pcm.size)
                 emit(DuplexEvent.AssistantAudio(pcm, SAMPLE_RATE, itemId))
             }
             "response.output_audio_transcript.delta", "response.audio_transcript.delta" -> {
@@ -610,11 +641,14 @@ class OpenAiRealtimeSession(
 
     /**
      * Stops the current reply. If the server already cancelled it (speech detected), only
-     * the truncate is sent, so the transcript the model keeps matches what the driver heard.
+     * the truncates are sent, so the transcript the model keeps matches what the driver
+     * heard. The cut names the item the playhead was in at its played offset; items whose
+     * audio never played are truncated to nothing, not kept as fully heard. Without item
+     * info from the caller, the latest item and the caller's playedMs stand in.
      * `audio_end_ms` is clamped to the audio actually received, which the server rejects
      * otherwise.
      */
-    override fun interrupt(playedMs: Long) {
+    override fun interrupt(cut: PlaybackCut) {
         if (isClosed) return
         val active = activeResponseId
         if (active != null && !cancelledByServer) {
@@ -624,28 +658,39 @@ class OpenAiRealtimeSession(
             cancelledByServer = true
             markCancelled(active)
         }
-        val itemId = audioItemId
-        if (itemId == null) {
-            DuplexLog.i("openai interrupt: no reply audio yet, nothing to truncate")
-            return
+        val targets = LinkedHashMap<String, Long>()
+        if (cut.itemId != null) targets[cut.itemId] = cut.playedMs
+        cut.unheardItemIds.forEach { targets[it] = 0L }
+        if (targets.isEmpty()) {
+            // No item info from the caller: a single-item reply, the latest item at its offset.
+            val itemId = audioItemId
+            if (itemId == null) {
+                DuplexLog.i("openai interrupt: no reply audio yet, nothing to truncate")
+                return
+            }
+            targets[itemId] = cut.playedMs
+        } else {
+            // Audio that crossed in flight with the cut: the playhead never reached it.
+            audioItemId?.takeIf { it !in targets }?.let { targets[it] = 0L }
         }
-        if (itemId == truncatedItemId) return
-        truncatedItemId = itemId
-        markCancelled(itemId)
-        val receivedMs = Resampler.durationMs(audioReceivedBytes.toInt(), SAMPLE_RATE)
-        if (activeResponseId == null && playedMs >= receivedMs - TRUNCATE_SLACK_MS) {
-            // The reply had finished playing: nothing the driver missed, nothing to truncate.
-            DuplexLog.i("openai interrupt: reply already played to the end (playedMs=$playedMs receivedMs=$receivedMs), no truncate")
-            return
+        for ((itemId, playedMs) in targets) {
+            if (!truncatedItemIds.add(itemId)) continue
+            markCancelled(itemId)
+            val receivedMs = itemReceivedMs(itemId)
+            if (activeResponseId == null && playedMs >= receivedMs - TRUNCATE_SLACK_MS) {
+                // That item had played to its end: nothing the driver missed, nothing to truncate.
+                DuplexLog.i("openai interrupt: item $itemId already played to the end (playedMs=$playedMs receivedMs=$receivedMs), no truncate")
+                continue
+            }
+            DuplexLog.i("openai interrupt: tx conversation.item.truncate item=$itemId playedMs=$playedMs receivedMs=$receivedMs")
+            send(
+                JSONObject()
+                    .put("type", "conversation.item.truncate")
+                    .put("item_id", itemId)
+                    .put("content_index", itemContentIdx(itemId))
+                    .put("audio_end_ms", playedMs.coerceIn(0, receivedMs)),
+            )
         }
-        DuplexLog.i("openai interrupt: tx conversation.item.truncate item=$itemId playedMs=$playedMs receivedMs=$receivedMs")
-        send(
-            JSONObject()
-                .put("type", "conversation.item.truncate")
-                .put("item_id", itemId)
-                .put("content_index", audioContentIndex)
-                .put("audio_end_ms", playedMs.coerceIn(0, receivedMs)),
-        )
     }
 
     override fun sendText(text: String) {
