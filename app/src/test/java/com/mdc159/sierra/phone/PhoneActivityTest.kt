@@ -189,6 +189,34 @@ class PhoneActivityTest {
         assertTrue(chatCalls.isEmpty())
     }
 
+    /**
+     * Cold start: the vault values arrive asynchronously, so the agent line must say the
+     * connection is being checked until they are loaded — never flash "Not connected yet",
+     * which is only true once loading has finished with nothing there.
+     */
+    @Test
+    fun coldStartShowsCheckingUntilTheVaultValuesArriveThenTheRealLabel() {
+        val vaultArrived = CountDownLatch(1)
+        val config = java.util.concurrent.atomic.AtomicReference(AgentConfig(profile = AgentProfile.BRIDGE))
+        val deps = testDeps().copy(
+            signedIn = { true },
+            lastFetched = { null }, // stale: the first effective-config load awaits the refresh
+            refresh = {
+                runInterruptible(Dispatchers.IO) { vaultArrived.await(10, TimeUnit.SECONDS) }
+                config.set(bridgeConfig())
+                com.mdc159.sierra.studio54.RefreshResult.Fetched(setOf("SIERRA_BRIDGE_URL"))
+            },
+            config = { config.get() },
+        )
+
+        launch(deps)
+
+        assertEquals(Tailnet.CHECKING, activity.agentLine.text.toString())
+        vaultArrived.countDown()
+        waitUntil { activity.agentLine.text.toString().startsWith("Agent: hermes on the Sierra bridge") }
+        assertFalse(allTexts(activity).any { it.contains("Not connected yet") })
+    }
+
     // ------------------------------------------------------------------ text conversation
 
     @Test

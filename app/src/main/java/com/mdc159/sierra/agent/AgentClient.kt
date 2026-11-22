@@ -4,11 +4,14 @@ import com.mdc159.sierra.agent.tools.Tool
 import com.mdc159.sierra.agent.tools.ToolException
 import com.mdc159.sierra.agent.tools.ToolSchema
 import com.mdc159.sierra.net.Http
+import com.mdc159.sierra.net.executeCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -88,22 +91,21 @@ class AgentClient(
         activeCalls.forEach { it.cancel() }
     }
 
-    /** Phone lifecycle cancellation must close the socket, not just interrupt its thread. */
-    suspend fun chatCancellable(messages: List<ChatMessage>): String = coroutineScope {
-        val pending = async(Dispatchers.IO) {
-            try {
-                chat(messages)
-            } catch (e: Exception) {
-                if (!isActive) throw CancellationException("Agent request cancelled", e)
-                throw e
-            }
-        }
-        try {
-            pending.await()
-        } finally {
-            if (!isActive) cancel()
-        }
-    }
+    /**
+     * Chat for callers whose coroutine can be cancelled (the phone's lifecycle): cancelling
+     * the caller aborts the HTTP call at once — headers and body alike (see
+     * [com.mdc159.sierra.net.executeCancellable]) — instead of waiting out OkHttp's own
+     * timeouts. A thread interrupt cannot do that.
+     */
+    suspend fun chatCancellable(messages: List<ChatMessage>): String =
+        chatCancellable(messages, emptyList(), null)
+
+    /**
+     * [chat] with tools and a tool listener, cancellable the same way as [chatCancellable];
+     * cancelling also interrupts the running tool and skips the rest of its response.
+     */
+    suspend fun chatCancellable(messages: List<ChatMessage>, tools: List<Tool>, listener: ToolListener?): String =
+        withContext(Dispatchers.IO) { exchange(messages, tools, listener) }
 
     /** Chat through the bridge may wait long for the first byte; transcription keeps [client]'s bounds. */
     private val chatClient: OkHttpClient = if (config.usesBridge && client === Http.client) Http.slowClient else client
@@ -118,9 +120,14 @@ class AgentClient(
 
     /**
      * Sends [messages] and returns the model's final text reply, running any [tools] it
-     * asks for along the way. [listener] hears when each tool starts and ends.
+     * asks for along the way. [listener] hears when each tool starts and ends. Blocking;
+     * cancellable callers use [chatCancellable].
      */
-    fun chat(messages: List<ChatMessage>, tools: List<Tool>, listener: ToolListener?): String {
+    fun chat(messages: List<ChatMessage>, tools: List<Tool>, listener: ToolListener?): String =
+        runBlocking { exchange(messages, tools, listener) }
+
+    /** The exchange every chat entry point runs, suspend so cancellation can reach the calls. */
+    private suspend fun exchange(messages: List<ChatMessage>, tools: List<Tool>, listener: ToolListener?): String {
         if (config.usesBridge && !config.isConfigured) throw AgentException("The bridge agent is not configured. Open Sierra on the phone and connect to Hermes or set up a bridge.")
         val history = messages.toMutableList()
         val byName = tools.associateBy { it.name }
@@ -145,6 +152,8 @@ class AgentClient(
             }
             history += reply
             for (call in reply.toolCalls) {
+                // Stop/back: never start the next tool of this response once cancelled.
+                currentCoroutineContext().ensureActive()
                 val result = runTool(byName[call.name], call, listener, deadline.slice(toolTimeoutMs))
                 history += ChatMessage("tool", result, toolCallId = call.id)
             }
@@ -163,7 +172,7 @@ class AgentClient(
         }
     }
 
-    private fun request(messages: List<ChatMessage>, tools: List<Tool>, timeoutMs: Long): ChatMessage {
+    private suspend fun request(messages: List<ChatMessage>, tools: List<Tool>, timeoutMs: Long): ChatMessage {
         val body = JSONObject()
             .put("model", config.chatModel)
             .put("messages", JSONArray().apply { messages.forEach { put(encode(it)) } })
@@ -176,7 +185,7 @@ class AgentClient(
             }
             .post(body.toString().toRequestBody(JSON))
             .build()
-        val json = execute(request, "Agent", timeoutMs, chatClient)
+        val json = executeCancellable(request, "Agent", timeoutMs, chatClient)
         try {
             val message = JSONObject(json).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
             return decode(message)
@@ -185,8 +194,14 @@ class AgentClient(
         }
     }
 
-    /** Runs one tool off this thread so a hung tool cannot hang the exchange. Never throws for tool failures. */
-    private fun runTool(tool: Tool?, call: ToolCall, listener: ToolListener?, timeoutMs: Long): String {
+    /**
+     * Runs one tool off this thread so a hung tool cannot hang the exchange, and so the
+     * caller's Stop reaches it: the wait for the result is interruptible ([runInterruptible]
+     * around the blocking `Future.get`), and unwinding cancels the future and shuts the
+     * executor down, interrupting a blocked tool instead of waiting out its timeout.
+     * Never throws for tool failures.
+     */
+    private suspend fun runTool(tool: Tool?, call: ToolCall, listener: ToolListener?, timeoutMs: Long): String {
         if (tool == null) return ToolSchema.error("Unknown tool ${call.name}. Answer without it.")
         val args = parseArguments(call.arguments)
             ?: return ToolSchema.error("The arguments for ${call.name} were not a JSON object.")
@@ -195,15 +210,12 @@ class AgentClient(
         try {
             val future = executor.submit<String> { tool.run(args) }
             return try {
-                future.get(timeoutMs, TimeUnit.MILLISECONDS)
+                runInterruptible(Dispatchers.IO) { future.get(timeoutMs, TimeUnit.MILLISECONDS) }
             } catch (e: TimeoutException) {
                 future.cancel(true)
                 ToolSchema.error("${call.name} timed out. Tell the driver it took too long.")
             } catch (e: ExecutionException) {
-                when (val cause = e.cause) {
-                    is ToolException -> ToolSchema.error(cause.message ?: "The tool failed.")
-                    else -> ToolSchema.error("${call.name} failed: ${Http.describe(cause ?: e)}")
-                }
+                ToolSchema.error(toolFailureMessage(call.name, e))
             }
         } finally {
             executor.shutdownNow()
@@ -211,7 +223,28 @@ class AgentClient(
         }
     }
 
-    fun transcribe(wav: ByteArray): String {
+    /**
+     * The error line the model sees for a failed tool: its own [ToolException] message when
+     * the failure chain carries one, else a short generic line. The whole chain is searched,
+     * not just the direct cause — crossing a suspension boundary (the interruptible wait)
+     * can re-chain a copied exception, same as [rejectsTools].
+     */
+    private fun toolFailureMessage(name: String, e: Throwable): String {
+        var t: Throwable? = e
+        while (t != null) {
+            if (t is ToolException) return t.message ?: "The tool failed."
+            t = t.cause
+        }
+        return "$name failed: ${Http.describe(e.cause ?: e)}"
+    }
+
+    fun transcribe(wav: ByteArray): String = runBlocking { transcribeCancellable(wav) }
+
+    /**
+     * [transcribe] for callers whose coroutine can be cancelled (the car Talk screen):
+     * cancelling the caller aborts the HTTP call at once, headers and body alike.
+     */
+    suspend fun transcribeCancellable(wav: ByteArray): String {
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart("model", config.sttModel)
@@ -223,7 +256,7 @@ class AgentClient(
             .withAuth(config.effectiveSttKey)
             .post(body)
             .build()
-        val json = execute(request, "Transcription")
+        val json = executeCancellable(request, "Transcription")
         return try {
             JSONObject(json).optString("text").trim()
         } catch (e: JSONException) {
@@ -263,6 +296,44 @@ class AgentClient(
         }
     }
 
+    /**
+     * [execute] with the caller's cancellation wired to `Call.cancel()` for the whole
+     * response lifetime: a cancelled exchange releases its socket at once instead of
+     * waiting out OkHttp's own timeouts (see [com.mdc159.sierra.net.executeCancellable]).
+     */
+    private suspend fun executeCancellable(
+        request: Request,
+        what: String,
+        timeoutMs: Long = 0,
+        client: OkHttpClient = this.client,
+    ): String {
+        val call = client.newCall(request)
+        activeCalls.add(call)
+        try {
+            if (cancelled.get()) call.cancel()
+            if (timeoutMs > 0) call.timeout().timeout(timeoutMs, TimeUnit.MILLISECONDS)
+            return try {
+                call.executeCancellable(Dispatchers.IO) { response ->
+                    val text = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) {
+                        throw AgentException("$what error ${response.code}: ${errorDetail(text)}".trimEnd(' ', ':'), HttpStatus(response.code))
+                    }
+                    text
+                }
+            } catch (e: AgentException) {
+                throw e
+            } catch (e: IOException) {
+                // Cancelling the call closes the socket: that is the caller's Stop, not a network failure.
+                currentCoroutineContext().ensureActive()
+                throw AgentException(Http.describe(e, request.url.toString()), e)
+            } catch (e: IllegalArgumentException) {
+                throw AgentException("$what URL is not valid.", e)
+            }
+        } finally {
+            activeCalls.remove(call)
+        }
+    }
+
     /** Carries the HTTP status on an [AgentException] so the tools fallback can look at it. */
     private class HttpStatus(val code: Int) : Exception("HTTP $code")
 
@@ -286,10 +357,20 @@ class AgentClient(
         /**
          * An endpoint that doesn't know the `tools` field answers 400 or 422 (OpenAI style
          * validation) or, on some gateways, 404 for the model in tools mode. Anything else
-         * is a real failure and is not retried.
+         * is a real failure and is not retried. The status rides on the exception's cause
+         * chain: crossing a suspension boundary can re-chain a copied exception, so the
+         * whole chain is searched.
          */
-        fun rejectsTools(e: AgentException): Boolean =
-            (e.cause as? HttpStatus)?.code in setOf(400, 404, 422)
+        fun rejectsTools(e: AgentException): Boolean = statusOf(e) in setOf(400, 404, 422)
+
+        private fun statusOf(e: AgentException): Int? {
+            var cause: Throwable? = e
+            while (cause != null) {
+                (cause as? HttpStatus)?.code?.let { return it }
+                cause = cause.cause
+            }
+            return null
+        }
 
         /** Pulls `error.message` out of an OpenAI-style error body, if there is one. */
         fun errorDetail(body: String): String {

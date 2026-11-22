@@ -1,6 +1,7 @@
 package com.mdc159.sierra.studio54
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import com.mdc159.sierra.agent.AgentConfig
 import com.mdc159.sierra.agent.AgentProfile
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,12 +41,20 @@ object Studio54 {
     private var timer: Job? = null
     private var lastUnauthorizedRefresh = 0L
 
+    /**
+     * How the process-wide encrypted store is built. Injectable so a JVM test can
+     * simulate a store that cannot be opened (the Android Keystore does not exist there).
+     */
+    @VisibleForTesting
+    @Volatile
+    internal var storeFactory: (Context) -> Studio54Store = { EncryptedStudio54Store(it) }
+
     /** The process-wide secret source. Reads the encrypted store the first time. */
     fun source(context: Context): VaultSecretSource {
         source?.let { return it }
         synchronized(this) {
             source?.let { return it }
-            return VaultSecretSource(EncryptedStudio54Store(context)).also { source = it }
+            return VaultSecretSource(storeFactory(context)).also { source = it }
         }
     }
 
